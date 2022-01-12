@@ -47,14 +47,17 @@ using Vec3 = ROOT::Math::SVector<double, 3>;
 
 void checkClusters()
 {
-    std::vector<TH2D *> hists(7);
-    hists[0] = new TH2D("Cluster Size for layer 0", "; Cluster Size for L0; #it{p}_{T}^{ITS-TPC}; Counts", 14, 1, 15, 90, 0, 5);
-    hists[1] = new TH2D("Cluster Size for layer 1", "; Cluster Size for L1; #it{p}_{T}^{ITS-TPC}; Counts", 14, 1, 15, 90, 0, 5);
-    hists[2] = new TH2D("Cluster Size for layer 2", "; Cluster Size for L2; #it{p}_{T}^{ITS-TPC}; Counts", 14, 1, 15, 90, 0, 5);
-    hists[3] = new TH2D("Cluster Size for layer 3", "; Cluster Size for L3; #it{p}_{T}^{ITS-TPC}; Counts", 14, 1, 15, 90, 0, 5);
-    hists[4] = new TH2D("Cluster Size for layer 4", "; Cluster Size for L4; #it{p}_{T}^{ITS-TPC}; Counts", 14, 1, 15, 90, 0, 5);
-    hists[5] = new TH2D("Cluster Size for layer 5", "; Cluster Size for L5; #it{p}_{T}^{ITS-TPC}; Counts", 14, 1, 15, 90, 0, 5);
-    hists[6] = new TH2D("Cluster Size for layer 6", "; Cluster Size for L6; #it{p}_{T}^{ITS-TPC}; Counts", 14, 1, 15, 90, 0, 5);
+    std::vector<TH2D *> histsPt(7);
+    std::vector<TH2D *> histsEta(7);
+
+    for (int layer{0}; layer < 7; layer++)
+    {
+        std::ostringstream str;
+        str << "Cluster Size for L" << layer;
+        std::string histsName = str.str();
+        histsPt[layer] = new TH2D((histsName + "vs pT").data(), ("; " + histsName + "; #it{p}_{T}^{ITS-TPC} (GeV/#it{c}); Counts").data(), 14, 1, 15, 30, 0, 5);
+        histsEta[layer] = new TH2D((histsName + "vs eta").data(), ("; " + histsName + "; #eta; Counts").data(), 14, 1, 15, 40, -2, 2);
+    }
 
     TH1D *hPtRes = new TH1D("pT resolution ", ";(#it{p}_{T}^{ITS} - #it{p}_{T}^{ITS-TPC})/#it{p}_{T}^{ITS-TPC}; Counts", 80, -1, 1);
 
@@ -136,7 +139,7 @@ void checkClusters()
 
                 std::reverse(TrackClus.begin(), TrackClus.end());
 
-                for (int layer{0}; layer < 7; layer++)
+                for (int layer{0}; layer < 6; layer++)
                 {
                     if (ITStrack.hasHitOnLayer(layer))
                     {
@@ -154,7 +157,8 @@ void checkClusters()
                             npix = mdict.getNpixels(pattID);
                         }
 
-                        hists[layer]->Fill(npix, ITSTPCtrack.getPt());
+                        histsPt[layer]->Fill(npix, ITSTPCtrack.getPt());
+                        histsEta[layer]->Fill(npix, ITSTPCtrack.getEta());
                     }
                 }
             }
@@ -162,7 +166,11 @@ void checkClusters()
     }
 
     auto outFile = TFile("clusITS.root", "recreate");
+
     for (int layer{0}; layer < 7; layer++)
-        hists[layer]->Write();
+    {
+        histsPt[layer]->Write();
+        histsEta[layer]->Write();
+    }
     hPtRes->Write();
 }
