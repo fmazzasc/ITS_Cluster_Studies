@@ -30,6 +30,9 @@
 #include "TString.h"
 #include "TTree.h"
 #include "TLegend.h"
+#include "TCanvas.h"
+#include "TStyle.h"
+#include "TLatex.h"
 #include "CommonDataFormat/RangeReference.h"
 #include "DetectorsVertexing/DCAFitterN.h"
 
@@ -72,6 +75,21 @@ void checkClusters()
 
         // eta
         histsEta[layer] = new TH2D((histsName + "vs eta").data(), ("; " + histsName + "; #eta; Counts").data(), 14, 1, 15, 40, -2, 2);
+
+        // style
+        histsPtMean_EtaUnder4[layer]->SetMarkerStyle(kOpenCircle);
+        histsPtMean_EtaUnder4[layer]->SetMarkerColor(kRed+1);
+        histsPtMean_EtaUnder4[layer]->SetLineStyle(9);
+        histsPtMean_EtaUnder4[layer]->SetLineColor(kRed+1);
+        histsPtMean_EtaUnder8[layer]->SetMarkerStyle(kOpenDiamond);
+        histsPtMean_EtaUnder8[layer]->SetMarkerColor(kOrange+2);
+        histsPtMean_EtaUnder8[layer]->SetLineStyle(8);
+        histsPtMean_EtaUnder8[layer]->SetLineColor(kOrange+2);
+        histsPtMean_EtaOver8[layer]->SetMarkerStyle(kOpenCross);
+        histsPtMean_EtaOver8[layer]->SetMarkerColor(kSpring+2);
+        histsPtMean_EtaOver8[layer]->SetLineStyle(5);
+        histsPtMean_EtaOver8[layer]->SetLineColor(kSpring+2);
+
     }
 
     TH1D *hPtRes = new TH1D("pT resolution ", ";(#it{p}_{T}^{ITS} - #it{p}_{T}^{ITS-TPC})/#it{p}_{T}^{ITS-TPC}; Counts", 80, -1, 1);
@@ -206,10 +224,70 @@ void checkClusters()
         }
     }
 
+
     auto outFile = TFile("clusITS.root", "recreate");
+
+    // canvases
+    TCanvas cClusterEta = TCanvas("cClusterEta", "cClusterEta", 1200, 800);
+    TCanvas cClusterPt = TCanvas("cClusterPt", "cClusterPt", 1200, 800);
+    TCanvas cClusterMeanVsPt = TCanvas("cClusterMeanVsPt", "cClusterMeanVsPt", 1200, 800);
+    cClusterEta.Divide(4, 2);
+    cClusterPt.Divide(4, 2);
+    cClusterMeanVsPt.Divide(4, 2);
+
+    // legends
+    TLegend lClusterMeanVsPt = TLegend(0.2, 0.4, 0.6, 0.8);
+    lClusterMeanVsPt.SetBorderSize(0);
+    lClusterMeanVsPt.SetTextSize(0.055);
+    lClusterMeanVsPt.AddEntry(histsPtMean_EtaUnder4[0], "|#eta| < 0.4", "lp");
+    lClusterMeanVsPt.AddEntry(histsPtMean_EtaUnder8[0], "0.4 < |#eta| < 0.8", "lp");
+    lClusterMeanVsPt.AddEntry(histsPtMean_EtaOver8[0], "|#eta| > 0.8", "lp");
+
+    // latex
+    TLatex laCluster;
+    laCluster.SetTextSize(0.06);
+    laCluster.SetNDC();
+    laCluster.SetTextFont(42);
+
+    // style
+    gStyle->SetPalette(82);
+    gStyle->SetPadTopMargin(0.035);
+    gStyle->SetPadRightMargin(2.);
+    gStyle->SetPadLeftMargin(0.0);
+    gStyle->SetOptStat(0);
 
     for (int layer{0}; layer < 7; layer++)
     {
+        cClusterEta.cd(layer+1);
+        histsEta[layer]->GetYaxis()->SetDecimals();
+        histsEta[layer]->GetYaxis()->SetTitleOffset(1.3);
+        histsEta[layer]->DrawCopy("colz");
+        if (layer+1 == 7)
+        {
+            cClusterEta.cd(8);
+            laCluster.DrawLatex(0.2, 0.6, "ITS cluster study vs #eta");
+        }
+
+        cClusterPt.cd(layer+1);
+        histsPt[layer]->GetYaxis()->SetDecimals();
+        histsPt[layer]->GetYaxis()->SetTitleOffset(1.3);
+        histsPt[layer]->DrawCopy("colz");
+        if (layer+1 == 7)
+        {
+            cClusterPt.cd(8);
+            laCluster.DrawLatex(0.2, 0.6, "ITS cluster study vs #it{p}_{T}");
+        }
+
+        cClusterMeanVsPt.cd(layer+1);
+        histsPtMean_EtaOver8[layer]->Draw("samePL][");
+        histsPtMean_EtaUnder8[layer]->Draw("samePL][");
+        histsPtMean_EtaUnder4[layer]->Draw("samePL][");
+        if (layer+1 == 7)
+        {
+            cClusterMeanVsPt.cd(8);
+            lClusterMeanVsPt.Draw("same");
+        }
+
         histsPt[layer]->Write();
         histsEta[layer]->Write();
         histsPtMean_EtaUnder4[layer]->Write();
@@ -217,4 +295,12 @@ void checkClusters()
         histsPtMean_EtaOver8[layer]->Write();
     }
     hPtRes->Write();
+
+    cClusterEta.Write();
+    cClusterPt.Write();
+    cClusterMeanVsPt.Write();
+
+    cClusterEta.SaveAs("ITSClusterVsEta.pdf");
+    cClusterPt.SaveAs("ITSClusterVsPt.pdf");
+    cClusterMeanVsPt.SaveAs("ITSClusterMeanVsPt.pdf");
 }
