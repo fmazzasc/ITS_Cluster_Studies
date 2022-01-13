@@ -48,6 +48,12 @@ using Vec3 = ROOT::Math::SVector<double, 3>;
 void checkClusters()
 {
     std::vector<TH2D *> histsPt(7);
+    std::vector<TH2D *> histsPt0(7);
+    std::vector<TH2D *> histsPt1(7);
+    std::vector<TH2D *> histsPt2(7);
+    std::vector<TH1D *> histsPtMean_EtaUnder4(7); // |eta| < 0.4
+    std::vector<TH1D *> histsPtMean_EtaUnder8(7); // 0.4 < |eta| < 0.8
+    std::vector<TH1D *> histsPtMean_EtaOver8(7);  // |eta| > 0.8
     std::vector<TH2D *> histsEta(7);
 
     for (int layer{0}; layer < 7; layer++)
@@ -55,7 +61,16 @@ void checkClusters()
         std::ostringstream str;
         str << "Cluster Size for L" << layer;
         std::string histsName = str.str();
+        // pt
         histsPt[layer] = new TH2D((histsName + "vs pT").data(), ("; " + histsName + "; #it{p}_{T}^{ITS-TPC} (GeV/#it{c}); Counts").data(), 14, 1, 15, 30, 0, 5);
+        histsPt0[layer] = new TH2D((histsName + "vs pT 0").data(), ("; " + histsName + "; #it{p}_{T}^{ITS-TPC} (GeV/#it{c}); Counts").data(), 14, 1, 15, 30, 0, 5);
+        histsPt1[layer] = new TH2D((histsName + "vs pT 1").data(), ("; " + histsName + "; #it{p}_{T}^{ITS-TPC} (GeV/#it{c}); Counts").data(), 14, 1, 15, 30, 0, 5);
+        histsPt2[layer] = new TH2D((histsName + "vs pT 2").data(), ("; " + histsName + "; #it{p}_{T}^{ITS-TPC} (GeV/#it{c}); Counts").data(), 14, 1, 15, 30, 0, 5);
+        histsPtMean_EtaUnder4[layer] = new TH1D((histsName + "mean vs pt (eta < 0.4)").data(), ("; #it{p}_{T}^{ITS-TPC} (GeV/#it{c}) ;" + histsName + " mean ; Counts").data(), 30, 0, 5);
+        histsPtMean_EtaUnder8[layer] = new TH1D((histsName + "mean vs pt (0.4 < eta < 0.8)").data(), ("; #it{p}_{T}^{ITS-TPC} (GeV/#it{c}) ;" + histsName + " mean ; Counts").data(), 30, 0, 5);
+        histsPtMean_EtaOver8[layer] = new TH1D((histsName + "mean vs pt (eta > 0.8)").data(), ("; #it{p}_{T}^{ITS-TPC} (GeV/#it{c}) ;" + histsName + " mean; Counts").data(), 30, 0, 5);
+
+        // eta
         histsEta[layer] = new TH2D((histsName + "vs eta").data(), ("; " + histsName + "; #eta; Counts").data(), 14, 1, 15, 40, -2, 2);
     }
 
@@ -159,9 +174,35 @@ void checkClusters()
 
                         histsPt[layer]->Fill(npix, ITSTPCtrack.getPt());
                         histsEta[layer]->Fill(npix, ITSTPCtrack.getEta());
+
+                        if (abs(ITSTPCtrack.getEta()) < 0.4)
+                        {
+                            histsPt0[layer]->Fill(npix, ITSTPCtrack.getPt());
+                        }
+                        else if ((abs(ITSTPCtrack.getEta()) > 0.4) && (abs(ITSTPCtrack.getEta()) < 0.8))
+                        {
+                            histsPt1[layer]->Fill(npix, ITSTPCtrack.getPt());
+                        }
+                        else
+                            histsPt2[layer]->Fill(npix, ITSTPCtrack.getPt());
                     }
                 }
             }
+        }
+    }
+
+    // mean cluster size vs. pT
+    for (int layer{0}; layer < 6; layer++)
+    {
+        for (int ptbin = 1; ptbin < histsPt[layer]->GetNbinsY(); ptbin++)
+        {   
+            TH1D *histPtProj0 = histsPt0[layer]->ProjectionX("histEtaProj0", ptbin, ptbin);
+            TH1D *histPtProj1 = histsPt1[layer]->ProjectionX("histEtaProj1", ptbin, ptbin);
+            TH1D *histPtProj2 = histsPt2[layer]->ProjectionX("histEtaProj2", ptbin, ptbin);
+            
+            histsPtMean_EtaUnder4[layer]->SetBinContent(ptbin, histPtProj0->GetMean());
+            histsPtMean_EtaUnder8[layer]->SetBinContent(ptbin, histPtProj1->GetMean());
+            histsPtMean_EtaOver8[layer]->SetBinContent(ptbin, histPtProj2->GetMean());
         }
     }
 
@@ -171,6 +212,9 @@ void checkClusters()
     {
         histsPt[layer]->Write();
         histsEta[layer]->Write();
+        histsPtMean_EtaUnder4[layer]->Write();
+        histsPtMean_EtaUnder8[layer]->Write();
+        histsPtMean_EtaOver8[layer]->Write();
     }
     hPtRes->Write();
 }
