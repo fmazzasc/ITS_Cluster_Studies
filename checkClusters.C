@@ -247,8 +247,8 @@ void checkClusters()
 
     // canvases
     TCanvas cClusterSize = TCanvas("cClusterSize", "cClusterSize", 1200, 800);
-    TCanvas cClusterEta = TCanvas("cClusterEta", "cClusterEta", 1200, 800);
-    TCanvas cClusterPt = TCanvas("cClusterPt", "cClusterPt", 1200, 800);
+    TCanvas cClusterEta = TCanvas("cClusterEta", "cClusterEta", 2200, 900);
+    TCanvas cClusterPt = TCanvas("cClusterPt", "cClusterPt", 2200, 900);
     TCanvas cClusterMeanVsPt = TCanvas("cClusterMeanVsPt", "cClusterMeanVsPt", 1200, 800);
     cClusterSize.Divide(4, 2);
     cClusterEta.Divide(4, 2);
@@ -272,8 +272,8 @@ void checkClusters()
     // style
     gStyle->SetPalette(82);
     gStyle->SetPadTopMargin(0.035);
-    gStyle->SetPadRightMargin(2.);
-    gStyle->SetPadLeftMargin(0.0);
+    gStyle->SetPadRightMargin(0.035);
+    gStyle->SetPadLeftMargin(0.005);
     gStyle->SetOptStat(0);
 
     for (int layer{0}; layer < 7; layer++)
@@ -283,8 +283,6 @@ void checkClusters()
         histsClSize[layer]->GetYaxis()->SetDecimals();
         histsClSize[layer]->GetYaxis()->SetTitleOffset(1.);
         histsClSize[layer]->SetStats(1);
-
-
         histsClSize[layer]->DrawCopy();
         if (layer + 1 == 7)
         {
