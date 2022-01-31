@@ -51,8 +51,8 @@ using CompClusterExt = o2::itsmft::CompClusterExt;
 using ITSCluster = o2::BaseCluster<float>;
 using Vec3 = ROOT::Math::SVector<double, 3>;
 
-void fillIBmap(TH2D *histo, CompClusterExt &clus, o2::itsmft::ChipMappingITS &chipMapping);
-void fillOBmap(TH2D *histo, CompClusterExt &clus, o2::itsmft::ChipMappingITS &chipMapping);
+void fillIBmap(TH2D *histo, CompClusterExt &clus, o2::itsmft::ChipMappingITS &chipMapping, int weight = 1);
+void fillOBmap(TH2D *histo, CompClusterExt &clus, o2::itsmft::ChipMappingITS &chipMapping, int weight = 1);
 
 char *getIBLabel(int iBin, int layer);
 char *getOBLabel(int iBin, int layer);
@@ -60,21 +60,37 @@ char *getOBLabel(int iBin, int layer);
 void clusterMap()
 {
     gStyle->SetPalette(82);
+    gStyle->SetPadRightMargin(0.035);
+    gStyle->SetPadLeftMargin(0.005);
 
     int pixelThr = 20;
     o2::itsmft::ChipMappingITS chipMapping;
     std::vector<TH2D *> ClSizeMaps(7);
     std::vector<TH1D *> AverageClSize(7);
+    std::vector<TH2D *> AverageClSizeMap(7);
+    std::vector<TH2D *> AverageOccupancyMap(7);
+    std::vector<TH2D *> ClusterCounterMap(7);
 
     std::vector<int> nStaves{12, 16, 20, 24, 30, 42, 48};
     for (int layer{0}; layer < 7; layer++)
     {
-        AverageClSize[layer] = new TH1D(Form("Average Cluster Size L%i", layer), "; Average cluster size; Counts", 99, 0.5, 99.5);
+        AverageClSize[layer] = new TH1D(Form("Average Cluster Size L%i", layer), Form("; Cluster size for L%i; Counts/(# PVs)", layer), 99, 0.5, 99.5);
 
         if (layer < 3)
-            ClSizeMaps[layer] = new TH2D(Form("chip map L%i", layer), Form("; Chip ID; Stave ID; # Clusters w/ size > %i / # Primary vertices", pixelThr), 9, -0.5, 8.5, nStaves[layer], -0.5, nStaves[layer] - 0.5);
+        {
+            ClSizeMaps[layer] = new TH2D(Form("Big clusters map L%i", layer), Form("; Chip ID; Stave ID; (Cluster size > %i) / # PVs", pixelThr), 9, -0.5, 8.5, nStaves[layer], -0.5, nStaves[layer] - 0.5);
+            AverageClSizeMap[layer] = new TH2D(Form("Cluster size map L%i", layer), "; Chip ID; Stave ID; < Cluster size >", 9, -0.5, 8.5, nStaves[layer], -0.5, nStaves[layer] - 0.5);
+            AverageOccupancyMap[layer] = new TH2D(Form("Occupancy chip map L%i", layer), "; Chip ID; Stave ID; # Hits / # PVs", 9, -0.5, 8.5, nStaves[layer], -0.5, nStaves[layer] - 0.5);
+            ClusterCounterMap[layer] = new TH2D(Form("Cluster counter map L%i", layer), "; Chip ID; Stave ID; # Clusters / # PVs", 9, -0.5, 8.5, nStaves[layer], -0.5, nStaves[layer] - 0.5);
+        }
+
         else
-            ClSizeMaps[layer] = new TH2D(Form("chip map L%i", layer), Form("; Chip ID; Stave ID; # Clusters w/ size > %i / # Primary vertices", pixelThr), 49, -0.5, 48.5, 4 * nStaves[layer], -0.5, 4 * nStaves[layer] - 0.5);
+        {
+            ClSizeMaps[layer] = new TH2D(Form("Big clusters map L%i", layer), Form("; Chip ID; Stave ID; (Cluster size > %i) / # PVs", pixelThr), 49, -0.5, 48.5, 4 * nStaves[layer], -0.5, 4 * nStaves[layer] - 0.5);
+            AverageClSizeMap[layer] = new TH2D(Form("Cluster size map L%i", layer), "; Chip ID; Stave ID; < Cluster size >", 49, -0.5, 48.5, 4 * nStaves[layer], -0.5, 4 * nStaves[layer] - 0.5);
+            AverageOccupancyMap[layer] = new TH2D(Form("Occupancy chip map L%i", layer), "; Chip ID; Stave ID; < Cluster size >", 49, -0.5, 48.5, 4 * nStaves[layer], -0.5, 4 * nStaves[layer] - 0.5);
+            ClusterCounterMap[layer] = new TH2D(Form("Cluster counter map L%i", layer), "; Chip ID; Stave ID; # Clusters / # PVs", 49, -0.5, 48.5, 4 * nStaves[layer], -0.5, 4 * nStaves[layer] - 0.5);
+        }
 
         AverageClSize[layer]->SetLineStyle(5);
         AverageClSize[layer]->SetLineColor(kRed + 2);
@@ -88,9 +104,9 @@ void clusterMap()
     o2::itsmft::TopologyDictionary mdict;
     mdict.readFromFile(o2::base::DetectorNameConf::getAlpideClusterDictionaryFileName(o2::detectors::DetID::ITS, ""));
 
-    int nPrimaries = 0;
+    int nPrimaries = 0.;
 
-    std::vector<int> runNumbers = {505645, 505658};
+    std::vector<int> runNumbers = {1111};
     for (auto &runNum : runNumbers)
     {
 
@@ -142,6 +158,10 @@ void clusterMap()
 
                 auto layer = gman->getLayer(clus.getSensorID());
                 AverageClSize[layer]->Fill(npix);
+                layer < 3 ? fillIBmap(AverageClSizeMap[layer], clus, chipMapping, npix) : fillOBmap(AverageClSizeMap[layer], clus, chipMapping, npix);
+                layer < 3 ? fillIBmap(AverageOccupancyMap[layer], clus, chipMapping, npix) : fillOBmap(AverageOccupancyMap[layer], clus, chipMapping, npix);
+                layer < 3 ? fillIBmap(ClusterCounterMap[layer], clus, chipMapping) : fillOBmap(ClusterCounterMap[layer], clus, chipMapping);
+
                 if (npix < pixelThr)
                     continue;
                 layer < 3 ? fillIBmap(ClSizeMaps[layer], clus, chipMapping) : fillOBmap(ClSizeMaps[layer], clus, chipMapping);
@@ -150,69 +170,113 @@ void clusterMap()
         fPrimary->Close();
         fITSclus->Close();
 
-        double scale = 1. / double(nPrimaries);
+        LOG(info) << nPrimaries;
+        nPrimaries = 600;
 
         TCanvas cClusterSize = TCanvas("cClusterSize", "cClusterSize", 1200, 800);
         cClusterSize.Divide(4, 2);
 
+        // LOG(info) << "Integral, " << AverageClSizeMap[0]->GetSumOfWeights() << ", entries: " << AverageClSizeMap[0]->GetEntries();
+
         auto outFile = TFile(Form("%i/clMaps_%i.root", runNum, pixelThr), "recreate");
         for (int layer{0}; layer < 7; layer++)
         {
-            ClSizeMaps[layer]->Scale(scale);
+            ClSizeMaps[layer]->Scale(1. / nPrimaries);
+            AverageOccupancyMap[layer]->Scale(1. / nPrimaries);
+            AverageClSizeMap[layer]->Divide(ClusterCounterMap[layer]);
+            ClusterCounterMap[layer]->Scale(1. / nPrimaries);
 
             for (int i = 1; i < ClSizeMaps[layer]->GetNbinsY() + 1; i++)
             {
                 if (layer < 3)
                 {
                     if (i % 4 - 1 != 0)
+                    {
                         ClSizeMaps[layer]->GetYaxis()->SetBinLabel(i, "");
+                        AverageClSizeMap[layer]->GetYaxis()->SetBinLabel(i, "");
+                        AverageOccupancyMap[layer]->GetYaxis()->SetBinLabel(i, "");
+                    }
+
                     else
+                    {
                         ClSizeMaps[layer]->GetYaxis()->SetBinLabel(i, getIBLabel(i, layer));
+                        AverageClSizeMap[layer]->GetYaxis()->SetBinLabel(i, getIBLabel(i, layer));
+                        AverageOccupancyMap[layer]->GetYaxis()->SetBinLabel(i, getIBLabel(i, layer));
+                    }
                 }
                 else
                 {
                     if (i % 8 - 1 != 0)
+                    {
                         ClSizeMaps[layer]->GetYaxis()->SetBinLabel(i, "");
+                        AverageClSizeMap[layer]->GetYaxis()->SetBinLabel(i, "");
+                    }
                     else
+                    {
                         ClSizeMaps[layer]->GetYaxis()->SetBinLabel(i, getOBLabel(i, layer));
-                    ;
+                        AverageClSizeMap[layer]->GetYaxis()->SetBinLabel(i, getOBLabel(i, layer));
+                    }
                 }
             }
             ClSizeMaps[layer]->GetYaxis()->SetLabelSize(0.04);
             ClSizeMaps[layer]->GetYaxis()->CenterLabels();
+            ClSizeMaps[layer]->GetZaxis()->SetTitleOffset(0.9);
             ClSizeMaps[layer]->SetStats(0);
             ClSizeMaps[layer]->Write();
+
+            AverageClSizeMap[layer]->GetYaxis()->SetLabelSize(0.04);
+            AverageClSizeMap[layer]->GetYaxis()->CenterLabels();
+            AverageClSizeMap[layer]->GetZaxis()->SetTitleOffset(0.9);
+            AverageClSizeMap[layer]->SetStats(0);
+            AverageClSizeMap[layer]->Write();
+
+            AverageOccupancyMap[layer]->GetYaxis()->SetLabelSize(0.04);
+            AverageOccupancyMap[layer]->GetYaxis()->CenterLabels();
+            AverageOccupancyMap[layer]->GetZaxis()->SetTitleOffset(0.9);
+            AverageOccupancyMap[layer]->SetStats(0);
+            AverageOccupancyMap[layer]->Write();
+
+            ClusterCounterMap[layer]->GetYaxis()->SetLabelSize(0.04);
+            ClusterCounterMap[layer]->GetYaxis()->CenterLabels();
+            ClusterCounterMap[layer]->GetZaxis()->SetTitleOffset(0.9);
+            ClusterCounterMap[layer]->SetStats(0);
+            ClusterCounterMap[layer]->Write();
+
+            TH2D *ClusTimesOcc = (TH2D *)AverageClSizeMap[layer]->Clone(Form("Cluster size x Occupancy chip map L%i", layer));
+            ClusTimesOcc->Multiply(AverageOccupancyMap[layer]);
+            ClusTimesOcc->GetZaxis()->SetTitle("< Cluster size > x < Occupancy >");
+            ClusTimesOcc->Write();
 
             auto c = cClusterSize.cd(layer + 1);
             c->SetLogy();
             AverageClSize[layer]->GetYaxis()->SetDecimals();
-            AverageClSize[layer]->GetYaxis()->SetTitleOffset(1.2);
+            AverageClSize[layer]->GetYaxis()->SetTitleOffset(1.);
             AverageClSize[layer]->SetStats(1);
             AverageClSize[layer]->SetLineWidth(2);
             AverageClSize[layer]->DrawCopy();
         }
-
+        AverageClSize[0]->GetYaxis()->SetTitleOffset(1.);
         cClusterSize.Write();
         outFile.Close();
     }
 }
 
-void fillIBmap(TH2D *histo, CompClusterExt &clus, o2::itsmft::ChipMappingITS &chipMapping)
+void fillIBmap(TH2D *histo, CompClusterExt &clus, o2::itsmft::ChipMappingITS &chipMapping, int weight)
 {
     auto chipID = clus.getChipID();
     int lay, sta, ssta, mod, chipInMod;
     chipMapping.expandChipInfoHW(chipID, lay, sta, ssta, mod, chipInMod);
-    histo->Fill(chipInMod, sta);
+    histo->Fill(chipInMod, sta, weight);
 }
 
-void fillOBmap(TH2D *histo, CompClusterExt &clus, o2::itsmft::ChipMappingITS &chipMapping)
+void fillOBmap(TH2D *histo, CompClusterExt &clus, o2::itsmft::ChipMappingITS &chipMapping, int weight)
 {
     auto chipID = clus.getChipID();
     int lay, sta, ssta, mod, chipInMod;
     chipMapping.expandChipInfoHW(chipID, lay, sta, ssta, mod, chipInMod);
     auto xCoord = chipInMod < 7 ? (mod - 1) * 7 + chipInMod : (mod - 1) * 7 + 14 - chipInMod;
     auto yCoord = 4 * sta + ssta * 2 + 1 * (chipInMod < 7);
-    histo->Fill(xCoord, yCoord);
+    histo->Fill(xCoord, yCoord, weight);
 }
 
 char *getIBLabel(int iBin, int layer)

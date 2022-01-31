@@ -227,7 +227,7 @@ void checkClustersITS()
         }
     }
 
-    auto outFile = TFile("clusITS_SA.root", "recreate");
+    auto outFile = TFile("clusITS_SA_run.root", "recreate");
 
     // canvases
     TCanvas cClusterSize = TCanvas("cClusterSize", "cClusterSize", 1200, 800);
