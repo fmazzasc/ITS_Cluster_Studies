@@ -70,6 +70,7 @@ void clusterMap()
     std::vector<TH2D *> AverageClSizeMap(7);
     std::vector<TH2D *> AverageOccupancyMap(7);
     std::vector<TH2D *> ClusterCounterMap(7);
+    std::vector<TH2D *> histsClPosition(8);
 
     std::vector<int> nStaves{12, 16, 20, 24, 30, 42, 48};
     for (int layer{0}; layer < 7; layer++)
@@ -94,6 +95,9 @@ void clusterMap()
 
         AverageClSize[layer]->SetLineStyle(5);
         AverageClSize[layer]->SetLineColor(kRed + 2);
+
+        // CL position
+        histsClPosition[layer] = new TH2D(Form("ClusterPositionVsL%i", layer), "; ; ; Counts", 1042, 0, 1042, 512, 0, 512);
     }
 
     // Geometry
@@ -143,17 +147,55 @@ void clusterMap()
 
             for (auto &clus : *ITSclus)
             {
+                o2::itsmft::ClusterPattern patt;
+                auto layer = gman->getLayer(clus.getSensorID());
                 auto pattID = clus.getPatternID();
                 int npix;
                 if (pattID == o2::itsmft::CompCluster::InvalidPatternID || mdict.isGroup(pattID))
                 {
-                    o2::itsmft::ClusterPattern patt(pattIt);
+                    patt.acquirePattern(pattIt);
                     npix = patt.getNPixels();
                 }
                 else
-                {
 
                     npix = mdict.getNpixels(pattID);
+
+                if (npix > pixelThr) // considering only "large" CL for CL position
+                {
+                    auto col = clus.getCol();
+                    auto row = clus.getRow();
+
+                    int ic = 0, ir = 0;
+
+                    auto colSpan = patt.getColumnSpan();
+                    auto rowSpan = patt.getRowSpan(); 
+                    auto nBits = rowSpan*colSpan;
+
+                    for (unsigned int i = 2; i < patt.getUsedBytes() + 2; i++) {
+                        unsigned char tempChar = patt.getByte(i);
+                        int s = 128; // 0b10000000
+                        while (s > 0) {
+                            if ((tempChar & s) != 0) // checking active pixels
+                            {
+                              histsClPosition[layer]->Fill(col + ic, row + ir);
+                            }
+                            ic++;
+                            s >>= 1;
+                            if ((ir + 1) * ic == nBits)
+                            {
+                              break;
+                            }
+                            if (ic == colSpan)
+                            {
+                              ic = 0;
+                              ir++;
+                            }
+                            if ((ir + 1) * ic == nBits)
+                            {
+                              break;
+                            }
+                        }
+                    }
                 }
 
                 auto layer = gman->getLayer(clus.getSensorID());
@@ -174,7 +216,15 @@ void clusterMap()
         nPrimaries = 600;
 
         TCanvas cClusterSize = TCanvas("cClusterSize", "cClusterSize", 1200, 800);
+        TCanvas cClusterPosition = TCanvas("cClusterPosition", "cClusterPosition", 1500, 1000);
         cClusterSize.Divide(4, 2);
+        cClusterPosition.Divide(3, 3);
+
+        // latex
+        TLatex laClPos;
+        laClPos.SetTextSize(0.06);
+        laClPos.SetNDC();
+        laClPos.SetTextFont(42);
 
         // LOG(info) << "Integral, " << AverageClSizeMap[0]->GetSumOfWeights() << ", entries: " << AverageClSizeMap[0]->GetEntries();
 
@@ -254,7 +304,27 @@ void clusterMap()
             AverageClSize[layer]->SetStats(1);
             AverageClSize[layer]->SetLineWidth(2);
             AverageClSize[layer]->DrawCopy();
+
+            cClusterPosition.cd(layer + 1);
+            histsClPosition[layer]->SetTitle(Form("L%i CL Position", layer));
+            histsClPosition[layer]->Draw("colz0");
+            if(layer == 0) // cloning CL position on layer 0 into overall CL position
+            {
+               histsClPosition[8] = new TH2D();
+               histsClPosition[8]->Clone(Form("ClusterPositionVsL%i", layer));
+               histsClPosition[8]->SetTitle("Overall CL Position");
+            }
+            else if (layer + 2 == 8)
+            {
+                cClusterPosition.cd(layer + 2);
+                histsClPosition[8]->Draw("colz");
+                cClusterPosition.cd(layer + 3);
+                laClPos.DrawLatex(0.2, 0.6, "Large cluster position in ITS chip");
+            }
+            histsClPosition[8]->Add(histsClPosition[layer]); // Adding layers
         }
+        cClusterPosition.Write();
+        cClusterPosition.SaveAs("cClPosition.pdf");
         AverageClSize[0]->GetYaxis()->SetTitleOffset(1.);
         cClusterSize.Write();
         outFile.Close();
