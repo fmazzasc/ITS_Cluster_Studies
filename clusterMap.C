@@ -110,7 +110,7 @@ void clusterMap()
 
     int nPrimaries = 0.;
 
-    std::vector<int> runNumbers = {1111};
+    std::vector<int> runNumbers = {505658};
     for (auto &runNum : runNumbers)
     {
 
@@ -122,7 +122,6 @@ void clusterMap()
 
         auto fITSclus = TFile::Open(o2clus_its_file.data());
         auto treeITSclus = (TTree *)fITSclus->Get("o2sim");
-
         auto fPrimary = TFile::Open(primary_vertex_file.data());
         auto treePrimaries = (TTree *)fPrimary->Get("o2sim");
 
@@ -131,7 +130,6 @@ void clusterMap()
         std::vector<o2::dataformats::PrimaryVertex> *Primaries = nullptr;
 
         treeITSclus->SetBranchAddress("ITSClusterComp", &ITSclus);
-        treeITSclus->SetBranchAddress("ITSClusterPatt", &ITSpatt);
         treeITSclus->SetBranchAddress("ITSClusterPatt", &ITSpatt);
         treePrimaries->SetBranchAddress("PrimaryVertex", &Primaries);
 
@@ -157,48 +155,53 @@ void clusterMap()
                     npix = patt.getNPixels();
                 }
                 else
-
+                {
                     npix = mdict.getNpixels(pattID);
+                    patt = mdict.getPattern(pattID);
+                }
 
                 if (npix > pixelThr) // considering only "large" CL for CL position
                 {
                     auto col = clus.getCol();
                     auto row = clus.getRow();
 
+                    // LOG(info) << "row: " << row << "col: " << col;
+                    // LOG(info) << patt;
+
                     int ic = 0, ir = 0;
 
                     auto colSpan = patt.getColumnSpan();
-                    auto rowSpan = patt.getRowSpan(); 
-                    auto nBits = rowSpan*colSpan;
+                    auto rowSpan = patt.getRowSpan();
+                    auto nBits = rowSpan * colSpan;
 
-                    for (unsigned int i = 2; i < patt.getUsedBytes() + 2; i++) {
+                    for (int i = 2; i < patt.getUsedBytes() + 2; i++)
+                    {
                         unsigned char tempChar = patt.getByte(i);
                         int s = 128; // 0b10000000
-                        while (s > 0) {
+                        while (s > 0)
+                        {
                             if ((tempChar & s) != 0) // checking active pixels
                             {
-                              histsClPosition[layer]->Fill(col + ic, row + ir);
+                                histsClPosition[layer]->Fill(col + ic, row + ir);
                             }
                             ic++;
                             s >>= 1;
                             if ((ir + 1) * ic == nBits)
                             {
-                              break;
+                                break;
                             }
                             if (ic == colSpan)
                             {
-                              ic = 0;
-                              ir++;
+                                ic = 0;
+                                ir++;
                             }
                             if ((ir + 1) * ic == nBits)
                             {
-                              break;
+                                break;
                             }
                         }
                     }
                 }
-
-                auto layer = gman->getLayer(clus.getSensorID());
                 AverageClSize[layer]->Fill(npix);
                 layer < 3 ? fillIBmap(AverageClSizeMap[layer], clus, chipMapping, npix) : fillOBmap(AverageClSizeMap[layer], clus, chipMapping, npix);
                 layer < 3 ? fillIBmap(AverageOccupancyMap[layer], clus, chipMapping, npix) : fillOBmap(AverageOccupancyMap[layer], clus, chipMapping, npix);
@@ -211,9 +214,7 @@ void clusterMap()
         }
         fPrimary->Close();
         fITSclus->Close();
-
         LOG(info) << nPrimaries;
-        nPrimaries = 600;
 
         TCanvas cClusterSize = TCanvas("cClusterSize", "cClusterSize", 1200, 800);
         TCanvas cClusterPosition = TCanvas("cClusterPosition", "cClusterPosition", 1500, 1000);
@@ -308,11 +309,11 @@ void clusterMap()
             cClusterPosition.cd(layer + 1);
             histsClPosition[layer]->SetTitle(Form("L%i CL Position", layer));
             histsClPosition[layer]->Draw("colz0");
-            if(layer == 0) // cloning CL position on layer 0 into overall CL position
+            if (layer == 0) // cloning CL position on layer 0 into overall CL position
             {
-               histsClPosition[8] = new TH2D();
-               histsClPosition[8]->Clone(Form("ClusterPositionVsL%i", layer));
-               histsClPosition[8]->SetTitle("Overall CL Position");
+                histsClPosition[8] = new TH2D();
+                histsClPosition[8]->Clone(Form("ClusterPositionVsL%i", layer));
+                histsClPosition[8]->SetTitle("Overall CL Position");
             }
             else if (layer + 2 == 8)
             {

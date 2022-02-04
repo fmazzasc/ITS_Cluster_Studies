@@ -23,10 +23,8 @@ ${O2DPG_ROOT}/MC/bin/o2dpg_sim_workflow.py -eCM 14000  -col pp -gen pythia8 -pro
                                                        -ns 600 -e ${SIMENGINE}                   \
                                                        -j ${NWORKERS} -interactionRate 500000    \
                                                        -confKey "Diamond.width[2]=6."            \
-                                                       -mod "--skipModules ZDC"                  \
+                                                       -mod "--skipModules ZDC"                  
 
-# run workflow
-# ${O2DPG_ROOT}/MC/bin/o2_dpg_workflow_runner.py -f workflow.json -tt vertexQC
 ${O2DPG_ROOT}/MC/bin/o2_dpg_workflow_runner.py -f workflow.json
 
 # publish the current dir to ALIEN
