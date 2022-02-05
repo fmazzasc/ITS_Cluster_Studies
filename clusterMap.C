@@ -182,7 +182,7 @@ void clusterMap()
                         {
                             if ((tempChar & s) != 0) // checking active pixels
                             {
-                                histsClPosition[layer]->Fill(col + ic, row + ir);
+                                histsClPosition[layer]->Fill(col + ic, row + rowSpan - ir);
                             }
                             ic++;
                             s >>= 1;
