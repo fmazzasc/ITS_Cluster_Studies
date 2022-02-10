@@ -1,5 +1,5 @@
 *_C*
 -
-50*
-clusterResiduals.root
+*.root
+!o2_geometry.root
 .vscode

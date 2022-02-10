@@ -1,11 +1,10 @@
 #if !defined(CLING) || defined(ROOTCLING)
 
 #include <iostream>
-
+#include "ReconstructionDataFormats/V0.h"
 #include "CommonDataFormat/RangeReference.h"
 #include "ReconstructionDataFormats/Cascade.h"
 #include "ReconstructionDataFormats/PID.h"
-#include "ReconstructionDataFormats/V0.h"
 #include "ReconstructionDataFormats/PrimaryVertex.h"
 
 #include "DataFormatsITSMFT/TopologyDictionary.h"
@@ -106,7 +105,7 @@ void clusterMap()
         }
 
         // Geometry
-        o2::base::GeometryManager::loadGeometry("o2");
+        o2::base::GeometryManager::loadGeometry("");
         auto gman = o2::its::GeometryTGeo::Instance();
         gman->fillMatrixCache(o2::math_utils::bit2Mask(o2::math_utils::TransformType::T2L, o2::math_utils::TransformType::L2G));
         // Topology dictionary

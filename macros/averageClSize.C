@@ -1,7 +1,4 @@
-#if !defined(CLING) || defined(ROOTCLING)
-
 #include <iostream>
-
 #include "CommonDataFormat/RangeReference.h"
 #include "ReconstructionDataFormats/Cascade.h"
 #include "ReconstructionDataFormats/PID.h"
@@ -39,8 +36,6 @@
 #include "CommonDataFormat/RangeReference.h"
 #include "DetectorsVertexing/DCAFitterN.h"
 
-#endif
-
 using GIndex = o2::dataformats::VtxTrackIndex;
 using V0 = o2::dataformats::V0;
 using Cascade = o2::dataformats::Cascade;
@@ -59,6 +54,8 @@ void averageClSize()
 
     o2::itsmft::ChipMappingITS chipMapping;
     std::vector<TH1D *> AverageClSize(7);
+
+
 
     std::vector<int> runNumbers = {505548, 505582, 505600, 505645, 505658, 505629};
 
