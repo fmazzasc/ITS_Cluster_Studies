@@ -3,3 +3,4 @@
 *.root
 !o2_geometry.root
 .vscode
+*.pdf
