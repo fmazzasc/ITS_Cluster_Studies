@@ -60,14 +60,13 @@ void clusterMap()
 {
     gStyle->SetPalette(55);
     gStyle->SetPadRightMargin(0.25);
-    //gStyle->SetPadLeftMargin(0.005);
+    // gStyle->SetPadLeftMargin(0.005);
     bool isMC = false;
     bool doClPositionNorm = false;
     bool doLHCCplots = true;
     const char *outFormat[2] = {".pdf", ".root"};
 
-    std::vector<int> pixelThrs{20};
-    std::vector<int> singleLayerClPosPlot{0, 1, 2};
+    std::vector<int> pixelThrs{0};
     o2::itsmft::ChipMappingITS chipMapping;
     std::vector<TH2D *> ClSizeMaps(7);
     std::vector<TH1D *> AverageClSize(7);
@@ -76,9 +75,12 @@ void clusterMap()
     std::vector<TH2D *> ClusterCounterMap(7);
     std::vector<TH2D *> histsClPosition(8);
 
+    TH2D *histClPositionCent = new TH2D("ClusterPositionCentralL0", "; Column; Row ; Hits", 1024, -0.5, 1023.5, 512, -0.5, 511.5);
+    TH2D *histClPositionForw = new TH2D("ClusterPositionForwardL0", "; Column ; Row ; Hits", 1024, -0.5, 1023.5, 512, -0.5, 511.5);
+
     std::vector<int> nStaves{12, 16, 20, 24, 30, 42, 48};
-    for (const auto& pixelThr: pixelThrs)
-    {        
+    for (const auto &pixelThr : pixelThrs)
+    {
         for (int layer{0}; layer < 7; layer++)
         {
             AverageClSize[layer] = new TH1D(Form("Average Cluster Size L%i", layer), Form("; Cluster size for L%i; Counts/(# PVs)", layer), 99, 0.5, 99.5);
@@ -103,11 +105,11 @@ void clusterMap()
             AverageClSize[layer]->SetLineColor(kRed + 2);
 
             // CL position
-            histsClPosition[layer] = new TH2D(Form("ClusterPositionVsL%i", layer), "; ; ; Counts", 1042, 0, 1042, 512, 0, 512);
+            histsClPosition[layer] = new TH2D(Form("ClusterPositionVsL%i", layer), "; ; ; Counts", 1024, -0.5, 1041.5, 512, -0.5, 511.5);
         }
 
         // Geometry
-        o2::base::GeometryManager::loadGeometry("utils/o2_geometry.root");
+        o2::base::GeometryManager::loadGeometry("utils/o2");
         auto gman = o2::its::GeometryTGeo::Instance();
         gman->fillMatrixCache(o2::math_utils::bit2Mask(o2::math_utils::TransformType::T2L, o2::math_utils::TransformType::L2G));
         // Topology dictionary
@@ -116,7 +118,7 @@ void clusterMap()
 
         int nPrimaries = 0.;
 
-        std::vector<int> runNumbers = {505645};
+        std::vector<int> runNumbers = {505658};
         for (auto &runNum : runNumbers)
         {
             std::ostringstream strDir;
@@ -133,7 +135,7 @@ void clusterMap()
             else
             {
                 o2clus_its_file = "ITS_MC/o2clus_its.root";
-                primary_vertex_file = "ITS_MC/o2_primary_vertex.root"; 
+                primary_vertex_file = "ITS_MC/o2_primary_vertex.root";
             }
 
             auto fITSclus = TFile::Open(o2clus_its_file.data());
@@ -162,7 +164,11 @@ void clusterMap()
                 for (auto &clus : *ITSclus)
                 {
                     o2::itsmft::ClusterPattern patt;
-                    auto layer = gman->getLayer(clus.getSensorID());
+
+                    auto chipID = clus.getChipID();
+                    int layer, sta, ssta, mod, chipInMod;
+                    chipMapping.expandChipInfoHW(chipID, layer, sta, ssta, mod, chipInMod);
+
                     auto pattID = clus.getPatternID();
                     int npix;
                     if (pattID == o2::itsmft::CompCluster::InvalidPatternID || mdict.isGroup(pattID))
@@ -199,6 +205,13 @@ void clusterMap()
                                 if ((tempChar & s) != 0) // checking active pixels
                                 {
                                     histsClPosition[layer]->Fill(col + ic, row + rowSpan - ir);
+                                    if (layer == 0 && sta == 0)
+                                    {
+                                        if (chipInMod == 4)
+                                            histClPositionCent->Fill(col + ic, row + rowSpan - ir);
+                                        else if (chipInMod == 8)
+                                            histClPositionForw->Fill(col + ic, row + rowSpan - ir);
+                                    }
                                 }
                                 ic++;
                                 s >>= 1;
@@ -235,6 +248,9 @@ void clusterMap()
             TCanvas cClusterSize = TCanvas("cClusterSize", "cClusterSize", 1200, 800);
             TCanvas cClusterPosition = TCanvas("cClusterPosition", "cClusterPosition", 1500, 1000);
             TCanvas cClusterPosition_L0 = TCanvas("cClusterPosition", "cClusterPosition", 1500, 1000);
+            TCanvas cClusterPositionCent_L0 = TCanvas("cClusterPositionL0Central", "cClusterPositionL0Central", 1500, 1000);
+            TCanvas cClusterPositionForw_L0 = TCanvas("cClusterPositionL0Central", "cClusterPositionL0Central", 1500, 1000);
+
             cClusterSize.Divide(4, 2);
             cClusterPosition.Divide(3, 3);
 
@@ -253,6 +269,7 @@ void clusterMap()
                 AverageOccupancyMap[layer]->Scale(1. / nPrimaries);
                 AverageClSizeMap[layer]->Divide(ClusterCounterMap[layer]);
                 ClusterCounterMap[layer]->Scale(1. / nPrimaries);
+
                 if (doClPositionNorm)
                 {
                     histsClPosition[layer]->Scale(1. / nPrimaries);
@@ -307,12 +324,12 @@ void clusterMap()
                     AverageClSizeMap[layer]->GetYaxis()->SetLabelSize(0.045);
                     AverageClSizeMap[layer]->GetZaxis()->SetLabelOffset(0.005);
                     AverageClSizeMap[layer]->GetZaxis()->SetTitleOffset(1.2);
-                    const char* AvClSizeMapLhccTitle = (isMC) ? Form("ALICE - MC pp #sqrt{s} = 900 GeV, run %i", runNum) : Form("ALICE - pp #sqrt{s} = 900 GeV, run %i", runNum);
+                    const char *AvClSizeMapLhccTitle = (isMC) ? "ALICE pp #sqrt{s} = 900 GeV, MC simulation" : Form("ALICE pp #sqrt{s} = 900 GeV, run %i", runNum);
                     AverageClSizeMap[layer]->SetTitle(AvClSizeMapLhccTitle);
                     AverageClSizeMap[layer]->Draw("colz");
                     for (int i = 0; i < 2; i++)
                     {
-                        const char* ClusMapSizeLhccTitle = (isMC) ? Form("cAvClusSizeMapLhcc_L0MC%s", outFormat[i]) : Form("cAvClusSizeMapLhcc_L0data%s", outFormat[i]);
+                        const char *ClusMapSizeLhccTitle = (isMC) ? Form("cAvClusSizeMapLhcc_L0MC%s", outFormat[i]) : Form("cAvClusSizeMapLhcc_L0data%s", outFormat[i]);
                         cAverClusPosLhcc.SaveAs(Form("LHCCplots/%s", ClusMapSizeLhccTitle));
                     }
                 }
@@ -345,23 +362,43 @@ void clusterMap()
 
                 cClusterPosition.cd(layer + 1);
                 histsClPosition[layer]->SetTitle(Form("L%i CL Position", layer));
-                histsClPosition[layer]->Draw("colz0");
-                if (layer == singleLayerClPosPlot.at(layer))
+                histsClPosition[layer]->Draw("colz");
+
+                if (layer == 0)
                 {
                     cClusterPosition_L0.cd();
                     histsClPosition[layer]->GetZaxis()->SetTitle(Form("CL > %i", pixelThr));
-                    histsClPosition[layer]->Draw("colz0");
+                    histsClPosition[layer]->Draw("colz");
                     for (int i = 0; i < 2; i++)
                     {
-                        cClusterPosition_L0.SaveAs(Form("cClPosition_L%i_100%s", singleLayerClPosPlot.at(layer), outFormat[i]));
+                        cClusterPosition_L0.SaveAs(Form("cClPosition_L0_100%s", outFormat[i]));
                     }
-                }
-                if (layer == 0) // cloning CL position on layer 0 into overall CL position
-                {
+
+                    cClusterPositionCent_L0.cd();
+                    histClPositionCent->SetTitle("ALICE pp #sqrt{s} = 900 GeV, Layer 0, -0.64 < #eta < 0.64 ");
+                    histClPositionCent->SetStats(0);
+
+
+                    histClPositionCent->Draw("colz");
+                    for (int i = 0; i < 2; i++)
+                    {
+                        cClusterPositionCent_L0.SaveAs(Form("CentralChipMap%s", outFormat[i]));
+                    }
+                    cClusterPositionForw_L0.cd();
+                    histClPositionForw->Draw("colz");
+                    histClPositionForw->SetTitle("ALICE pp #sqrt{s} = 900 GeV, Layer 0, 2.3 < #eta < 2.5 ");
+                    histClPositionForw->SetStats(0);
+
+                    for (int i = 0; i < 2; i++)
+                    {
+                        cClusterPositionForw_L0.SaveAs(Form("ForwardChipMap%s", outFormat[i]));
+                    }
+
                     histsClPosition[8] = new TH2D();
                     histsClPosition[8]->Clone(Form("ClusterPositionVsL%i", layer));
                     histsClPosition[8]->SetTitle("Overall CL Position");
                 }
+
                 else if (layer + 2 == 8)
                 {
                     cClusterPosition.cd(layer + 2);
@@ -378,9 +415,9 @@ void clusterMap()
             cClusterPosition.Write();
             for (int i = 0; i < 2; i++)
             {
-                const char* strClusPos = (isMC) ? Form("cClPosition_MC_thr%i%s", pixelThr, outFormat[i]) : Form("cClPosition_thr%i%s", pixelThr, outFormat[i]);
+                const char *strClusPos = (isMC) ? Form("cClPosition_MC_thr%i%s", pixelThr, outFormat[i]) : Form("cClPosition_thr%i%s", pixelThr, outFormat[i]);
                 cClusterPosition.SaveAs(strClusPos);
-            } 
+            }
             AverageClSize[0]->GetYaxis()->SetTitleOffset(1.);
             cClusterSize.Write();
             outFile.Close();
