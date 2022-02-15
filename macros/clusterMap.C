@@ -322,7 +322,7 @@ void clusterMap()
                 AverageClSizeMap[layer]->SetStats(0);
                 if (doLHCCplots && (layer == 0))
                 {
-                    double zvtx = (1. / 3.* Zmean) + 4.; // proportion converting z vtx posistion into chip bin
+                    double zvtx = (-1. / 3.* Zmean) + 4.; // proportion converting z vtx posistion into chip bin
                     TCanvas cAverClusPosLhcc = TCanvas("cAvClusSizeMapLhcc", "cAvClusSizeMapLhcc", 1400, 1200);
                     TLine zvertLine = TLine(zvtx, -0.5, zvtx, 11.5);
                     zvertLine.SetLineWidth(2);
