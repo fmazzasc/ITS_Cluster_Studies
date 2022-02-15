@@ -150,6 +150,9 @@ void clusterMap()
             treeITSclus->SetBranchAddress("ITSClusterComp", &ITSclus);
             treeITSclus->SetBranchAddress("ITSClusterPatt", &ITSpatt);
             treePrimaries->SetBranchAddress("PrimaryVertex", &Primaries);
+            TH1F* hZcoord = new TH1F();
+            treePrimaries->Draw("mPos.fCoordinates.fZ>>hZcoord");
+            double Zmean = 0.3931; // Hard coded at the moment: "hZcoord->GetMean();"" should be used
 
             for (int frame = 0; frame < treeITSclus->GetEntriesFast(); frame++)
             {
@@ -319,7 +322,11 @@ void clusterMap()
                 AverageClSizeMap[layer]->SetStats(0);
                 if (doLHCCplots && (layer == 0))
                 {
+                    double zvtx = (1. / 3.* Zmean) + 4.; // proportion converting z vtx posistion into chip bin
                     TCanvas cAverClusPosLhcc = TCanvas("cAvClusSizeMapLhcc", "cAvClusSizeMapLhcc", 1400, 1200);
+                    TLine zvertLine = TLine(zvtx, -0.5, zvtx, 11.5);
+                    zvertLine.SetLineWidth(2);
+                    zvertLine.SetLineStyle(9);
                     cAverClusPosLhcc.cd();
                     AverageClSizeMap[layer]->GetYaxis()->SetLabelSize(0.045);
                     AverageClSizeMap[layer]->GetZaxis()->SetLabelOffset(0.005);
@@ -327,6 +334,7 @@ void clusterMap()
                     const char *AvClSizeMapLhccTitle = (isMC) ? "ALICE pp #sqrt{s} = 900 GeV, MC simulation" : Form("ALICE pp #sqrt{s} = 900 GeV, run %i", runNum);
                     AverageClSizeMap[layer]->SetTitle(AvClSizeMapLhccTitle);
                     AverageClSizeMap[layer]->Draw("colz");
+                    zvertLine.Draw("same");
                     for (int i = 0; i < 2; i++)
                     {
                         const char *ClusMapSizeLhccTitle = (isMC) ? Form("cAvClusSizeMapLhcc_L0MC%s", outFormat[i]) : Form("cAvClusSizeMapLhcc_L0data%s", outFormat[i]);
