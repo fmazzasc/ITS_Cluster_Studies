@@ -323,6 +323,10 @@ void clusterMap()
                 if (doLHCCplots && (layer == 0))
                 {
                     double zvtx = (-1. / 3.* Zmean) + 4.; // proportion converting z vtx posistion into chip bin
+                    TLatex zvtxpos;
+                    zvtxpos.SetTextSize(0.025);
+                    zvtxpos.SetNDC();
+                    zvtxpos.SetTextFont(42);
                     TCanvas cAverClusPosLhcc = TCanvas("cAvClusSizeMapLhcc", "cAvClusSizeMapLhcc", 1400, 1200);
                     TLine zvertLine = TLine(zvtx, -0.5, zvtx, 11.5);
                     zvertLine.SetLineWidth(2);
@@ -334,6 +338,7 @@ void clusterMap()
                     const char *AvClSizeMapLhccTitle = (isMC) ? "ALICE pp #sqrt{s} = 900 GeV, MC simulation" : Form("ALICE pp #sqrt{s} = 900 GeV, run %i", runNum);
                     AverageClSizeMap[layer]->SetTitle(AvClSizeMapLhccTitle);
                     AverageClSizeMap[layer]->Draw("colz");
+                    zvtxpos.DrawLatex((zvtx/10.)-0.025, 0.91, "Average z position");
                     zvertLine.Draw("same");
                     for (int i = 0; i < 2; i++)
                     {
