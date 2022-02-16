@@ -37,11 +37,15 @@ using Vec3 = ROOT::Math::SVector<double, 3>;
 
 void checkROFClusters()
 {
-    gStyle->SetPalette(82);
+    gStyle->SetPalette(55);
     gStyle->SetPadRightMargin(0.35);
     // gStyle->SetPadLeftMargin(0.005);
     bool isMC = false;
-    int pixelThr{0};
+    bool verbose = false;
+    int pixelThr{40};
+    int selectedFrame = 730;
+    int initialRof = 487;
+    int finalRof = 491;
 
     // Geometry
     o2::base::GeometryManager::loadGeometry("utils/o2");
@@ -52,17 +56,17 @@ void checkROFClusters()
     mdict.readFromFile(o2::base::DetectorNameConf::getAlpideClusterDictionaryFileName(o2::detectors::DetID::ITS, "utils/ITSdictionary.bin"));
 
     std::vector<int> rofClusters;
-    TH3I *hRofClFeatures = new TH3I("cl feat", "", 1024, -0.5, 1023.5, 512, -0.5, 511 / 5, 1024, -0.5, 1023.5); // evaluate clusters repetition
-    TH2I *hRofHisto = new TH2I("ROF info", "", 1024, -0.5, 1023.5, 512, -0.5, 511 / 5);                         // evaluate clusters repetition
-    TH2I *hTFHisto = new TH2I("TF info", "", 1024, -0.5, 1023.5, 512, -0.5, 511 / 5);                           // evaluate clusters repetition
+    TH3I *hRofClFeatures = new TH3I("cl feat", "", 1024, -0.5, 1023.5, 512, -0.5, 511.5, 1024, -0.5, 1023.5); // evaluate clusters repetition
+    TH2I *hRofHisto = new TH2I("ROF info", "", 1024, -0.5, 1023.5, 512, -0.5, 511.5);                         // evaluate clusters repetition
+    TH2I *hTFHisto = new TH2I("TF info", "", 1024, -0.5, 1023.5, 512, -0.5, 511.5);                           // evaluate clusters repetition
     auto repeatCounter = 0;
 
     std::vector<int> runNumbers = {505645};
-    std::ofstream myfile;
+    std::ofstream chekROFtxt;
     for (auto &runNum : runNumbers)
     {
-        myfile.open (Form("checkROFCluster_run%i.txt", runNum));
-        myfile << "clus.getCol()" << " " << "clus.getRow()" << " " << "Npixels" << " " << "rofInd+1" << " " << "TF\n";
+        chekROFtxt.open (Form("checkROFCluster_run%i.txt", runNum));
+        chekROFtxt << "col" << " " << "row" << " " << "npixels" << " " << "rofInd+1" << " " << "TF\n";
         std::ostringstream strDir;
         strDir << runNum;
         auto dir = strDir.str();
@@ -95,7 +99,16 @@ void checkROFClusters()
             if (!treeITSclus->GetEvent(frame))
                 continue;
 
+            std::vector<TH2D *> hHitMapsVsFrame((finalRof - initialRof));
             auto clSpan = gsl::span(ITSclus->data(), ITSclus->size());
+
+            if (frame == selectedFrame)
+            {     
+                for (int i = 0;  i < (finalRof - initialRof); i++)
+                {
+                    hHitMapsVsFrame[i] = new TH2D(Form("hHitMapsVsFrame_TF%i_rof%i", frame, initialRof+i), "; ; ; Counts", 1024, 0, 1024, 512, 0, 512);
+                }
+            } 
 
             for (unsigned int rofInd{0}; rofInd < ITSrof->size(); rofInd++)
             {
@@ -125,7 +138,48 @@ void checkROFClusters()
                     if (npix > pixelThr) // considering only "large" CL for CL position
                     {
                         rof_counter++;
-                        myfile << clus.getCol() << " " << clus.getRow() << " " << npix << " " << rofInd + 1 << " " << frame << "\n";
+                        if (frame == selectedFrame)
+                        {
+                            if ( initialRof < int(rofInd) && int(rofInd) < finalRof)
+                            {
+                                auto col = clus.getCol();
+                                auto row = clus.getRow();
+                                int ic = 0, ir = 0;
+
+                                auto colSpan = patt.getColumnSpan();
+                                auto rowSpan = patt.getRowSpan();
+                                auto nBits = rowSpan * colSpan;
+
+                                for (int i = 2; i < patt.getUsedBytes() + 2; i++)
+                                {
+                                    unsigned char tempChar = patt.getByte(i);
+                                    int s = 128; // 0b10000000
+                                    while (s > 0)
+                                    {
+                                        if ((tempChar & s) != 0) // checking active pixels
+                                        {
+                                            hHitMapsVsFrame[rofInd - initialRof]->Fill(col + ic, row + rowSpan - ir);
+                                        }
+                                        ic++;
+                                        s >>= 1;
+                                        if ((ir + 1) * ic == nBits)
+                                        {
+                                            break;
+                                        }
+                                        if (ic == colSpan)
+                                        {
+                                            ic = 0;
+                                            ir++;
+                                        }
+                                        if ((ir + 1) * ic == nBits)
+                                        {
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        chekROFtxt << clus.getCol() << " " << clus.getRow() << " " << npix << " " << rofInd + 1 << " " << frame << "\n";
                         if (hRofClFeatures->GetBinContent(clus.getCol(), clus.getRow(), npix) == 0)
                         {
                             hRofClFeatures->Fill(clus.getCol(), clus.getRow(), npix);
@@ -136,9 +190,12 @@ void checkROFClusters()
                         {
                             if (hRofHisto->GetBinContent(clus.getCol(), clus.getRow()) != rofInd)
                             {
-                                //LOG(info) << "----------------------------------------------------------";
-                                //LOG(info) << "RANDOM Repetition found for Cluster with row: " << clus.getRow() << ", col: " << clus.getCol() << ", Npix: " << npix;
-                                //LOG(info) << "Cluster ROF" << rofInd << ", Cluster TF:" << frame << ", Filled ROF: " << hRofHisto->GetBinContent(clus.getCol(), clus.getRow()) << ", Filled TF: " << hTFHisto->GetBinContent(clus.getCol(), clus.getRow());
+                                if (verbose)
+                                {
+                                    LOG(info) << "----------------------------------------------------------";
+                                    LOG(info) << "RANDOM Repetition found for Cluster with row: " << clus.getRow() << ", col: " << clus.getCol() << ", Npix: " << npix;
+                                    LOG(info) << "Cluster ROF" << rofInd << ", Cluster TF:" << frame << ", Filled ROF: " << hRofHisto->GetBinContent(clus.getCol(), clus.getRow()) << ", Filled TF: " << hTFHisto->GetBinContent(clus.getCol(), clus.getRow());
+                                }
                                 repeatCounter++;
                                 hRofClFeatures->Fill(clus.getCol(), clus.getRow(), npix);
                                 hRofHisto->Fill(clus.getCol(), clus.getRow(), rofInd+1);
@@ -146,16 +203,35 @@ void checkROFClusters()
                             }
                             else
                             {
-                                //LOG(info) << "Repetition found for Cluster with row: " << clus.getRow() << ", col: " << clus.getCol() << ", Npix: " << npix << ", ROF: " << rofInd << ", TF:" << frame;
+                                if (verbose)
+                                {
+                                    LOG(info) << "Repetition found for Cluster with row: " << clus.getRow() << ", col: " << clus.getCol() << ", Npix: " << npix << ", ROF: " << rofInd << ", TF:" << frame;
+                                }
                             }
                         }
                     }
+                    rofClusters.push_back(rof_counter);
                 }
-                rofClusters.push_back(rof_counter);
+            }
+
+            if (frame == selectedFrame)
+            {
+                auto HitmapFile = TFile("HitmapRof.root", "recreate");
+                TCanvas cHitmapRof = TCanvas("cHitmapRof", "cHitmapRof", 1200, 800);
+                cHitmapRof.Divide(1, 2);
+                for (int rofInd{0}; rofInd < (finalRof - initialRof); rofInd++)
+                {
+                    cHitmapRof.cd(rofInd+1);
+                    hHitMapsVsFrame[rofInd]->Draw("colz0");
+                    hHitMapsVsFrame[rofInd]->Write();
+                }
+                cHitmapRof.SaveAs("cHitmapRof.pdf");
+                cHitmapRof.Write();
+                HitmapFile.Close();
             }
         }
     }
-    myfile.close();
+    chekROFtxt.close();
 
     TH1D *clRofHisto = new TH1D("rof histo", ";ROF num; Counts", rofClusters.size(), 0, rofClusters.size() - 1);
     for (unsigned int iBin{1}; iBin <= rofClusters.size(); iBin++)
@@ -163,9 +239,12 @@ void checkROFClusters()
         if (rofClusters[iBin - 1] > 0)
             clRofHisto->SetBinContent(iBin, rofClusters[iBin - 1]);
     }
-    //LOG(info) << "# Clusters: " << clRofHisto->Integral();
-    //LOG(info) << "# Unique Clusters : " << hRofClFeatures->GetEntries();
-    //LOG(info) << "Random repetition : " << repeatCounter;
+    if(verbose)
+    {
+        LOG(info) << "# Clusters: " << clRofHisto->Integral();
+        LOG(info) << "# Unique Clusters : " << hRofClFeatures->GetEntries();
+        LOG(info) << "Random repetition : " << repeatCounter;
+    }
 
     auto file = TFile("rofclus.root", "recreate");
     clRofHisto->Write();

@@ -35,6 +35,7 @@
 #include "TCanvas.h"
 #include "TStyle.h"
 #include "TLatex.h"
+#include "TLine.h"
 #include "CommonDataFormat/RangeReference.h"
 #include "DetectorsVertexing/DCAFitterN.h"
 
