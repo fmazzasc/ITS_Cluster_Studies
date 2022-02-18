@@ -328,10 +328,15 @@ void clusterMap()
                     zvtxpos.SetTextSize(0.025);
                     zvtxpos.SetNDC();
                     zvtxpos.SetTextFont(42);
+                    zvtxpos.SetTextColor(kOrange+2);
+                    zvtxpos.SetTextColorAlpha(kOrange+2, 0.8);
+                    zvtxpos.SetTextAngle(90);
                     TCanvas cAverClusPosLhcc = TCanvas("cAvClusSizeMapLhcc", "cAvClusSizeMapLhcc", 1400, 1200);
                     TLine zvertLine = TLine(zvtx, -0.5, zvtx, 11.5);
                     zvertLine.SetLineWidth(2);
                     zvertLine.SetLineStyle(9);
+                    zvertLine.SetLineColor(kOrange+2);
+                    
                     cAverClusPosLhcc.cd();
                     AverageClSizeMap[layer]->GetYaxis()->SetLabelSize(0.045);
                     AverageClSizeMap[layer]->GetZaxis()->SetLabelOffset(0.005);
@@ -339,7 +344,7 @@ void clusterMap()
                     const char *AvClSizeMapLhccTitle = (isMC) ? "ALICE pp #sqrt{s} = 900 GeV, MC simulation" : Form("ALICE pp #sqrt{s} = 900 GeV, run %i", runNum);
                     AverageClSizeMap[layer]->SetTitle(AvClSizeMapLhccTitle);
                     AverageClSizeMap[layer]->Draw("colz");
-                    zvtxpos.DrawLatex((zvtx/10.)-0.025, 0.91, "Average z position");
+                    zvtxpos.DrawLatex((zvtx/10.)-0.015, 0.51, "IP, #LT z coord #GT");
                     zvertLine.Draw("same");
                     for (int i = 0; i < 2; i++)
                     {
