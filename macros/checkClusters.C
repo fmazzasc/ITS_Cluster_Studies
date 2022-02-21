@@ -52,13 +52,13 @@ void checkClusters()
 {
     double ptmax = 5;
     double ptbins = ptmax/0.033;
-    int clsize_min[4] = {0, 0, 0, 0};
-    int clsize_max[4] = {10, 20, 50, 100};
+    int clsize_min[4] = {0, 0, 0, 40};
+    int clsize_max[4] = {10, 20, 50, 200};
 
     for (int iclsize{0}; iclsize < 4; iclsize++)
     {
         std::vector<TH2D *> histsPt(7);
-        std::vector<TH2D *> histsP(7);
+        std::vector<TH2D *> histsPz(7);
         std::vector<TH2D *> histsPt0(7);
         std::vector<TH2D *> histsPt1(7);
         std::vector<TH2D *> histsPt2(7);
@@ -75,8 +75,8 @@ void checkClusters()
             std::string histsName = str.str();
             // pt
             histsClSize[layer] = new TH1D((histsName).data(), ("; " + histsName + "; Cluster size; Counts").data(), 79, 1, 80);
-            histsPt[layer] = new TH2D((histsName + Form("vs pT CL size%i", clsize_max[iclsize])).data(), ("; " + histsName + "; #it{p}_{T}^{ITS-TPC} (GeV/#it{c}); counts").data(), clsize_max[iclsize], clsize_min[iclsize], clsize_max[iclsize], ptbins, 0, ptmax);
-            histsP[layer] = new TH2D((histsName + Form("vs p CL size%i", clsize_max[iclsize])).data(), ("; " + histsName + "; #it{p}^{ITS-TPC} (GeV/#it{c}); counts").data(), clsize_max[iclsize], clsize_min[iclsize], clsize_max[iclsize], ptbins, 0, ptmax);
+            histsPt[layer] = new TH2D((histsName + Form("vs pT CL size%i", clsize_max[iclsize])).data(), ("; " + histsName + "; #it{p}_{T}^{ITS-TPC} (GeV/#it{c}); counts").data(), (clsize_max[iclsize] -clsize_min[iclsize]), clsize_min[iclsize], clsize_max[iclsize], ptbins, 0, ptmax);
+            histsPz[layer] = new TH2D((histsName + Form("vs pz CL size%i", clsize_max[iclsize])).data(), ("; " + histsName + "; #it{p}^{ITS-TPC} (GeV/#it{c}); counts").data(), (clsize_max[iclsize] -clsize_min[iclsize]), clsize_min[iclsize], clsize_max[iclsize], ptbins, 0, ptmax);
             histsPt0[layer] = new TH2D((histsName + "vs pT 0").data(), ("; " + histsName + "; #it{p}_{T}^{ITS-TPC} (GeV/#it{c}); Counts").data(), 14, 1, 15, 30, 0, 1);
             histsPt1[layer] = new TH2D((histsName + "vs pT 1").data(), ("; " + histsName + "; #it{p}_{T}^{ITS-TPC} (GeV/#it{c}); Counts").data(), 14, 1, 15, 30, 0, 1);
             histsPt2[layer] = new TH2D((histsName + "vs pT 2").data(), ("; " + histsName + "; #it{p}_{T}^{ITS-TPC} (GeV/#it{c}); Counts").data(), 14, 1, 15, 30, 0, 1);
@@ -85,7 +85,7 @@ void checkClusters()
             histsPtMean_EtaOver8[layer] = new TH1D((histsName + "mean vs pt (eta > 0.8)").data(), ("; #it{p}_{T}^{ITS-TPC} (GeV/#it{c}) ; Average " + histsName + "; Counts").data(), 30, 0, 1);
 
             // eta
-            histsEta[layer] = new TH2D((histsName + "vs eta").data(), ("; " + histsName + "; #eta; Counts").data(), 14, 1, 15, 40, -2, 2);
+            histsEta[layer] = new TH2D((histsName + Form("vs eta CL size%i", clsize_max[iclsize])).data(), ("; " + histsName + "; #eta; counts").data(), (clsize_max[iclsize] -clsize_min[iclsize]), clsize_min[iclsize], clsize_max[iclsize], 40, -2, 2);
 
             // style
             histsPtMean_EtaUnder4[layer]->SetMarkerStyle(kOpenCircle);
@@ -213,7 +213,8 @@ void checkClusters()
                             histsClSize[layer]->Fill(npix);
 
                             histsPt[layer]->Fill(npix, ITSTPCtrack.getPt());
-                            histsP[layer]->Fill(npix, ITSTPCtrack.getP());
+                            double pz = TMath::Sqrt(pow(ITSTPCtrack.getP(), 2) - pow(ITSTPCtrack.getPt(), 2)); 
+                            histsPz[layer]->Fill(npix, pz);
                             histsEta[layer]->Fill(npix, ITSTPCtrack.getEta());
 
                             if (abs(ITSTPCtrack.getEta()) < 0.4)
@@ -257,14 +258,14 @@ void checkClusters()
 
         // canvases
         TCanvas cClusterSize = TCanvas("cClusterSize", "cClusterSize", 1200, 800);
-        TCanvas cClusterEta = TCanvas("cClusterEta", "cClusterEta", 2200, 900);
+        TCanvas cClusterEta = TCanvas(Form("cClusterEta%i", clsize_max[iclsize]), Form("cClusterEta%i", clsize_max[iclsize]), 2200, 1200);
         TCanvas cClusterPt = TCanvas(Form("cClusterPt%i", clsize_max[iclsize]), Form("cClusterPt%i", clsize_max[iclsize]), 2200, 1200);
-        TCanvas cClusterP = TCanvas(Form("cClusterP%i", clsize_max[iclsize]), Form("cClusterP%i", clsize_max[iclsize]), 2200, 1200);
+        TCanvas cClusterPz = TCanvas(Form("cClusterPz%i", clsize_max[iclsize]), Form("cClusterPz%i", clsize_max[iclsize]), 2200, 1200);
         TCanvas cClusterMeanVsPt = TCanvas("cClusterMeanVsPt", "cClusterMeanVsPt", 1200, 800);
         cClusterSize.Divide(4, 2);
         cClusterEta.Divide(4, 2);
         cClusterPt.Divide(4, 2);
-        cClusterP.Divide(4, 2);
+        cClusterPz.Divide(4, 2);
         cClusterMeanVsPt.Divide(4, 2);
 
         // legends
@@ -285,7 +286,11 @@ void checkClusters()
         gStyle->SetPalette(55);
         gStyle->SetPadRightMargin(0.15);
         //gStyle->SetPadLeftMargin(0.005);
-        gStyle->SetOptStat(0);
+        //gStyle->SetOptStat(0);
+        gStyle->SetOptStat("eimrou");
+        gStyle->SetStatY(0.9);
+        gStyle->SetStatX(0.8);
+        gStyle->SetStatW(0.4);
 
         for (int layer{0}; layer < 7; layer++)
         {
@@ -303,13 +308,14 @@ void checkClusters()
 
             cClusterEta.cd(layer + 1);
             histsEta[layer]->GetYaxis()->SetDecimals();
-            histsEta[layer]->GetYaxis()->SetTitleOffset(1.);
-            histsEta[layer]->SetStats(0);
+            histsEta[layer]->GetYaxis()->SetTitleOffset(1.2);
+            histsEta[layer]->GetZaxis()->SetTitleOffset(1.4);
             histsEta[layer]->DrawCopy("colz");
             if (layer + 1 == 7)
             {
                 cClusterEta.cd(8);
                 laCluster.DrawLatex(0.2, 0.6, "ITS cluster study vs #eta");
+                laCluster.DrawLatex(0.2, 0.55, Form("(%i< CL size < %i)", clsize_min[iclsize], clsize_max[iclsize]));
             }
 
             cClusterPt.cd(layer + 1);
@@ -319,22 +325,21 @@ void checkClusters()
             histsPt[layer]->SetStats(0);
             histsPt[layer]->DrawCopy("colz");
 
-            cClusterP.cd(layer + 1);
+            cClusterPz.cd(layer + 1);
             gPad->SetFillStyle(0);
-            histsP[layer]->GetYaxis()->SetDecimals();
-            histsP[layer]->GetYaxis()->SetTitleOffset(1.2);
-            histsP[layer]->GetZaxis()->SetTitleOffset(1.3);
-            histsP[layer]->SetStats(0);
-            histsP[layer]->DrawCopy("colz");
+            histsPz[layer]->GetYaxis()->SetDecimals();
+            histsPz[layer]->GetYaxis()->SetTitleOffset(1.2);
+            histsPz[layer]->GetZaxis()->SetTitleOffset(1.4);
+            histsPz[layer]->DrawCopy("colz");
 
             if (layer + 1 == 7)
             {
                 cClusterPt.cd(8);
                 laCluster.DrawLatex(0.2, 0.6, "ITS-TPC cluster study vs #it{p}_{T}");
-                laCluster.DrawLatex(0.2, 0.55, Form("(CL size < %i)", clsize_max[iclsize]));
-                cClusterP.cd(8);
-                laCluster.DrawLatex(0.2, 0.6, "ITS-TPC cluster study vs #it{p}");
-                laCluster.DrawLatex(0.2, 0.55, Form("(CL size < %i)", clsize_max[iclsize]));
+                laCluster.DrawLatex(0.2, 0.55, Form("(%i< CL size < %i)", clsize_min[iclsize], clsize_max[iclsize]));
+                cClusterPz.cd(8);
+                laCluster.DrawLatex(0.2, 0.6, "ITS-TPC cluster study vs #it{p}_{z}");
+                laCluster.DrawLatex(0.2, 0.55, Form("(%i< CL size < %i)", clsize_min[iclsize], clsize_max[iclsize]));
             }
 
             cClusterMeanVsPt.cd(layer + 1);
@@ -358,12 +363,12 @@ void checkClusters()
         cClusterSize.Write();
         cClusterEta.Write();
         cClusterPt.Write();
-        cClusterP.Write();
+        cClusterPz.Write();
         cClusterMeanVsPt.Write();
 
-        cClusterEta.SaveAs("ITSTPCclusterVsEta.pdf");
-        cClusterPt.SaveAs(Form("ITSTPCclusterVsPt_%i.pdf", clsize_max[iclsize]));
-        cClusterP.SaveAs(Form("ITSTPCclusterVsP_%i.pdf", clsize_max[iclsize]));
+        cClusterEta.SaveAs(Form("ITSTPCclusterVsEta%i_%i.pdf", clsize_min[iclsize], clsize_max[iclsize]));
+        cClusterPt.SaveAs(Form("ITSTPCclusterVsPt%i_%i.pdf", clsize_min[iclsize], clsize_max[iclsize]));
+        cClusterPz.SaveAs(Form("ITSTPCclusterVsPz%i_%i.pdf", clsize_min[iclsize], clsize_max[iclsize]));
         cClusterMeanVsPt.SaveAs("ITSClusterMeanVsPt.pdf");
 
         outFile.Close();
