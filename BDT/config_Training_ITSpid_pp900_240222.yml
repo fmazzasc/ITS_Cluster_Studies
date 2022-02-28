@@ -1,0 +1,59 @@
+input: # files to use, set FD to null for binary classification
+    data: /data/shared/ITS/tree_pid.parquet.gzip
+
+output:
+    leg_labels: # legend labels, keep the right number of classes
+        Bkg: Background
+        Proton: Proton
+    out_labels: # output labels, keep the right number of classes
+        Bkg: Bkg
+        Proton: Proton
+    dir: '/home/spolitan/Analyses/Stefano_Analysis/ITS2pidML/training/' # output dir
+
+data_prep:
+    presel:
+    seed_split: 42 # seed used for train_test_split(...)
+    test_fraction: 0.6 # fraction of data used for test set and efficiencies --> set to 1. if you want to apply the model to the full dataframes 
+    
+ml:
+    raw_output: True # use raw_output (True) or probability (False) as output of the model
+    roc_auc_average: 'macro' # 'macro' or 'weighted'
+    roc_auc_approach: 'ovo'  # 'ovo' or 'ovr'
+    training_columns: ['l0','l1','l2','l3','l4','l5','l6','p','pt', 'tanL', 'phi']
+                       # list of training variables
+
+    hyper_par: {'max_depth':5, 'learning_rate':0.023, 'n_estimators':398, 'min_child_weight':8.89, 'subsample':0.84, 'colsample_bytree':0.8, 'n_jobs':10, 'max_bin':273, 'tree_method':hist}
+               # list of dicts of hyperparameters (one for each pT bin)
+
+    hyper_par_opt:
+      do_hyp_opt: False  # whether to do the parameter optimization
+      njobs: 10 # number of parallel jobs used in hyper-parameter optimization, -1. to use all
+      nfolds: 5 # number of folds used in cross validation
+      initpoints: 10 # steps of random exploration you want to perform
+      niter: 15 # steps for bayesian optimization
+      bayes_opt_config: {'max_depth': !!python/tuple [2, 6], 
+                        'learning_rate': !!python/tuple [0.01, 0.1],
+                        'n_estimators': !!python/tuple [200, 1200],
+                        'min_child_weight': !!python/tuple [1, 10],
+                        'subsample': !!python/tuple [0.8, 1.], 
+                        'colsample_bytree': !!python/tuple [0.8, 1.],
+                        'max_bin': !!python/tuple [200, 400]
+                        }
+                        # configuration dictionary for optimize_params_bayes()
+
+    saved_models: [
+                  ] 
+                   # list of saved ModelHandler (path+file), compatible with the pt bins
+
+plots:
+    plotting_columns: ['l0','l1','l2','l3','l4','l5','l6','p','pt', 'tanL', 'phi'] 
+                       # list of variables to plot
+    train_test_log: True # use log scale for plots of train and test distributions
+
+appl: 
+    column_to_save_list: ['l0','l1','l2','l3','l4','l5','l6','p','pt', 'tanL', 'phi','isProton'] # list of variables saved in the dataframes with the applied models
+
+standalone_appl:
+    inputs: [] # list of parquet files for the model application
+    output_names: [] # names for the outputs (one for each file)
+    output_dir: null # output directory
