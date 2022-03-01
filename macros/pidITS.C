@@ -1,5 +1,3 @@
-#if !defined(CLING) || defined(ROOTCLING)
-
 #include <iostream>
 #include "CommonDataFormat/RangeReference.h"
 #include "ReconstructionDataFormats/Cascade.h"
@@ -16,10 +14,14 @@
 #include "DataFormatsITSMFT/ROFRecord.h"
 #include "DataFormatsITSMFT/TrkClusRef.h"
 
+#include "Framework/ConfigParamRegistry.h"
+#include "DetectorsBase/Propagator.h"
+
 #include "CommonDataFormat/RangeReference.h"
 
 #include "ITStracking/IOUtils.h"
 #include "ReconstructionDataFormats/TrackTPCITS.h"
+#include "DataFormatsParameters/GRPObject.h"
 
 #include <gsl/gsl>
 #include <TLorentzVector.h>
@@ -38,7 +40,6 @@
 #include "TLatex.h"
 #include <TSystemDirectory.h>
 #include <TSystemFile.h>
-#endif
 
 using GIndex = o2::dataformats::VtxTrackIndex;
 using V0 = o2::dataformats::V0;
@@ -48,10 +49,11 @@ using VBracket = o2::math_utils::Bracket<int>;
 using namespace o2::itsmft;
 
 using CompClusterExt = o2::itsmft::CompClusterExt;
+using GRPObject = o2::parameters::GRPObject;
 using ITSCluster = o2::BaseCluster<float>;
 using Vec3 = ROOT::Math::SVector<double, 3>;
 
-// bool propagateToClus(const ITSCluster &clus, o2::track::TrackParCov &track, o2::its::GeometryTGeo *gman, float Bz = 5.);
+bool propagateToClus(const ITSCluster &clus, o2::track::TrackParCov &track, o2::its::GeometryTGeo *gman, float Bz = -5.);
 
 void pidITS()
 {
@@ -63,11 +65,12 @@ void pidITS()
     TH1D *hTotClSizeP = new TH1D("Cl size for protons ", "; #LT Cluster size #GT #times Cos(#lambda) ; Normalised Counts", 13, 0.5, 13.5);
     TH1D *hTotClSizePi = new TH1D("Cl size for pi", "; #LT Cluster size #GT #times Cos(#lambda) ; Normalised Counts", 13, 0.5, 13.5);
     TH2D *hSplinesTPC = new TH2D("TPC splines ", ";#it{p}^{ITS-TPC} (GeV/#it{c}); TPC Signal ; Counts", 300, 0.05, 2, 300, 30.5, 600.5);
+    TH1D *hPtRes = new TH1D("pT resolution ", ";(#it{p}^{ITS-SA} - #it{p}^{ITS-TPC})/#it{p}^{ITS-TPC}; Counts", 80, -1, 1);
 
     TFile outFile = TFile("pid.root", "recreate");
 
     TTree *MLtree = new TTree("ITStreeML", "ITStreeML");
-    std::array<float, 12> cand;
+    std::array<float, 19> cand;
     MLtree->Branch("TrackInfo", &cand);
 
     bool usePaki = false;
@@ -79,6 +82,16 @@ void pidITS()
     // Topology dictionary
     o2::itsmft::TopologyDictionary mdict;
     mdict.readFromFile(o2::base::DetectorNameConf::getAlpideClusterDictionaryFileName(o2::detectors::DetID::ITS, ""));
+    // Propagator
+    const auto grp = GRPObject::loadFrom();
+    // load propagator
+    o2::base::Propagator::initFieldFromGRP(grp);
+    auto *lut = o2::base::MatLayerCylSet::loadFromFile("matbud.root");
+    o2::base::Propagator::Instance()->setMatLUT(lut);
+
+    if (lut)
+        LOG(info) << "Loaded material LUT";
+
     std::string path = "/data/fmazzasc/its_data/merge";
     TSystemDirectory dir("MyDir", path.data());
     auto files = dir.GetListOfFiles();
@@ -94,7 +107,7 @@ void pidITS()
 
     for (auto &dir : dirs)
     {
-        // if (counter > 500)
+        // if (counter > 50)
         //     continue;
         counter++;
 
@@ -128,6 +141,7 @@ void pidITS()
 
         // Clusters
         std::vector<CompClusterExt> *ITSclus = nullptr;
+
         std::vector<unsigned char> *ITSpatt = nullptr;
 
         // Setting branches
@@ -150,7 +164,13 @@ void pidITS()
             if (!treeITSTPC->GetEvent(frame) || !treeITSclus->GetEvent(frame) || !treeITS->GetEvent(frame) || !treeTPC->GetEvent(frame))
                 continue;
 
-            auto pattIt = ITSpatt->cbegin();
+            auto pattIt2 = ITSpatt->cbegin();
+
+            std::vector<ITSCluster> ITSClusXYZ;
+            ITSClusXYZ.reserve((*ITSclus).size());
+            gsl::span<const unsigned char> spanPatt{*ITSpatt};
+            auto pattIt = spanPatt.begin();
+            o2::its::ioutils::convertCompactClusters(*ITSclus, pattIt, ITSClusXYZ, mdict);
 
             for (unsigned int iTrack{0}; iTrack < TPCITStracks->size(); ++iTrack)
             {
@@ -169,6 +189,7 @@ void pidITS()
                 auto &TPCtrack = TPCtracks->at(ITSTPCtrack.getRefTPC());
 
                 std::vector<CompClusterExt> TrackClus;
+                std::vector<ITSCluster> TrackClusXYZ;
 
                 auto firstClus = ITStrack.getFirstClusterEntry();
                 auto ncl = ITStrack.getNumberOfClusters();
@@ -176,23 +197,26 @@ void pidITS()
                 for (int icl = 0; icl < ncl; icl++)
                 {
                     auto &clus = (*ITSclus)[(*ITSTrackClusIdx)[firstClus + icl]];
+                    auto &clusXYZ = ITSClusXYZ[(*ITSTrackClusIdx)[firstClus + icl]];
                     auto layer = gman->getLayer(clus.getSensorID());
                     TrackClus.push_back(clus);
+                    TrackClusXYZ.push_back(clusXYZ);
                 }
 
                 std::reverse(TrackClus.begin(), TrackClus.end());
+                std::reverse(TrackClusXYZ.begin(), TrackClusXYZ.end());
+
                 std::vector<int> clusterSizes;
 
                 for (int layer{0}; layer < 7; layer++)
                 {
                     if (ITStrack.hasHitOnLayer(layer))
                     {
-
                         auto pattID = TrackClus[layer].getPatternID();
                         int npix;
                         if (pattID == o2::itsmft::CompCluster::InvalidPatternID || mdict.isGroup(pattID))
                         {
-                            o2::itsmft::ClusterPattern patt(pattIt);
+                            o2::itsmft::ClusterPattern patt(pattIt2);
                             npix = patt.getNPixels();
                         }
                         else
@@ -203,6 +227,8 @@ void pidITS()
                         clusterSizes.push_back(npix);
                     }
                 }
+
+
                 std::sort(clusterSizes.begin(), clusterSizes.end());
                 float mean = 0;
                 if (usePaki)
@@ -222,34 +248,42 @@ void pidITS()
                     mean /= (clusterSizes.size());
                 }
                 mean *= std::sqrt(1. / (1 + ITSTPCtrack.getTgl() * ITSTPCtrack.getTgl()));
-
                 if ((clusterSizes.size() == 7 && usePaki == false) && std::abs(ITSTPCtrack.getEta()) < 0.5)
                 {
+
+                    hPtRes->Fill((ITStrack.getP() - ITSTPCtrack.getP()) / ITSTPCtrack.getP());
                     hSplines->Fill(ITSTPCtrack.getP(), mean);
-                    hSplinesTPC->Fill(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
-                    if (0.3 < TPCtrack.getP() < 0.4)
+                    hSplinesTPC->Fill(ITSTPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
+
+                    if (ITSTPCtrack.getP() > 0.3 && ITSTPCtrack.getP() < 0.4)
                     {
                         if (TPCtrack.getdEdx().dEdxTotTPC > 240)
                         {
                             hClSizeP->Fill(mean);
-                            cand[11] = 1.;
+                            cand[18] = 1.;
                         }
                         if (TPCtrack.getdEdx().dEdxTotTPC < 80)
                         {
                             hClSizePi->Fill(mean);
-                            cand[11] = 0.;
+                            cand[18] = 0.;
                         }
 
-                        cand[7] = ITSTPCtrack.getP();
-                        cand[8] = ITSTPCtrack.getPt();
+                        cand[14] = ITSTPCtrack.getP();
+                        cand[15] = ITSTPCtrack.getPt();
 
-                        cand[9] = ITSTPCtrack.getTgl();
-                        cand[10] = ITSTPCtrack.getPhi();
+                        cand[16] = ITSTPCtrack.getPhi();
+                        cand[17] = mean;
 
                         for (unsigned int i{0}; i < clusterSizes.size(); i++)
                         {
+                            auto &clusXYZ = TrackClusXYZ[i];
                             auto &iSize = clusterSizes[i];
                             cand[i] = iSize;
+
+                            if (propagateToClus(clusXYZ, ITSTPCtrack, gman))
+                                cand[i + 7] = ITSTPCtrack.getTgl();
+                            else
+                                cand[i + 7] = 0;
 
                             if (TPCtrack.getdEdx().dEdxTotTPC > 240)
                             {
@@ -260,6 +294,7 @@ void pidITS()
                                 hTotClSizePi->Fill(iSize);
                             }
                         }
+
                         MLtree->Fill();
                     }
                 }
@@ -280,10 +315,10 @@ void pidITS()
     auto leg = new TLegend(0.6, 0.65, 0.9, 0.85);
     hClSizePi->SetLineWidth(2);
     hClSizePi->SetStats(0);
-    hClSizePi->DrawNormalized();
+    hClSizePi->Draw();
     hClSizeP->SetLineColor(kRed + 2);
     hClSizeP->SetLineWidth(2);
-    hClSizeP->DrawNormalized("same");
+    hClSizeP->Draw("same");
     leg->SetHeader("ITS2 #LT Cluster Size #GT, 0.3 < #it{p}^{ITS-TPC} < 0.4 (GeV/#it{c})");
     leg->SetMargin(0.1);
     leg->SetTextSize(2);
@@ -308,25 +343,28 @@ void pidITS()
     leg2->Draw();
 
     cClSizeTot.Write();
+    hPtRes->Write();
 
     MLtree->Write();
     outFile.Close();
 }
 
-// bool propagateToClus(const ITSCluster &clus, o2::track::TrackParCov &track, o2::its::GeometryTGeo *gman, float Bz = 5.)
-// {
-//     float alpha = gman->getSensorRefAlpha(clus.getSensorID()), x = clus.getX();
-//     int layer{gman->getLayer(clus.getSensorID())};
-//     float thick = layer < 3 ? 0.005 : 0.01;
+bool propagateToClus(const ITSCluster &clus, o2::track::TrackParCov &track, o2::its::GeometryTGeo *gman, float Bz)
+{
+    float alpha = gman->getSensorRefAlpha(clus.getSensorID()), x = clus.getX();
+    if (track.rotate(alpha))
+    {
+        auto corrType = o2::base::PropagatorImpl<float>::MatCorrType::USEMatCorrLUT;
+        auto propInstance = o2::base::Propagator::Instance();
+        float alpha = gman->getSensorRefAlpha(clus.getSensorID()), x = clus.getX();
+        int layer{gman->getLayer(clus.getSensorID())};
 
-//     if (track.rotate(alpha))
-//     {
-//         if (track.propagateTo(x, Bz))
-//         {
-//             constexpr float radl = 9.36f; // Radiation length of Si [cm]
-//             constexpr float rho = 2.33f;  // Density of Si [g/cm^3]
-//             return track.correctForMaterial(thick, thick * rho * radl);
-//         }
-//     }
-//     return false;
-// }
+        if (!track.rotate(alpha))
+            return false;
+
+        if (propInstance->propagateToX(track, x, Bz, o2::base::PropagatorImpl<float>::MAX_SIN_PHI, o2::base::PropagatorImpl<float>::MAX_STEP, corrType))
+
+            return true;
+    }
+    return false;
+}
