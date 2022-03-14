@@ -69,22 +69,27 @@ float BetheBlochParam(const float &momentum, const float &mass)
 
 float nSigmaDeu(const float &momentum, const float &TPCSignal)
 {
-    return std::abs(TPCSignal - BetheBlochParam(momentum, 1.87561)) / 0.07;
+    float dedx = BetheBlochParam(momentum, 1.87561);
+    return std::abs(TPCSignal - dedx) / (0.07 * dedx);
 }
 
 float nSigmaP(const float &momentum, const float &TPCSignal)
 {
-    return std::abs(TPCSignal - BetheBlochParam(momentum, TDatabasePDG::Instance()->GetParticle(2212)->Mass())) / 0.07;
+    float dedx = BetheBlochParam(momentum, TDatabasePDG::Instance()->GetParticle(2212)->Mass());
+    return std::abs(TPCSignal - dedx) / (0.07 * dedx);
 }
 
 float nSigmaPi(const float &momentum, const float &TPCSignal)
 {
-    return std::abs(TPCSignal - BetheBlochParam(momentum, TDatabasePDG::Instance()->GetParticle(211)->Mass())) / 0.07;
+    float dedx = BetheBlochParam(momentum, TDatabasePDG::Instance()->GetParticle(211)->Mass());
+
+    return std::abs(TPCSignal - dedx) / (0.07 * dedx);
 }
 
 float nSigmaK(const float &momentum, const float &TPCSignal)
 {
-    return std::abs(TPCSignal - BetheBlochParam(momentum, TDatabasePDG::Instance()->GetParticle(321)->Mass())) / 0.07;
+    float dedx = BetheBlochParam(momentum, TDatabasePDG::Instance()->GetParticle(321)->Mass());
+    return std::abs(TPCSignal - dedx) / (0.07 * dedx);
 }
 
 bool propagateToClus(const ITSCluster &clus, o2::track::TrackParCov &track, o2::its::GeometryTGeo *gman, float Bz = -5.);
@@ -94,7 +99,10 @@ void pidITS()
 
     TH2D *hSplines = new TH2D("ITS splines ", ";#it{p}^{ITS-TPC} (GeV/#it{c}); #LT Cluster size #GT #times Cos(#lambda) ; Counts", 300, 0, 2, 60, 0.5, 12.5);
     TH2D *hSplinesSA = new TH2D("ITS splines ITS SA ", ";#it{p}^ITS (GeV/#it{c}); #LT Cluster size #GT #times Cos(#lambda) ; Counts", 300, 0, 2, 60, 0.5, 12.5);
+    TH1D *hClSizeDeu = new TH1D("Average Cl size for deuterons ", "; #LT Cluster size #GT #times Cos(#lambda) ; Normalised Counts", 40, 0.5, 12.5);
     TH1D *hClSizeP = new TH1D("Average Cl size for protons ", "; #LT Cluster size #GT #times Cos(#lambda) ; Normalised Counts", 40, 0.5, 12.5);
+    TH1D *hClSizeK = new TH1D("Average Cl size for kaons ", "; #LT Cluster size #GT #times Cos(#lambda) ; Normalised Counts", 40, 0.5, 12.5);
+
     TH1D *hClSizePi = new TH1D("Average Cl size for pi", "; #LT Cluster size #GT #times Cos(#lambda) ; Normalised Counts", 40, 0.5, 12.5);
     TH1D *hTotClSizeP = new TH1D("Cl size for protons ", "; #LT Cluster size #GT #times Cos(#lambda) ; Normalised Counts", 13, 0.5, 13.5);
     TH1D *hTotClSizePi = new TH1D("Cl size for pi", "; #LT Cluster size #GT #times Cos(#lambda) ; Normalised Counts", 13, 0.5, 13.5);
@@ -291,7 +299,7 @@ void pidITS()
                     hSplines->Fill(ITSTPCtrack.getP(), mean);
                     hSplinesTPC->Fill(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
 
-                    if (TPCtrack.getP() < 0.9 && TPCtrack.getP() > 0.1 && ITSTPCtrack.getChi2Match() < 20)
+                    if (TPCtrack.getP() < 0.9 && TPCtrack.getP() > 0.2 && ITSTPCtrack.getChi2Match() < 20)
                     {
 
                         p = ITSTPCtrack.getP();
@@ -306,24 +314,37 @@ void pidITS()
                         double nsigmaPi = nSigmaPi(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
                         double nsigmaK = nSigmaK(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
 
-                        if (nsigmaDeu < 2 && nsigmaPi > 4 && nsigmaK > 4 && nsigmaP > 4)
+                        bool isDeu = nsigmaDeu < 2 && nsigmaPi > 4 && nsigmaK > 4 && nsigmaP > 4;
+                        bool isP = nsigmaP < 2 && nsigmaPi > 4 && nsigmaK > 4 && nsigmaDeu > 4;
+                        bool isK = nsigmaK < 2 && nsigmaPi > 4 && nsigmaDeu > 4 && nsigmaP > 4;
+                        bool isPi = nsigmaPi < 2 && nsigmaDeu > 4 && nsigmaK > 4 && nsigmaP > 4;
+
+                        if (isDeu)
                             label = 3;
-                        else if (nsigmaP < 2 && nsigmaPi > 4 && nsigmaK > 4 && nsigmaDeu > 4)
+                        else if (isP)
                             label = 2;
-                        else if (nsigmaK < 2 && nsigmaPi > 4 && nsigmaDeu > 4 && nsigmaP > 4)
+                        else if (isK)
                             label = 1;
-                        else if (nsigmaPi < 2 && nsigmaDeu > 4 && nsigmaK > 4 && nsigmaP > 4)
+                        else if (isPi)
                             label = 0;
                         else
                             label = -1;
 
                         if (TPCtrack.getP() > 0.3 && TPCtrack.getP() < 0.4)
                         {
-                            if (TPCtrack.getdEdx().dEdxTotTPC > 240)
+                            if (isDeu)
+                            {
+                                hClSizeDeu->Fill(mean);
+                            }
+                            else if (isP)
                             {
                                 hClSizeP->Fill(mean);
                             }
-                            if (TPCtrack.getdEdx().dEdxTotTPC < 80)
+                            else if (isK)
+                            {
+                                hClSizeK->Fill(mean);
+                            }
+                            else if (isPi)
                             {
                                 hClSizePi->Fill(mean);
                             }
@@ -337,7 +358,7 @@ void pidITS()
                                 if (propagateToClus(clusXYZ, ITSTPCtrack, gman))
                                     snPhiArr[layer] = ITSTPCtrack.getSnp();
                                 else
-                                    snPhiArr[layer] = -2;
+                                    snPhiArr[layer] = ITSTPCtrack.getSnp();
                             }
                             else
                                 snPhiArr[layer] = -2;
@@ -382,7 +403,6 @@ void pidITS()
     TGraphErrors *grP = new TGraphErrors(n, x, yP, ex, yPerr);
     TGraphErrors *grD = new TGraphErrors(n, x, yD, ex, yDerr);
 
-
     grPi->SetLineColor(kRed);
     grK->SetLineColor(kRed);
     grP->SetLineColor(kRed);
@@ -400,13 +420,11 @@ void pidITS()
     grK->SetFillColor(kRed);
     grD->SetFillColor(kRed);
 
-
     TMultiGraph *mg = new TMultiGraph();
     mg->Add(grPi);
     mg->Add(grP);
     mg->Add(grK);
     mg->Add(grD);
-
 
     auto cv = TCanvas("TPC splines", "TPC splines");
     hSplinesTPC->Draw("colz");
@@ -419,14 +437,26 @@ void pidITS()
     hClSizePi->SetLineWidth(2);
     hClSizePi->SetStats(0);
     hClSizePi->DrawNormalized();
+    hClSizeK->SetLineColor(kOrange + 2);
+    hClSizeK->SetLineWidth(2);
+    hClSizeK->DrawNormalized("same");
     hClSizeP->SetLineColor(kRed + 2);
     hClSizeP->SetLineWidth(2);
     hClSizeP->DrawNormalized("same");
+    hClSizeDeu->SetLineColor(kGreen + 2);
+    hClSizeDeu->SetLineWidth(2);
+    // hClSizeDeu->DrawNormalized("same");
+
     leg->SetHeader("ITS2 #LT Cluster Size #GT, 0.3 < #it{p}^{ITS-TPC} < 0.4 (GeV/#it{c})");
+    leg->SetNColumns(2);
     leg->SetMargin(0.1);
-    leg->SetTextSize(2);
+    // leg->SetTextSize(1);
     leg->AddEntry(hClSizePi, "#pi", "l");
+    leg->AddEntry(hClSizeK, "K", "l");
     leg->AddEntry(hClSizeP, "p", "l");
+    // leg->AddEntry(hClSizeDeu, "d", "l");
+
+
     leg->Draw();
     cClSize.Write();
 
