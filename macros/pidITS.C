@@ -38,8 +38,14 @@
 #include "TCanvas.h"
 #include "TStyle.h"
 #include "TLatex.h"
+#include "TGraph.h"
+#include "TGraphErrors.h"
+#include "TMultiGraph.h"
+
 #include <TSystemDirectory.h>
 #include <TSystemFile.h>
+#include <DataFormatsTPC/BetheBlochAleph.h>
+#include <TDatabasePDG.h>
 
 using GIndex = o2::dataformats::VtxTrackIndex;
 using V0 = o2::dataformats::V0;
@@ -52,6 +58,34 @@ using CompClusterExt = o2::itsmft::CompClusterExt;
 using GRPObject = o2::parameters::GRPObject;
 using ITSCluster = o2::BaseCluster<float>;
 using Vec3 = ROOT::Math::SVector<double, 3>;
+
+float BetheBlochParam(const float &momentum, const float &mass)
+{
+    std::vector<float> parameters{0.0320980996, 19.9768009, 2.52666011e-16, 2.72123003, 6.08092022};
+
+    // LOG(info) << momentum/mass;
+    return 53 * o2::tpc::BetheBlochAleph(momentum / mass, parameters[0], parameters[1], parameters[2], parameters[3], parameters[4]) * std::pow(1, 2.3);
+}
+
+float nSigmaDeu(const float &momentum, const float &TPCSignal)
+{
+    return std::abs(TPCSignal - BetheBlochParam(momentum, 1.87561)) / 0.07;
+}
+
+float nSigmaP(const float &momentum, const float &TPCSignal)
+{
+    return std::abs(TPCSignal - BetheBlochParam(momentum, TDatabasePDG::Instance()->GetParticle(2212)->Mass())) / 0.07;
+}
+
+float nSigmaPi(const float &momentum, const float &TPCSignal)
+{
+    return std::abs(TPCSignal - BetheBlochParam(momentum, TDatabasePDG::Instance()->GetParticle(211)->Mass())) / 0.07;
+}
+
+float nSigmaK(const float &momentum, const float &TPCSignal)
+{
+    return std::abs(TPCSignal - BetheBlochParam(momentum, TDatabasePDG::Instance()->GetParticle(321)->Mass())) / 0.07;
+}
 
 bool propagateToClus(const ITSCluster &clus, o2::track::TrackParCov &track, o2::its::GeometryTGeo *gman, float Bz = -5.);
 
@@ -66,17 +100,30 @@ void pidITS()
     TH1D *hTotClSizePi = new TH1D("Cl size for pi", "; #LT Cluster size #GT #times Cos(#lambda) ; Normalised Counts", 13, 0.5, 13.5);
     TH2D *hSplinesTPC = new TH2D("TPC splines ", ";#it{p}^{ITS-TPC} (GeV/#it{c}); TPC Signal ; Counts", 300, 0.05, 2, 300, 30.5, 600.5);
     TH1D *hPtRes = new TH1D("pT resolution ", ";(#it{p}^{ITS-SA} - #it{p}^{ITS-TPC})/#it{p}^{ITS-TPC}; Counts", 80, -1, 1);
+    TH2D *hChi2ClSize = new TH2D("Cluster size vs Chi2", "; Matching #chi^{2}; #LT Cluster size #GT #times Cos(#lambda) ; Counts", 300, 0, 600, 40, 0.5, 12.5);
 
     TFile outFile = TFile("pid.root", "recreate");
 
     TTree *MLtree = new TTree("ITStreeML", "ITStreeML");
-    std::array<float, 19> cand;
-    MLtree->Branch("TrackInfo", &cand);
+    std::array<float, 7> clSizeArr, snPhiArr;
+    float p, pt, tgL, meanClsize, dedx, label;
+    for (int i{0}; i < 7; i++)
+    {
+        MLtree->Branch(Form("ClSizeL%i", i), &clSizeArr[i]);
+        MLtree->Branch(Form("SnPhiL%i", i), &snPhiArr[i]);
+    }
+
+    MLtree->Branch("p", &p);
+    MLtree->Branch("pt", &pt);
+    MLtree->Branch("tgL", &tgL);
+    MLtree->Branch("meanClsize", &meanClsize);
+    MLtree->Branch("dedx", &dedx);
+    MLtree->Branch("label", &label);
 
     bool usePaki = false;
 
     // Geometry
-    o2::base::GeometryManager::loadGeometry("o2");
+    o2::base::GeometryManager::loadGeometry("o2_geometry.root");
     auto gman = o2::its::GeometryTGeo::Instance();
     gman->fillMatrixCache(o2::math_utils::bit2Mask(o2::math_utils::TransformType::T2L, o2::math_utils::TransformType::L2G));
     // Topology dictionary
@@ -107,7 +154,7 @@ void pidITS()
 
     for (auto &dir : dirs)
     {
-        // if (counter > 50)
+        // if (counter > 10)
         //     continue;
         counter++;
 
@@ -188,8 +235,8 @@ void pidITS()
                 auto &ITStrack = ITStracks->at(ITSTPCtrack.getRefITS());
                 auto &TPCtrack = TPCtracks->at(ITSTPCtrack.getRefTPC());
 
-                std::vector<CompClusterExt> TrackClus;
-                std::vector<ITSCluster> TrackClusXYZ;
+                std::array<CompClusterExt, 7> TrackClus;
+                std::array<ITSCluster, 7> TrackClusXYZ;
 
                 auto firstClus = ITStrack.getFirstClusterEntry();
                 auto ncl = ITStrack.getNumberOfClusters();
@@ -199,14 +246,9 @@ void pidITS()
                     auto &clus = (*ITSclus)[(*ITSTrackClusIdx)[firstClus + icl]];
                     auto &clusXYZ = ITSClusXYZ[(*ITSTrackClusIdx)[firstClus + icl]];
                     auto layer = gman->getLayer(clus.getSensorID());
-                    TrackClus.push_back(clus);
-                    TrackClusXYZ.push_back(clusXYZ);
+                    TrackClus[layer] = clus;
+                    TrackClusXYZ[layer] = clusXYZ;
                 }
-
-                std::reverse(TrackClus.begin(), TrackClus.end());
-                std::reverse(TrackClusXYZ.begin(), TrackClusXYZ.end());
-
-                std::vector<int> clusterSizes;
 
                 for (int layer{0}; layer < 7; layer++)
                 {
@@ -224,77 +266,82 @@ void pidITS()
 
                             npix = mdict.getNpixels(pattID);
                         }
-                        clusterSizes.push_back(npix);
+                        clSizeArr[layer] = npix;
                     }
+                    else
+                        clSizeArr[layer] = -1;
                 }
 
+                if (std::abs(ITSTPCtrack.getEta()) < 0.5)
+                {
 
-                std::sort(clusterSizes.begin(), clusterSizes.end());
-                float mean = 0;
-                if (usePaki)
-                {
-                    for (unsigned int i{0}; i < clusterSizes.size(); i++)
+                    float mean = 0, norm = 0;
+                    for (unsigned int i{0}; i < clSizeArr.size(); i++)
                     {
-                        mean += clusterSizes[i] * pakiWeights[6 - i];
+                        if (clSizeArr[i] > 0)
+                        {
+                            mean += clSizeArr[i];
+                            norm += 1;
+                        }
                     }
-                    mean /= sumPaki;
-                }
-                else
-                {
-                    for (unsigned int i{0}; i < clusterSizes.size(); i++)
-                    {
-                        mean += clusterSizes[i];
-                    }
-                    mean /= (clusterSizes.size());
-                }
-                mean *= std::sqrt(1. / (1 + ITSTPCtrack.getTgl() * ITSTPCtrack.getTgl()));
-                if ((clusterSizes.size() == 7 && usePaki == false) && std::abs(ITSTPCtrack.getEta()) < 0.5)
-                {
+                    mean /= norm;
+                    mean *= std::sqrt(1. / (1 + ITSTPCtrack.getTgl() * ITSTPCtrack.getTgl()));
 
                     hPtRes->Fill((ITStrack.getP() - ITSTPCtrack.getP()) / ITSTPCtrack.getP());
                     hSplines->Fill(ITSTPCtrack.getP(), mean);
-                    hSplinesTPC->Fill(ITSTPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
+                    hSplinesTPC->Fill(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
 
-                    if (ITSTPCtrack.getP() > 0.3 && ITSTPCtrack.getP() < 0.4)
+                    if (TPCtrack.getP() < 0.9 && TPCtrack.getP() > 0.1 && ITSTPCtrack.getChi2Match() < 20)
                     {
-                        if (TPCtrack.getdEdx().dEdxTotTPC > 240)
+
+                        p = ITSTPCtrack.getP();
+                        pt = ITSTPCtrack.getPt();
+                        tgL = ITSTPCtrack.getTgl();
+                        meanClsize = mean;
+                        dedx = TPCtrack.getdEdx().dEdxTotTPC;
+
+                        double nsigmaDeu = nSigmaDeu(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
+
+                        double nsigmaP = nSigmaP(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
+                        double nsigmaPi = nSigmaPi(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
+                        double nsigmaK = nSigmaK(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
+
+                        if (nsigmaDeu < 2 && nsigmaPi > 4 && nsigmaK > 4 && nsigmaP > 4)
+                            label = 3;
+                        else if (nsigmaP < 2 && nsigmaPi > 4 && nsigmaK > 4 && nsigmaDeu > 4)
+                            label = 2;
+                        else if (nsigmaK < 2 && nsigmaPi > 4 && nsigmaDeu > 4 && nsigmaP > 4)
+                            label = 1;
+                        else if (nsigmaPi < 2 && nsigmaDeu > 4 && nsigmaK > 4 && nsigmaP > 4)
+                            label = 0;
+                        else
+                            label = -1;
+
+                        if (TPCtrack.getP() > 0.3 && TPCtrack.getP() < 0.4)
                         {
-                            hClSizeP->Fill(mean);
-                            cand[18] = 1.;
-                        }
-                        if (TPCtrack.getdEdx().dEdxTotTPC < 80)
-                        {
-                            hClSizePi->Fill(mean);
-                            cand[18] = 0.;
-                        }
-
-                        cand[14] = ITSTPCtrack.getP();
-                        cand[15] = ITSTPCtrack.getPt();
-
-                        cand[16] = ITSTPCtrack.getPhi();
-                        cand[17] = mean;
-
-                        for (unsigned int i{0}; i < clusterSizes.size(); i++)
-                        {
-                            auto &clusXYZ = TrackClusXYZ[i];
-                            auto &iSize = clusterSizes[i];
-                            cand[i] = iSize;
-
-                            if (propagateToClus(clusXYZ, ITSTPCtrack, gman))
-                                cand[i + 7] = ITSTPCtrack.getTgl();
-                            else
-                                cand[i + 7] = 0;
-
                             if (TPCtrack.getdEdx().dEdxTotTPC > 240)
                             {
-                                hTotClSizeP->Fill(iSize);
+                                hClSizeP->Fill(mean);
                             }
                             if (TPCtrack.getdEdx().dEdxTotTPC < 80)
                             {
-                                hTotClSizePi->Fill(iSize);
+                                hClSizePi->Fill(mean);
                             }
                         }
 
+                        for (unsigned int layer{0}; layer < clSizeArr.size(); layer++)
+                        {
+                            if (ITStrack.hasHitOnLayer(layer))
+                            {
+                                auto &clusXYZ = TrackClusXYZ[layer];
+                                if (propagateToClus(clusXYZ, ITSTPCtrack, gman))
+                                    snPhiArr[layer] = ITSTPCtrack.getSnp();
+                                else
+                                    snPhiArr[layer] = -2;
+                            }
+                            else
+                                snPhiArr[layer] = -2;
+                        }
                         MLtree->Fill();
                     }
                 }
@@ -308,17 +355,73 @@ void pidITS()
         fITSclus->Close();
     }
     outFile.cd();
+
     hSplines->Write();
-    hSplinesTPC->Write();
+
+    int size = 2000;
+    Double_t x[size], ex[size], yD[size], yP[size], yPi[size], yK[size], yDerr[size], yPerr[size], yPierr[size], yKerr[size];
+    Int_t n = size;
+
+    for (Int_t i = 1; i < n; i++)
+    {
+        x[i] = i * 0.001;
+        yPi[i] = BetheBlochParam(x[i], TDatabasePDG::Instance()->GetParticle(211)->Mass());
+        yK[i] = BetheBlochParam(x[i], TDatabasePDG::Instance()->GetParticle(321)->Mass());
+        yP[i] = BetheBlochParam(x[i], TDatabasePDG::Instance()->GetParticle(2212)->Mass());
+        yD[i] = BetheBlochParam(x[i], 1.87561);
+
+        yPierr[i] = yPi[i] * 0.07;
+        yKerr[i] = yK[i] * 0.07;
+        yPerr[i] = yP[i] * 0.07;
+        yDerr[i] = yD[i] * 0.07;
+
+        ex[i] = 0.;
+    }
+    TGraphErrors *grPi = new TGraphErrors(n, x, yPi, ex, yPierr);
+    TGraphErrors *grK = new TGraphErrors(n, x, yK, ex, yKerr);
+    TGraphErrors *grP = new TGraphErrors(n, x, yP, ex, yPerr);
+    TGraphErrors *grD = new TGraphErrors(n, x, yD, ex, yDerr);
+
+
+    grPi->SetLineColor(kRed);
+    grK->SetLineColor(kRed);
+    grP->SetLineColor(kRed);
+    grD->SetLineColor(kRed);
+
+    grPi->SetMarkerColor(kRed);
+    grK->SetMarkerColor(kRed);
+    grP->SetMarkerColor(kRed);
+    grD->SetMarkerColor(kRed);
+
+    grPi->SetFillColor(kRed);
+    // grPi->SetFillStyle(3005);
+    grP->SetFillColor(kRed);
+    // grP->SetFillStyle(3005);
+    grK->SetFillColor(kRed);
+    grD->SetFillColor(kRed);
+
+
+    TMultiGraph *mg = new TMultiGraph();
+    mg->Add(grPi);
+    mg->Add(grP);
+    mg->Add(grK);
+    mg->Add(grD);
+
+
+    auto cv = TCanvas("TPC splines", "TPC splines");
+    hSplinesTPC->Draw("colz");
+    mg->GetXaxis()->SetLimits(0.03, 2);
+    mg->Draw("C3");
+    cv.Write();
 
     TCanvas cClSize = TCanvas("Cl size for p and #pi", "Cl size for p and #pi");
     auto leg = new TLegend(0.6, 0.65, 0.9, 0.85);
     hClSizePi->SetLineWidth(2);
     hClSizePi->SetStats(0);
-    hClSizePi->Draw();
+    hClSizePi->DrawNormalized();
     hClSizeP->SetLineColor(kRed + 2);
     hClSizeP->SetLineWidth(2);
-    hClSizeP->Draw("same");
+    hClSizeP->DrawNormalized("same");
     leg->SetHeader("ITS2 #LT Cluster Size #GT, 0.3 < #it{p}^{ITS-TPC} < 0.4 (GeV/#it{c})");
     leg->SetMargin(0.1);
     leg->SetTextSize(2);
@@ -327,23 +430,8 @@ void pidITS()
     leg->Draw();
     cClSize.Write();
 
-    TCanvas cClSizeTot = TCanvas("Total Cl size for p and #pi", "Cl size for p and #pi");
-    auto leg2 = new TLegend(0.6, 0.65, 0.9, 0.85);
-    hTotClSizePi->SetLineWidth(2);
-    hTotClSizePi->SetStats(0);
-    hTotClSizePi->DrawNormalized();
-    hTotClSizeP->SetLineColor(kRed + 2);
-    hTotClSizeP->SetLineWidth(2);
-    hTotClSizeP->DrawNormalized("same");
-    leg2->SetHeader("ITS2 #LT Cluster Size #GT, 0.3 < #it{p}^{ITS-TPC} < 0.4 (GeV/#it{c})");
-    leg2->SetMargin(0.1);
-    leg2->SetTextSize(2);
-    leg2->AddEntry(hTotClSizePi, "#pi", "l");
-    leg2->AddEntry(hTotClSizeP, "p", "l");
-    leg2->Draw();
-
-    cClSizeTot.Write();
     hPtRes->Write();
+    hChi2ClSize->Write();
 
     MLtree->Write();
     outFile.Close();
