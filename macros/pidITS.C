@@ -114,7 +114,7 @@ void pidITS()
 
     TTree *MLtree = new TTree("ITStreeML", "ITStreeML");
     std::array<float, 7> clSizeArr, snPhiArr;
-    float p, pt, tgL, meanClsize, dedx, label;
+    float p, pt, tgL, meanClsize, dedx, nsigmaDeu, nsigmaP, nsigmaK, nsigmaPi, label;
     for (int i{0}; i < 7; i++)
     {
         MLtree->Branch(Form("ClSizeL%i", i), &clSizeArr[i]);
@@ -126,6 +126,10 @@ void pidITS()
     MLtree->Branch("tgL", &tgL);
     MLtree->Branch("meanClsize", &meanClsize);
     MLtree->Branch("dedx", &dedx);
+    MLtree->Branch("nSigmaDeu", &nsigmaDeu);
+    MLtree->Branch("nSigmaP", &nsigmaP);
+    MLtree->Branch("nSigmaK", &nsigmaK);
+    MLtree->Branch("nSigmaPi", &nsigmaPi);
     MLtree->Branch("label", &label);
 
     bool usePaki = false;
@@ -299,25 +303,24 @@ void pidITS()
                     hSplines->Fill(ITSTPCtrack.getP(), mean);
                     hSplinesTPC->Fill(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
 
-                    if (TPCtrack.getP() < 0.9 && TPCtrack.getP() > 0.2 && ITSTPCtrack.getChi2Match() < 20)
+                    if (TPCtrack.getP() < 1. && TPCtrack.getP() > 0.1 && ITSTPCtrack.getChi2Match() < 10)
                     {
 
-                        p = ITSTPCtrack.getP();
-                        pt = ITSTPCtrack.getPt();
+                        p = TPCtrack.getP();
+                        pt = TPCtrack.getPt();
                         tgL = ITSTPCtrack.getTgl();
                         meanClsize = mean;
                         dedx = TPCtrack.getdEdx().dEdxTotTPC;
 
-                        double nsigmaDeu = nSigmaDeu(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
+                        nsigmaDeu = nSigmaDeu(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
+                        nsigmaP = nSigmaP(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
+                        nsigmaPi = nSigmaPi(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
+                        nsigmaK = nSigmaK(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
 
-                        double nsigmaP = nSigmaP(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
-                        double nsigmaPi = nSigmaPi(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
-                        double nsigmaK = nSigmaK(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
-
-                        bool isDeu = nsigmaDeu < 2 && nsigmaPi > 4 && nsigmaK > 4 && nsigmaP > 4;
-                        bool isP = nsigmaP < 2 && nsigmaPi > 4 && nsigmaK > 4 && nsigmaDeu > 4;
-                        bool isK = nsigmaK < 2 && nsigmaPi > 4 && nsigmaDeu > 4 && nsigmaP > 4;
-                        bool isPi = nsigmaPi < 2 && nsigmaDeu > 4 && nsigmaK > 4 && nsigmaP > 4;
+                        bool isDeu = nsigmaDeu < 2;
+                        bool isP = nsigmaP < 2; 
+                        bool isK = nsigmaK < 2; 
+                        bool isPi = nsigmaPi < 2;
 
                         if (isDeu)
                             label = 3;
@@ -455,7 +458,6 @@ void pidITS()
     leg->AddEntry(hClSizeK, "K", "l");
     leg->AddEntry(hClSizeP, "p", "l");
     // leg->AddEntry(hClSizeDeu, "d", "l");
-
 
     leg->Draw();
     cClSize.Write();

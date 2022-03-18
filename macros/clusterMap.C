@@ -19,6 +19,7 @@
 
 #include "ITStracking/IOUtils.h"
 #include "ReconstructionDataFormats/TrackTPCITS.h"
+#include "TSystemDirectory.h"
 #include <TRandom.h>
 #include <gsl/gsl>
 #include <TLorentzVector.h>
@@ -80,6 +81,8 @@ void clusterMap()
     TH2D *histClPositionForw = new TH2D("ClusterPositionForwardL0", "; Column ; Row ; Hits", 1024, -0.5, 1023.5, 512, -0.5, 511.5);
 
     std::vector<int> nStaves{12, 16, 20, 24, 30, 42, 48};
+    double Zmean = 0.3931; // Hard coded at the moment: "hZcoord->GetMean();"" should be used
+
     for (const auto &pixelThr : pixelThrs)
     {
         for (int layer{0}; layer < 7; layer++)
@@ -102,7 +105,7 @@ void clusterMap()
                 ClusterCounterMap[layer] = new TH2D(Form("Cluster counter map L%i", layer), "; Chip ID; Stave ID; # Clusters / # PVs", 49, -0.5, 48.5, 4 * nStaves[layer], -0.5, 4 * nStaves[layer] - 0.5);
             }
 
-            AverageClSize[layer]->SetLineStyle(5);
+            // AverageClSize[layer]->SetLineStyle(5);
             AverageClSize[layer]->SetLineColor(kRed + 2);
 
             // CL position
@@ -110,7 +113,7 @@ void clusterMap()
         }
 
         // Geometry
-        o2::base::GeometryManager::loadGeometry("utils/o2");
+        o2::base::GeometryManager::loadGeometry("o2_geometry.root");
         auto gman = o2::its::GeometryTGeo::Instance();
         gman->fillMatrixCache(o2::math_utils::bit2Mask(o2::math_utils::TransformType::T2L, o2::math_utils::TransformType::L2G));
         // Topology dictionary
@@ -119,19 +122,32 @@ void clusterMap()
 
         int nPrimaries = 0.;
 
-        std::vector<int> runNumbers = {505658};
-        for (auto &runNum : runNumbers)
+        std::string path = "/data/fmazzasc/its_data/merge";
+        TSystemDirectory dir("MyDir", path.data());
+        auto files = dir.GetListOfFiles();
+        std::vector<std::string> dirs;
+        for (auto fileObj : *files)
         {
-            std::ostringstream strDir;
-            strDir << runNum;
-            auto dir = strDir.str();
-            strDir << runNum;
+            std::string file = ((TSystemFile *)fileObj)->GetName();
+            if (file.substr(0, 6) == "o2_ctf")
+                dirs.push_back(file);
+        }
+
+        int counter = 0;
+
+        for (auto &dir : dirs)
+        {
+            if (counter > 10)
+                continue;
+            counter++;
+
+            LOG(info) << "Processing: " << counter << ", dir: " << dir;
             std::string o2clus_its_file;
             std::string primary_vertex_file;
             if (!isMC)
             {
-                o2clus_its_file = dir + "/" + "o2clus_its.root";
-                primary_vertex_file = dir + "/" + "o2_primary_vertex.root";
+                o2clus_its_file = path + "/" + dir + "/" + "o2clus_its.root";
+                primary_vertex_file = path + "/" + dir + "/" + "o2_primary_vertex.root";
             }
             else
             {
@@ -151,9 +167,8 @@ void clusterMap()
             treeITSclus->SetBranchAddress("ITSClusterComp", &ITSclus);
             treeITSclus->SetBranchAddress("ITSClusterPatt", &ITSpatt);
             treePrimaries->SetBranchAddress("PrimaryVertex", &Primaries);
-            TH1F* hZcoord = new TH1F();
+            TH1F *hZcoord = new TH1F();
             treePrimaries->Draw("mPos.fCoordinates.fZ>>hZcoord");
-            double Zmean = 0.3931; // Hard coded at the moment: "hZcoord->GetMean();"" should be used
 
             for (int frame = 0; frame < treeITSclus->GetEntriesFast(); frame++)
             {
@@ -247,200 +262,223 @@ void clusterMap()
             }
             fPrimary->Close();
             fITSclus->Close();
-            LOG(info) << nPrimaries;
+        }
+        LOG(info) << nPrimaries;
 
-            TCanvas cClusterSize = TCanvas("cClusterSize", "cClusterSize", 1200, 800);
-            TCanvas cClusterPosition = TCanvas("cClusterPosition", "cClusterPosition", 1500, 1000);
-            TCanvas cClusterPosition_L0 = TCanvas("cClusterPosition", "cClusterPosition", 1500, 1000);
-            TCanvas cClusterPositionCent_L0 = TCanvas("cClusterPositionL0Central", "cClusterPositionL0Central", 1500, 1000);
-            TCanvas cClusterPositionForw_L0 = TCanvas("cClusterPositionL0Central", "cClusterPositionL0Central", 1500, 1000);
+        TCanvas cClusterSize = TCanvas("cClusterSize", "cClusterSize", 1200, 800);
+        TCanvas cClusterPosition = TCanvas("cClusterPosition", "cClusterPosition", 1500, 1000);
+        TCanvas cClusterPosition_L0 = TCanvas("cClusterPosition", "cClusterPosition", 1500, 1000);
+        TCanvas cClusterPositionCent_L0 = TCanvas("cClusterPositionL0Central", "cClusterPositionL0Central", 1500, 1000);
+        TCanvas cClusterPositionForw_L0 = TCanvas("cClusterPositionL0Central", "cClusterPositionL0Central", 1500, 1000);
 
-            cClusterSize.Divide(4, 2);
-            cClusterPosition.Divide(3, 3);
+        cClusterSize.Divide(4, 2);
+        cClusterPosition.Divide(3, 3);
 
-            // latex
-            TLatex laClPos;
-            laClPos.SetTextSize(0.06);
-            laClPos.SetNDC();
-            laClPos.SetTextFont(42);
+        // latex
+        TLatex laClPos;
+        laClPos.SetTextSize(0.06);
+        laClPos.SetNDC();
+        laClPos.SetTextFont(42);
 
-            // LOG(info) << "Integral, " << AverageClSizeMap[0]->GetSumOfWeights() << ", entries: " << AverageClSizeMap[0]->GetEntries();
+        // LOG(info) << "Integral, " << AverageClSizeMap[0]->GetSumOfWeights() << ", entries: " << AverageClSizeMap[0]->GetEntries();
 
-            auto outFile = TFile(Form("%i/clMaps_data_thr%i.root", runNum, pixelThr), "recreate");
-            for (int layer{0}; layer < 7; layer++)
+        auto outFile = TFile(Form("clMaps_data_thr%i.root", pixelThr), "recreate");
+        for (int layer{0}; layer < 7; layer++)
+        {
+            ClSizeMaps[layer]->Scale(1. / nPrimaries);
+            AverageOccupancyMap[layer]->Scale(1. / nPrimaries);
+            AverageClSizeMap[layer]->Divide(ClusterCounterMap[layer]);
+            ClusterCounterMap[layer]->Scale(1. / nPrimaries);
+
+            if (doClPositionNorm)
             {
-                ClSizeMaps[layer]->Scale(1. / nPrimaries);
-                AverageOccupancyMap[layer]->Scale(1. / nPrimaries);
-                AverageClSizeMap[layer]->Divide(ClusterCounterMap[layer]);
-                ClusterCounterMap[layer]->Scale(1. / nPrimaries);
+                histsClPosition[layer]->Scale(1. / nPrimaries);
+            }
 
-                if (doClPositionNorm)
+            for (int i = 1; i < ClSizeMaps[layer]->GetNbinsY() + 1; i++)
+            {
+                if (layer < 3)
                 {
-                    histsClPosition[layer]->Scale(1. / nPrimaries);
-                }
-
-                for (int i = 1; i < ClSizeMaps[layer]->GetNbinsY() + 1; i++)
-                {
-                    if (layer < 3)
+                    if (i % 4 - 1 != 0)
                     {
-                        if (i % 4 - 1 != 0)
-                        {
-                            ClSizeMaps[layer]->GetYaxis()->SetBinLabel(i, "");
-                            AverageClSizeMap[layer]->GetYaxis()->SetBinLabel(i, "");
-                            AverageOccupancyMap[layer]->GetYaxis()->SetBinLabel(i, "");
-                        }
+                        ClSizeMaps[layer]->GetYaxis()->SetBinLabel(i, "");
+                        AverageClSizeMap[layer]->GetYaxis()->SetBinLabel(i, "");
+                        AverageOccupancyMap[layer]->GetYaxis()->SetBinLabel(i, "");
+                    }
 
-                        else
-                        {
-                            ClSizeMaps[layer]->GetYaxis()->SetBinLabel(i, getIBLabel(i, layer));
-                            AverageClSizeMap[layer]->GetYaxis()->SetBinLabel(i, getIBLabel(i, layer));
-                            AverageOccupancyMap[layer]->GetYaxis()->SetBinLabel(i, getIBLabel(i, layer));
-                        }
+                    else
+                    {
+                        ClSizeMaps[layer]->GetYaxis()->SetBinLabel(i, getIBLabel(i, layer));
+                        AverageClSizeMap[layer]->GetYaxis()->SetBinLabel(i, getIBLabel(i, layer));
+                        AverageOccupancyMap[layer]->GetYaxis()->SetBinLabel(i, getIBLabel(i, layer));
+                    }
+                }
+                else
+                {
+                    if (i % 8 - 1 != 0)
+                    {
+                        ClSizeMaps[layer]->GetYaxis()->SetBinLabel(i, "");
+                        AverageClSizeMap[layer]->GetYaxis()->SetBinLabel(i, "");
                     }
                     else
                     {
-                        if (i % 8 - 1 != 0)
-                        {
-                            ClSizeMaps[layer]->GetYaxis()->SetBinLabel(i, "");
-                            AverageClSizeMap[layer]->GetYaxis()->SetBinLabel(i, "");
-                        }
-                        else
-                        {
-                            ClSizeMaps[layer]->GetYaxis()->SetBinLabel(i, getOBLabel(i, layer));
-                            AverageClSizeMap[layer]->GetYaxis()->SetBinLabel(i, getOBLabel(i, layer));
-                        }
+                        ClSizeMaps[layer]->GetYaxis()->SetBinLabel(i, getOBLabel(i, layer));
+                        AverageClSizeMap[layer]->GetYaxis()->SetBinLabel(i, getOBLabel(i, layer));
                     }
                 }
-                ClSizeMaps[layer]->GetYaxis()->SetLabelSize(0.04);
-                ClSizeMaps[layer]->GetYaxis()->CenterLabels();
-                ClSizeMaps[layer]->GetZaxis()->SetTitleOffset(0.9);
-                ClSizeMaps[layer]->SetStats(0);
-                ClSizeMaps[layer]->Write();
-
-                AverageClSizeMap[layer]->GetYaxis()->SetLabelSize(0.04);
-                AverageClSizeMap[layer]->GetYaxis()->CenterLabels();
-                AverageClSizeMap[layer]->GetZaxis()->SetTitleOffset(0.9);
-                AverageClSizeMap[layer]->SetStats(0);
-                if (doLHCCplots && (layer == 0))
-                {
-                    double zvtx = (-1. / 3.* Zmean) + 4.; // proportion converting z vtx posistion into chip bin
-                    TLatex zvtxpos;
-                    zvtxpos.SetTextSize(0.025);
-                    zvtxpos.SetNDC();
-                    zvtxpos.SetTextFont(42);
-                    zvtxpos.SetTextColor(kOrange+2);
-                    zvtxpos.SetTextColorAlpha(kOrange+2, 0.8);
-                    zvtxpos.SetTextAngle(90);
-                    TCanvas cAverClusPosLhcc = TCanvas("cAvClusSizeMapLhcc", "cAvClusSizeMapLhcc", 1400, 1200);
-                    TLine zvertLine = TLine(zvtx, -0.5, zvtx, 11.5);
-                    zvertLine.SetLineWidth(2);
-                    zvertLine.SetLineStyle(9);
-                    zvertLine.SetLineColor(kOrange+2);
-                    
-                    cAverClusPosLhcc.cd();
-                    AverageClSizeMap[layer]->GetYaxis()->SetLabelSize(0.045);
-                    AverageClSizeMap[layer]->GetZaxis()->SetLabelOffset(0.005);
-                    AverageClSizeMap[layer]->GetZaxis()->SetTitleOffset(1.2);
-                    const char *AvClSizeMapLhccTitle = (isMC) ? "ALICE pp #sqrt{s} = 900 GeV, MC simulation" : Form("ALICE pp #sqrt{s} = 900 GeV, run %i", runNum);
-                    AverageClSizeMap[layer]->SetTitle(AvClSizeMapLhccTitle);
-                    AverageClSizeMap[layer]->Draw("colz");
-                    zvtxpos.DrawLatex((zvtx/10.)-0.015, 0.51, "IP, #LT z coord #GT");
-                    zvertLine.Draw("same");
-                    for (int i = 0; i < 2; i++)
-                    {
-                        const char *ClusMapSizeLhccTitle = (isMC) ? Form("cAvClusSizeMapLhcc_L0MC%s", outFormat[i]) : Form("cAvClusSizeMapLhcc_L0data%s", outFormat[i]);
-                        cAverClusPosLhcc.SaveAs(Form("LHCCplots/%s", ClusMapSizeLhccTitle));
-                    }
-                }
-                AverageClSizeMap[layer]->Write();
-
-                AverageOccupancyMap[layer]->GetYaxis()->SetLabelSize(0.04);
-                AverageOccupancyMap[layer]->GetYaxis()->CenterLabels();
-                AverageOccupancyMap[layer]->GetZaxis()->SetTitleOffset(0.9);
-                AverageOccupancyMap[layer]->SetStats(0);
-                AverageOccupancyMap[layer]->Write();
-
-                ClusterCounterMap[layer]->GetYaxis()->SetLabelSize(0.04);
-                ClusterCounterMap[layer]->GetYaxis()->CenterLabels();
-                ClusterCounterMap[layer]->GetZaxis()->SetTitleOffset(0.9);
-                ClusterCounterMap[layer]->SetStats(0);
-                ClusterCounterMap[layer]->Write();
-
-                TH2D *ClusTimesOcc = (TH2D *)AverageClSizeMap[layer]->Clone(Form("Cluster size x Occupancy chip map L%i", layer));
-                ClusTimesOcc->Multiply(AverageOccupancyMap[layer]);
-                ClusTimesOcc->GetZaxis()->SetTitle("#LT Cluster size #GT x < Occupancy >");
-                ClusTimesOcc->Write();
-
-                auto c = cClusterSize.cd(layer + 1);
-                c->SetLogy();
-                AverageClSize[layer]->GetYaxis()->SetDecimals();
-                AverageClSize[layer]->GetYaxis()->SetTitleOffset(1.);
-                AverageClSize[layer]->SetStats(1);
-                AverageClSize[layer]->SetLineWidth(2);
-                AverageClSize[layer]->DrawCopy();
-
-                cClusterPosition.cd(layer + 1);
-                histsClPosition[layer]->SetTitle(Form("L%i CL Position", layer));
-                histsClPosition[layer]->Draw("colz");
-
-                if (layer == 0)
-                {
-                    cClusterPosition_L0.cd();
-                    histsClPosition[layer]->GetZaxis()->SetTitle(Form("CL > %i", pixelThr));
-                    histsClPosition[layer]->Draw("colz");
-                    for (int i = 0; i < 2; i++)
-                    {
-                        cClusterPosition_L0.SaveAs(Form("cClPosition_L0_100%s", outFormat[i]));
-                    }
-
-                    cClusterPositionCent_L0.cd();
-                    histClPositionCent->SetTitle("ALICE pp #sqrt{s} = 900 GeV, Layer 0, -0.64 < #eta < 0.64 ");
-                    histClPositionCent->SetStats(0);
-
-
-                    histClPositionCent->Draw("colz");
-                    for (int i = 0; i < 2; i++)
-                    {
-                        cClusterPositionCent_L0.SaveAs(Form("CentralChipMap%s", outFormat[i]));
-                    }
-                    cClusterPositionForw_L0.cd();
-                    histClPositionForw->Draw("colz");
-                    histClPositionForw->SetTitle("ALICE pp #sqrt{s} = 900 GeV, Layer 0, 2.3 < #eta < 2.5 ");
-                    histClPositionForw->SetStats(0);
-
-                    for (int i = 0; i < 2; i++)
-                    {
-                        cClusterPositionForw_L0.SaveAs(Form("ForwardChipMap%s", outFormat[i]));
-                    }
-
-                    histsClPosition[8] = new TH2D();
-                    histsClPosition[8]->Clone(Form("ClusterPositionVsL%i", layer));
-                    histsClPosition[8]->SetTitle("Overall CL Position");
-                }
-
-                else if (layer + 2 == 8)
-                {
-                    cClusterPosition.cd(layer + 2);
-                    if (doClPositionNorm)
-                    {
-                        histsClPosition[8]->Scale(1. / nPrimaries);
-                    }
-                    histsClPosition[8]->Draw("colz");
-                    cClusterPosition.cd(layer + 3);
-                    laClPos.DrawLatex(0.15, 0.6, Form("Large cluster position in ITS chip (Cl size > %i)", pixelThr));
-                }
-                histsClPosition[8]->Add(histsClPosition[layer]); // Adding layers
             }
-            cClusterPosition.Write();
-            for (int i = 0; i < 2; i++)
+
+            ClSizeMaps[layer]->GetYaxis()->SetLabelSize(0.04);
+            ClSizeMaps[layer]->GetYaxis()->CenterLabels();
+            ClSizeMaps[layer]->GetZaxis()->SetTitleOffset(0.9);
+            ClSizeMaps[layer]->SetStats(0);
+            ClSizeMaps[layer]->Write();
+
+            AverageClSizeMap[layer]->GetYaxis()->SetLabelSize(0.04);
+            AverageClSizeMap[layer]->GetYaxis()->CenterLabels();
+            AverageClSizeMap[layer]->GetZaxis()->SetTitleOffset(0.9);
+            AverageClSizeMap[layer]->SetStats(0);
+            if (doLHCCplots && layer == 0)
             {
-                const char *strClusPos = (isMC) ? Form("cClPosition_MC_thr%i%s", pixelThr, outFormat[i]) : Form("cClPosition_thr%i%s", pixelThr, outFormat[i]);
-                cClusterPosition.SaveAs(strClusPos);
+                double zvtx = (-1. / 3. * Zmean) + 4.; // proportion converting z vtx posistion into chip bin
+                TLatex zvtxpos;
+                zvtxpos.SetTextSize(0.025);
+                zvtxpos.SetNDC();
+                zvtxpos.SetTextFont(42);
+                zvtxpos.SetTextColor(kOrange + 2);
+                zvtxpos.SetTextColorAlpha(kOrange + 2, 0.8);
+                zvtxpos.SetTextAngle(90);
+                TCanvas cAverClusPosLhcc = TCanvas("cAvClusSizeMapLhcc", "cAvClusSizeMapLhcc", 1400, 1200);
+                TLine zvertLine = TLine(zvtx, -0.5, zvtx, 11.5);
+                zvertLine.SetLineWidth(2);
+                zvertLine.SetLineStyle(9);
+                zvertLine.SetLineColor(kOrange + 2);
+
+                cAverClusPosLhcc.cd();
+                AverageClSizeMap[layer]->GetYaxis()->SetLabelSize(0.045);
+                AverageClSizeMap[layer]->GetZaxis()->SetLabelOffset(0.005);
+                AverageClSizeMap[layer]->GetZaxis()->SetTitleOffset(1.2);
+                const char *AvClSizeMapLhccTitle = (isMC) ? "ALICE pp #sqrt{s} = 900 GeV, MC simulation" : "ALICE pp #sqrt{s} = 900 GeV";
+                AverageClSizeMap[layer]->SetTitle(AvClSizeMapLhccTitle);
+                AverageClSizeMap[layer]->Draw("colz");
+                zvtxpos.DrawLatex((zvtx / 10.) - 0.015, 0.51, "IP, #LT z coord #GT");
+                zvertLine.Draw("same");
+                for (int i = 0; i < 2; i++)
+                {
+                    const char *ClusMapSizeLhccTitle = (isMC) ? Form("cAvClusSizeMapLhcc_L0MC%s", outFormat[i]) : Form("cAvClusSizeMapLhcc_L0data%s", outFormat[i]);
+                    cAverClusPosLhcc.SaveAs(Form("LHCCplots/%s", ClusMapSizeLhccTitle));
+                }
             }
-            AverageClSize[0]->GetYaxis()->SetTitleOffset(1.);
-            cClusterSize.Write();
-            outFile.Close();
+            AverageClSizeMap[layer]->Write();
+            AverageOccupancyMap[layer]->GetYaxis()->SetLabelSize(0.04);
+            AverageOccupancyMap[layer]->GetYaxis()->CenterLabels();
+            AverageOccupancyMap[layer]->GetZaxis()->SetTitleOffset(0.9);
+            AverageOccupancyMap[layer]->SetStats(0);
+            AverageOccupancyMap[layer]->Write();
+
+            ClusterCounterMap[layer]->GetYaxis()->SetLabelSize(0.04);
+            ClusterCounterMap[layer]->GetYaxis()->CenterLabels();
+            ClusterCounterMap[layer]->GetZaxis()->SetTitleOffset(0.9);
+            ClusterCounterMap[layer]->SetStats(0);
+            ClusterCounterMap[layer]->Write();
+
+            TH2D *ClusTimesOcc = (TH2D *)AverageClSizeMap[layer]->Clone(Form("Cluster size x Occupancy chip map L%i", layer));
+            ClusTimesOcc->Multiply(AverageOccupancyMap[layer]);
+            ClusTimesOcc->GetZaxis()->SetTitle("#LT Cluster size #GT x < Occupancy >");
+            ClusTimesOcc->Write();
+
+            auto c = cClusterSize.cd(layer + 1);
+            c->SetLogy();
+            AverageClSize[layer]->GetYaxis()->SetDecimals();
+            AverageClSize[layer]->GetYaxis()->SetTitleOffset(1.);
+            AverageClSize[layer]->SetStats(1);
+            AverageClSize[layer]->SetLineWidth(2);
+            AverageClSize[layer]->DrawCopy();
+
+            cClusterPosition.cd(layer + 1);
+            histsClPosition[layer]->SetTitle(Form("L%i CL Position", layer));
+            histsClPosition[layer]->Draw("colz");
+
+            if (layer == 0)
+            {
+                cClusterPosition_L0.cd();
+                histsClPosition[layer]->GetZaxis()->SetTitle(Form("CL > %i", pixelThr));
+                histsClPosition[layer]->Draw("colz");
+                for (int i = 0; i < 2; i++)
+                {
+                    cClusterPosition_L0.SaveAs(Form("cClPosition_L0_100%s", outFormat[i]));
+                }
+
+                cClusterPositionCent_L0.cd();
+                histClPositionCent->SetTitle("ALICE pp #sqrt{s} = 900 GeV, Layer 0, -0.64 < #eta < 0.64 ");
+                histClPositionCent->SetStats(0);
+
+                histClPositionCent->Draw("colz");
+                for (int i = 0; i < 2; i++)
+                {
+                    cClusterPositionCent_L0.SaveAs(Form("CentralChipMap%s", outFormat[i]));
+                }
+                cClusterPositionForw_L0.cd();
+                histClPositionForw->Draw("colz");
+                histClPositionForw->SetTitle("ALICE pp #sqrt{s} = 900 GeV, Layer 0, 2.3 < #eta < 2.5 ");
+                histClPositionForw->SetStats(0);
+
+                for (int i = 0; i < 2; i++)
+                {
+                    cClusterPositionForw_L0.SaveAs(Form("ForwardChipMap%s", outFormat[i]));
+                }
+
+                histsClPosition[8] = new TH2D();
+                histsClPosition[8]->Clone(Form("ClusterPositionVsL%i", layer));
+                histsClPosition[8]->SetTitle("Overall CL Position");
+            }
+
+            else if (layer + 2 == 8)
+            {
+                cClusterPosition.cd(layer + 2);
+                if (doClPositionNorm)
+                {
+                    histsClPosition[8]->Scale(1. / nPrimaries);
+                }
+                histsClPosition[8]->Draw("colz");
+                cClusterPosition.cd(layer + 3);
+                laClPos.DrawLatex(0.15, 0.6, Form("Large cluster position in ITS chip (Cl size > %i)", pixelThr));
+            }
+            histsClPosition[8]->Add(histsClPosition[layer]); // Adding layers
         }
+        cClusterPosition.Write();
+        for (int i = 0; i < 2; i++)
+        {
+            const char *strClusPos = (isMC) ? Form("cClPosition_MC_thr%i%s", pixelThr, outFormat[i]) : Form("cClPosition_thr%i%s", pixelThr, outFormat[i]);
+            cClusterPosition.SaveAs(strClusPos);
+        }
+        AverageClSize[0]->GetYaxis()->SetTitleOffset(1.);
+        cClusterSize.Write();
+
+        auto cClSizeOB = TCanvas("cClusterSizeOB", "cClusterSizeOB");
+        AverageClSize[3]->GetYaxis()->SetTitle("Normalised Counts");
+        AverageClSize[3]->GetXaxis()->SetTitle("Cluster Size");
+        AverageClSize[3]->GetXaxis()->SetRangeUser(1, 100);
+
+        AverageClSize[3]->SetLineColor(kOrange);
+        AverageClSize[3]->DrawNormalized();
+        AverageClSize[4]->SetLineColor(kRed);
+        AverageClSize[4]->DrawNormalized("same");
+        AverageClSize[5]->SetLineColor(kGreen);
+        AverageClSize[5]->DrawNormalized("same");
+        AverageClSize[6]->SetLineColor(kBlue);
+        AverageClSize[6]->DrawNormalized("same");
+
+        auto leg = new TLegend(0.6, 0.65, 0.8, 0.85);
+        leg->SetNColumns(2);
+        leg->SetMargin(0.2);
+        leg->AddEntry(AverageClSize[3], "L3", "l");
+        leg->AddEntry(AverageClSize[4], "L4", "l");
+        leg->AddEntry(AverageClSize[5], "L5", "l");
+        leg->AddEntry(AverageClSize[6], "L6", "l");
+        leg->Draw();
+        cClSizeOB.Write();
+        outFile.Close();
     }
 }
 

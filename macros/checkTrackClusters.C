@@ -19,6 +19,7 @@
 #include "ReconstructionDataFormats/TrackTPCITS.h"
 
 #include <gsl/gsl>
+#include "TSystemDirectory.h"
 #include <TLorentzVector.h>
 #include "TCanvas.h"
 #include "TFile.h"
@@ -48,9 +49,18 @@ using CompClusterExt = o2::itsmft::CompClusterExt;
 using ITSCluster = o2::BaseCluster<float>;
 using Vec3 = ROOT::Math::SVector<double, 3>;
 
-void checkClustersITS()
+void checkTrackClusters()
 {
+    bool useITSonly = true;
+    std::string itsOnlyStr = useITSonly ? "ITS-SA" : "ITS-TPC";
+
+    double ptmax = 5;
+    double ptbins = ptmax / 0.033;
+
+    int clsize_min = 0;
+    int clsize_max = 80;
     std::vector<TH2D *> histsPt(7);
+    std::vector<TH2D *> histsPz(7);
     std::vector<TH2D *> histsPt0(7);
     std::vector<TH2D *> histsPt1(7);
     std::vector<TH2D *> histsPt2(7);
@@ -65,18 +75,20 @@ void checkClustersITS()
         std::ostringstream str;
         str << "Cluster Size for L" << layer;
         std::string histsName = str.str();
-        // pt
-        histsClSize[layer] = new TH1D((histsName).data(), ("; " + histsName + "; Cluster size; Counts").data(), 99, 1, 100);
-        histsPt[layer] = new TH2D((histsName + "vs pT").data(), ("; " + histsName + "; #it{p}_{T}^{ITS} (GeV/#it{c}); Counts").data(), 14, 1, 15, 30, 0, 1);
-        histsPt0[layer] = new TH2D((histsName + "vs pT 0").data(), ("; " + histsName + "; #it{p}_{T}^{ITS} (GeV/#it{c}); Counts").data(), 14, 1, 15, 30, 0, 1);
-        histsPt1[layer] = new TH2D((histsName + "vs pT 1").data(), ("; " + histsName + "; #it{p}_{T}^{ITS} (GeV/#it{c}); Counts").data(), 14, 1, 15, 30, 0, 1);
-        histsPt2[layer] = new TH2D((histsName + "vs pT 2").data(), ("; " + histsName + "; #it{p}_{T}^{ITS} (GeV/#it{c}); Counts").data(), 14, 1, 15, 30, 0, 1);
-        histsPtMean_EtaUnder4[layer] = new TH1D((histsName + "mean vs pt (eta < 0.4)").data(), ("; #it{p}_{T}^{ITS} (GeV/#it{c}) ; Average " + histsName + "; Counts").data(), 30, 0, 1);
-        histsPtMean_EtaUnder8[layer] = new TH1D((histsName + "mean vs pt (0.4 < eta < 0.8)").data(), ("; #it{p}_{T}^{ITS} (GeV/#it{c}); Average " + histsName + "; Counts").data(), 30, 0, 1);
-        histsPtMean_EtaOver8[layer] = new TH1D((histsName + "mean vs pt (eta > 0.8)").data(), ("; #it{p}_{T}^{ITS} (GeV/#it{c}) ; Average " + histsName + "; Counts").data(), 30, 0, 1);
+        std::string pString = Form("#it{p}_{T}^{%s}", itsOnlyStr.data());
+
+        histsClSize[layer] = new TH1D((histsName).data(), ("; " + histsName + "; Cluster size; Counts").data(), 80, 0.5, 80.5);
+        histsPt[layer] = new TH2D((histsName + Form("vs pT CL size%i", clsize_max)).data(), ("; " + histsName + Form("; %s (GeV/#it{c}); Counts", pString.data())).data(), (clsize_max - clsize_min), clsize_min, clsize_max, ptbins, 0, ptmax);
+        histsPz[layer] = new TH2D((histsName + Form("vs pz CL size%i", clsize_max)).data(), ("; " + histsName + Form("; %s (GeV/#it{c}); Counts", pString.data())).data(), (clsize_max - clsize_min), clsize_min, clsize_max, ptbins, 0, ptmax);
+        histsPt0[layer] = new TH2D((histsName + "vs pT 0").data(), ("; " + histsName + Form("; %s (GeV/#it{c}); Counts", pString.data())).data(), 14, 1, 15, 30, 0, 1);
+        histsPt1[layer] = new TH2D((histsName + "vs pT 1").data(), ("; " + histsName + Form("; %s (GeV/#it{c}); Counts", pString.data())).data(), 14, 1, 15, 30, 0, 1);
+        histsPt2[layer] = new TH2D((histsName + "vs pT 2").data(), ("; " + histsName + Form("; %s (GeV/#it{c}); Counts", pString.data())).data(), 14, 1, 15, 30, 0, 1);
+        histsPtMean_EtaUnder4[layer] = new TH1D((histsName + "mean vs pt (eta < 0.4)").data(), (Form("; %s (GeV/#it{c}) ; Average ", pString.data()) + histsName + "; Counts").data(), 30, 0, 1);
+        histsPtMean_EtaUnder8[layer] = new TH1D((histsName + "mean vs pt (0.4 < eta < 0.8)").data(), (Form("; %s (GeV/#it{c}) ; Average ", pString.data()) + histsName + "; Counts").data(), 30, 0, 1);
+        histsPtMean_EtaOver8[layer] = new TH1D((histsName + "mean vs pt (eta > 0.8)").data(), (Form("; %s (GeV/#it{c}) ; Average ", pString.data()) + histsName + "; Counts").data(), 30, 0, 1);
 
         // eta
-        histsEta[layer] = new TH2D((histsName + "vs eta").data(), ("; " + histsName + "; #eta; Counts").data(), 14, 1, 15, 40, -2, 2);
+        histsEta[layer] = new TH2D((histsName + Form("vs eta CL size%i", clsize_max)).data(), ("; " + histsName + "; #eta; counts").data(), (clsize_max - clsize_min), clsize_min, clsize_max, 40, -2, 2);
 
         // style
         histsPtMean_EtaUnder4[layer]->SetMarkerStyle(kOpenCircle);
@@ -96,37 +108,59 @@ void checkClustersITS()
 
         histsClSize[layer]->SetMarkerStyle(kOpenCross);
         histsClSize[layer]->SetMarkerColor(kRed + 2);
-        histsClSize[layer]->SetLineStyle(5);
+        // histsClSize[layer]->SetLineStyle(5);
         histsClSize[layer]->SetLineColor(kRed + 2);
     }
 
     // Geometry
-    o2::base::GeometryManager::loadGeometry("o2");
+    o2::base::GeometryManager::loadGeometry("o2_geometry.root");
     auto gman = o2::its::GeometryTGeo::Instance();
     gman->fillMatrixCache(o2::math_utils::bit2Mask(o2::math_utils::TransformType::T2L, o2::math_utils::TransformType::L2G));
     // Topology dictionary
     o2::itsmft::TopologyDictionary mdict;
-    mdict.readFromFile(o2::base::DetectorNameConf::getAlpideClusterDictionaryFileName(o2::detectors::DetID::ITS, ""));
+    mdict.readFromFile(o2::base::DetectorNameConf::getAlpideClusterDictionaryFileName(o2::detectors::DetID::ITS, "utils/ITSdictionary.bin"));
 
-    std::vector<int> runNumbers = {505658};
-    for (auto &runNum : runNumbers)
+    std::string path = "/data/fmazzasc/its_data/test_pass2";
+    TSystemDirectory dir("MyDir", path.data());
+    auto files = dir.GetListOfFiles();
+    std::vector<std::string> dirs;
+    for (auto fileObj : *files)
     {
-        std::ostringstream strDir;
-        strDir << runNum;
-        auto dir = strDir.str();
+        std::string file = ((TSystemFile *)fileObj)->GetName();
+        if (file.substr(0, 6) == "o2_ctf")
+            dirs.push_back(file);
+    }
 
-        std::string o2trac_its_file = dir + "/" + "o2trac_its.root";
-        std::string o2clus_its_file = dir + "/" + "o2clus_its.root";
+    int counter = 0;
+
+    for (auto &dir : dirs)
+    {
+        if (counter > 20)
+            continue;
+        counter++;
+
+        LOG(info) << "Processing: " << counter << ", dir: " << dir;
+
+        std::string o2match_itstpc_file = path + "/" + dir + "/" + "o2match_itstpc.root";
+        std::string o2trac_its_file = path + "/" + dir + "/" + "o2trac_its.root";
+        std::string o2clus_its_file = path + "/" + dir + "/" + "o2clus_its.root";
 
         // Files
+        auto fITSTPC = TFile::Open(o2match_itstpc_file.data());
         auto fITS = TFile::Open(o2trac_its_file.data());
         auto fITSclus = TFile::Open(o2clus_its_file.data());
 
+        if (!fITS || !fITSTPC || !fITSclus)
+            continue;
+
+        auto treeITSTPC = (TTree *)fITSTPC->Get("matchTPCITS");
         auto treeITS = (TTree *)fITS->Get("o2sim");
         auto treeITSclus = (TTree *)fITSclus->Get("o2sim");
 
         // Tracks
+        std::vector<o2::dataformats::TrackTPCITS> *TPCITStracks = nullptr;
         std::vector<o2::its::TrackITS> *ITStracks = nullptr;
+
         std::vector<int> *ITSTrackClusIdx = nullptr;
 
         // Clusters
@@ -135,28 +169,34 @@ void checkClustersITS()
 
         // Setting branches
         treeITS->SetBranchAddress("ITSTrack", &ITStracks);
+        treeITSTPC->SetBranchAddress("TPCITS", &TPCITStracks);
+
         treeITS->SetBranchAddress("ITSTrackClusIdx", &ITSTrackClusIdx);
         treeITSclus->SetBranchAddress("ITSClusterComp", &ITSclus);
         treeITSclus->SetBranchAddress("ITSClusterPatt", &ITSpatt);
 
-        bool useITSonly = true;
+        auto &loopTree = useITSonly ? treeITS : treeITSTPC;
 
-        for (int frame = 0; frame < treeITS->GetEntriesFast(); frame++)
+        for (int frame = 0; frame < loopTree->GetEntriesFast(); frame++)
         {
 
-            if (!treeITSclus->GetEvent(frame) || !treeITS->GetEvent(frame))
+            if (!loopTree->GetEvent(frame) || !treeITSclus->GetEvent(frame) || !treeITS->GetEvent(frame))
                 continue;
 
             auto pattIt = ITSpatt->cbegin();
-            
-            for (unsigned int iTrack{0}; iTrack < ITStracks->size(); ++iTrack)
+
+            int trackSize = useITSonly ? ITStracks->size() : TPCITStracks->size();
+
+            for (int iTrack{0}; iTrack < trackSize; ++iTrack)
             {
 
+                int trackPos = useITSonly ? iTrack : int(TPCITStracks->at(iTrack).getRefITS());
+                auto &ITStrack = ITStracks->at(trackPos);
 
-                auto &ITStrack = ITStracks->at(iTrack);
-
+                o2::track::TrackParCov baseTrack(useITSonly ? (o2::track::TrackParCov)ITStrack : TPCITStracks->at(iTrack));
 
                 std::vector<CompClusterExt> TrackClus;
+
                 auto firstClus = ITStrack.getFirstClusterEntry();
                 auto ncl = ITStrack.getNumberOfClusters();
 
@@ -189,26 +229,30 @@ void checkClustersITS()
 
                         histsClSize[layer]->Fill(npix);
 
-                        histsPt[layer]->Fill(npix, ITStrack.getPt());
-                        histsEta[layer]->Fill(npix, ITStrack.getEta());
+                        histsPt[layer]->Fill(npix, baseTrack.getPt());
+                        double pz = TMath::Sqrt(pow(baseTrack.getP(), 2) - pow(baseTrack.getPt(), 2));
+                        histsPz[layer]->Fill(npix, pz);
+                        histsEta[layer]->Fill(npix, baseTrack.getEta());
 
-                        if (abs(ITStrack.getEta()) < 0.4)
+                        if (abs(baseTrack.getEta()) < 0.4)
                         {
-                            histsPt0[layer]->Fill(npix, ITStrack.getPt());
+                            histsPt0[layer]->Fill(npix, baseTrack.getPt());
                         }
-                        else if ((abs(ITStrack.getEta()) > 0.4) && (abs(ITStrack.getEta()) < 0.8))
+                        else if ((abs(baseTrack.getEta()) > 0.4) && (abs(baseTrack.getEta()) < 0.8))
                         {
-                            histsPt1[layer]->Fill(npix, ITStrack.getPt());
+                            histsPt1[layer]->Fill(npix, baseTrack.getPt());
                         }
                         else
-                            histsPt2[layer]->Fill(npix, ITStrack.getPt());
+                            histsPt2[layer]->Fill(npix, baseTrack.getPt());
                     }
                 }
             }
         }
         treeITS->ResetBranchAddresses();
+        treeITSTPC->ResetBranchAddresses();
         treeITSclus->ResetBranchAddresses();
         fITS->Close();
+        fITSTPC->Close();
         fITSclus->Close();
     }
 
@@ -227,16 +271,18 @@ void checkClustersITS()
         }
     }
 
-    auto outFile = TFile("clusITS_SA_run.root", "recreate");
+    auto outFile = TFile("clusITS_pass2.root", "recreate");
 
     // canvases
     TCanvas cClusterSize = TCanvas("cClusterSize", "cClusterSize", 1200, 800);
-    TCanvas cClusterEta = TCanvas("cClusterEta", "cClusterEta", 1200, 800);
-    TCanvas cClusterPt = TCanvas("cClusterPt", "cClusterPt", 1200, 800);
+    TCanvas cClusterEta = TCanvas(Form("cClusterEta%i", clsize_max), Form("cClusterEta%i", clsize_max), 2200, 1200);
+    TCanvas cClusterPt = TCanvas(Form("cClusterPt%i", clsize_max), Form("cClusterPt%i", clsize_max), 2200, 1200);
+    TCanvas cClusterPz = TCanvas(Form("cClusterPz%i", clsize_max), Form("cClusterPz%i", clsize_max), 2200, 1200);
     TCanvas cClusterMeanVsPt = TCanvas("cClusterMeanVsPt", "cClusterMeanVsPt", 1200, 800);
     cClusterSize.Divide(4, 2);
     cClusterEta.Divide(4, 2);
     cClusterPt.Divide(4, 2);
+    cClusterPz.Divide(4, 2);
     cClusterMeanVsPt.Divide(4, 2);
 
     // legends
@@ -254,46 +300,63 @@ void checkClustersITS()
     laCluster.SetTextFont(42);
 
     // style
-    gStyle->SetPalette(82);
-    gStyle->SetPadTopMargin(0.035);
-    gStyle->SetPadRightMargin(2.);
-    gStyle->SetPadLeftMargin(0.0);
-    gStyle->SetOptStat(0);
+    gStyle->SetPalette(55);
+    gStyle->SetPadRightMargin(0.15);
+    // gStyle->SetPadLeftMargin(0.005);
+    // gStyle->SetOptStat(0);
+    gStyle->SetOptStat("eimrou");
+    gStyle->SetStatY(0.9);
+    gStyle->SetStatX(0.8);
+    gStyle->SetStatW(0.4);
 
     for (int layer{0}; layer < 7; layer++)
     {
-        LOG(INFO) << "Layer " << layer << ", " <<"percentage of Clusters with > 15 pixels : " << histsClSize[layer]->Integral(15, 99) /  histsClSize[layer]->Integral();
         auto c = cClusterSize.cd(layer + 1);
         c->SetLogy();
         histsClSize[layer]->GetYaxis()->SetDecimals();
         histsClSize[layer]->GetYaxis()->SetTitleOffset(1.);
-
+        histsClSize[layer]->SetStats(1);
         histsClSize[layer]->DrawCopy();
         if (layer + 1 == 7)
         {
             cClusterSize.cd(8);
-            laCluster.DrawLatex(0.2, 0.6, "ITS cluster size, ITS SA tracks");
+            laCluster.DrawLatex(0.2, 0.6, "ITS cluster size");
         }
 
         cClusterEta.cd(layer + 1);
         histsEta[layer]->GetYaxis()->SetDecimals();
-        histsEta[layer]->GetYaxis()->SetTitleOffset(1.3);
+        histsEta[layer]->GetYaxis()->SetTitleOffset(1.2);
+        histsEta[layer]->GetZaxis()->SetTitleOffset(1.4);
         histsEta[layer]->DrawCopy("colz");
         if (layer + 1 == 7)
         {
             cClusterEta.cd(8);
-            laCluster.DrawLatex(0.2, 0.6, "ITS cluster study vs #eta, ITS SA tracks");
+            laCluster.DrawLatex(0.2, 0.6, "ITS cluster study vs #eta");
+            laCluster.DrawLatex(0.2, 0.55, Form("(%i< CL size < %i)", clsize_min, clsize_max));
         }
 
         cClusterPt.cd(layer + 1);
         histsPt[layer]->GetYaxis()->SetDecimals();
-        histsPt[layer]->GetYaxis()->SetTitleOffset(1.3);
+        histsPt[layer]->GetYaxis()->SetTitleOffset(1.2);
+        histsPt[layer]->GetZaxis()->SetTitleOffset(1.3);
+        histsPt[layer]->SetStats(0);
         histsPt[layer]->DrawCopy("colz");
+
+        cClusterPz.cd(layer + 1);
+        gPad->SetFillStyle(0);
+        histsPz[layer]->GetYaxis()->SetDecimals();
+        histsPz[layer]->GetYaxis()->SetTitleOffset(1.2);
+        histsPz[layer]->GetZaxis()->SetTitleOffset(1.4);
+        histsPz[layer]->DrawCopy("colz");
 
         if (layer + 1 == 7)
         {
             cClusterPt.cd(8);
-            laCluster.DrawLatex(0.2, 0.6, "ITS cluster study vs #it{p}_{T}, ITS SA tracks");
+            laCluster.DrawLatex(0.2, 0.6, Form("%s cluster study vs #it{p}_{T}", itsOnlyStr.data()));
+            laCluster.DrawLatex(0.2, 0.55, Form("(%i< CL size < %i)", clsize_min, clsize_max));
+            cClusterPz.cd(8);
+            laCluster.DrawLatex(0.2, 0.6, Form("%s cluster study vs #it{p}_{z}", itsOnlyStr.data()));
+            laCluster.DrawLatex(0.2, 0.55, Form("(%i< CL size < %i)", clsize_min, clsize_max));
         }
 
         cClusterMeanVsPt.cd(layer + 1);
@@ -305,20 +368,42 @@ void checkClustersITS()
             cClusterMeanVsPt.cd(8);
             lClusterMeanVsPt.Draw("same");
         }
-
-        // histsPt[layer]->Write();
-        // histsEta[layer]->Write();
-        // histsPtMean_EtaUnder4[layer]->Write();
-        // histsPtMean_EtaUnder8[layer]->Write();
-        // histsPtMean_EtaOver8[layer]->Write();
     }
-
     cClusterSize.Write();
-
     cClusterEta.Write();
     cClusterPt.Write();
+    cClusterPz.Write();
     cClusterMeanVsPt.Write();
 
+    auto cClSizeOB = TCanvas("cClusterSizeOB", "cClusterSizeOB");
+    cClSizeOB.SetLogy();
+    histsClSize[3]->GetYaxis()->SetTitle("Normalised Counts");
+    histsClSize[3]->GetXaxis()->SetTitle(Form("%s Tracks Cluster Size", itsOnlyStr.data()));
+    // histsClSize[3]->SetMaximum(0.4);
+
+    histsClSize[3]->SetLineColor(kOrange);
+    histsClSize[3]->DrawNormalized();
+    histsClSize[4]->SetLineColor(kRed);
+    histsClSize[4]->DrawNormalized("same");
+    histsClSize[5]->SetLineColor(kGreen);
+    histsClSize[5]->DrawNormalized("same");
+    histsClSize[6]->SetLineColor(kBlue);
+    histsClSize[6]->DrawNormalized("same");
+
+    auto leg = new TLegend(0.6, 0.65, 0.8, 0.85);
+    leg->SetNColumns(2);
+    leg->SetMargin(0.2);
+    leg->AddEntry(histsClSize[3], "L3", "l");
+    leg->AddEntry(histsClSize[4], "L4", "l");
+    leg->AddEntry(histsClSize[5], "L5", "l");
+    leg->AddEntry(histsClSize[6], "L6", "l");
+    leg->Draw();
+    cClSizeOB.Write();
+
+    cClusterEta.SaveAs(Form("ITSTPCclusterVsEta%i_%i.pdf", clsize_min, clsize_max));
+    cClusterPt.SaveAs(Form("ITSTPCclusterVsPt%i_%i.pdf", clsize_min, clsize_max));
+    cClusterPz.SaveAs(Form("ITSTPCclusterVsPz%i_%i.pdf", clsize_min, clsize_max));
+    cClusterMeanVsPt.SaveAs("ITSClusterMeanVsPt.pdf");
 
     outFile.Close();
 }
