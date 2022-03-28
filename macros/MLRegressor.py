@@ -28,6 +28,43 @@ from flaml import AutoML
 
 from ROOT import TFile, TH2F, TH1F, TH1D, TCanvas, TLegend, TGraph, kRed, kBlue, kAzure, kSpring, kGreen, kOrange, kGray, kBlack, TGaxis,gPad, TLatex # pylint: disable=import-error,no-name-in-module
 
+def augment_particles(df_train, l_mother, l_dau, pmin, pmax):
+    m = [0.13957000,  0.4937, 0.93827200]
+    m_mother =  m[l_mother]
+    m_dau =  m[l_dau]
+
+    len_df_mother = len(df_train.query(f'label == {l_mother} and {pmin} < p < {pmax}'))
+    len_df_dau = len(df_train.query(f'label == {l_dau} and {pmin} < p < {pmax}'))
+
+    momentum_range_mother = [pmin*m_mother/m_dau, pmax*m_mother/m_dau]
+    df_train_sel_mother = df_train.query(f'label == {l_mother} and {momentum_range_mother[0]} < p < {momentum_range_mother[1]}')
+
+    if (len_df_mother - len_df_dau) <= 0:
+        return 0
+    nsamples = min(len_df_mother - len_df_dau, len(df_train_sel_mother))
+
+    df_dau = df_train_sel_mother.sample(nsamples)
+    df_dau['p'] = df_dau['p']*(m_dau/m_mother)
+    df_dau['isclone'] = 1
+    df_dau['label'] = l_dau
+    print("len mother: ", len(df_train_sel_mother), "len difference: ", len_df_mother - len_df_dau )
+
+    return df_dau
+
+def augment_particles_raw(df_train, l_mother, l_dau, bmin, bmax):
+    m = [0.13957000,  0.4937, 0.93827200]
+    m_mother =  m[l_mother]
+    m_dau =  m[l_dau]
+
+    df_dau = df_train.query(f'label == {l_mother} and {bmin} < bg < {bmax}')
+
+    df_dau['p'] = df_dau['p']*(m_dau/m_mother)
+    df_dau['isclone'] = 1
+    df_dau['label'] = l_dau
+    #print("len mother: ", len(df_train_sel_mother), "len difference: ", len_df_mother - len_df_dau )
+
+    return df_dau
+
 def data_prep(inputCfg, OutPutDir, Df): #pylint: disable=too-many-statements, too-many-branches
     '''
     function for data preparation
@@ -61,12 +98,18 @@ def data_prep(inputCfg, OutPutDir, Df): #pylint: disable=too-many-statements, to
     ApplDf['nSigmaPi'] = abs(ApplDf['nSigmaPi'])
     ApplDf['nSigmaK'] = abs(ApplDf['nSigmaK'])
 
-    df_P = df_sel.query('nSigmaP < 1 and p < 1.', inplace=False)
+    df_P = df_sel.query('nSigmaP < 1 and nSigmaK > 3 and nSigmaPi > 3 and p <= 0.7', inplace=False)
+    df_P = pd.concat([df_P, df_sel.query('nSigmaP < 1 and p > 0.7')])
     df_P.eval('bg = p/sqrt(0.93827200**2 + p**2)',  inplace=True)
-    df_pi = df_sel.query('nSigmaPi < 1 and nSigmaK > 2 and p < 1.', inplace=False)
+    df_P['label'] = 2
+    df_pi = df_sel.query('nSigmaPi < 1 and nSigmaK > 3 and p <= 0.7', inplace=False)
+    df_pi = pd.concat([df_pi, df_sel.query('nSigmaPi < 1 and p > 0.7')])
     df_pi.eval('bg = p/sqrt(0.13957000**2 + p**2)',  inplace=True)
-    df_K = df_sel.query('nSigmaK < 1 and nSigmaPi > 1 and p < 1.', inplace=False)
+    df_pi['label'] = 0
+    df_K = df_sel.query('nSigmaK < 1 and nSigmaPi > 3 and p <= 0.7', inplace=False)
+    df_K = pd.concat([df_K, df_sel.query('nSigmaK < 1 and p > 0.7')])
     df_K.eval('bg = p/sqrt(0.4937**2 + p**2)',  inplace=True)
+    df_K['label'] = 1
     df_e = df_sel.query('-2 < nSigmaE < 1 and nSigmaK > 4 and nSigmaPi > 2 and p < 0.2', inplace=False)
     df_e.eval('bg = p/sqrt(0.000510998**2 + p**2)',  inplace=True)
     df_d = df_sel.query('nSigmaDeu < 1.', inplace=False)
@@ -93,11 +136,11 @@ def data_prep(inputCfg, OutPutDir, Df): #pylint: disable=too-many-statements, to
     if 'bgflat' in inputCfg['data_prep']['training_conf']:
         yTrainWeights = np.array(yTrain)
         print(f'\033[93mSame number of candidates over bg interval\033[0m')
-        bgmins = [0.1]
-        bgmaxs = [0.7]
+        bgmins = [0.2, 0.4, 0.6, 0.8]
+        bgmaxs = [0.4, 0.6, 0.8, 1.0]
         weigths = []
         for ibg, (bgmin, bgmax) in enumerate(zip(bgmins, bgmaxs)):
-            weigths.append(len(TrainSet.query(f' {bgmin} <= p < {bgmax}')) / len(TrainSet))
+            weigths.append(len(TrainSet.query(f' {bgmin} <= bg < {bgmax}')) / len(TrainSet))
         candw = np.zeros(len(TrainSet))
         for icand in range(len(yTrain)):
             for iweights, weight in enumerate(weigths):
@@ -116,28 +159,31 @@ def data_prep(inputCfg, OutPutDir, Df): #pylint: disable=too-many-statements, to
         #yTrain = TrainSet['bg']
         #for ibg, (bgmin, bgmax) in enumerate(zip(bgmins, bgmaxs)):
         #    print(f'\033[93mNumber of candidates in {bgmin} < bg < {bgmax}: {len(TrainSet.query(f"{bgmin} < bg < {bgmax}"))}\033[0m')
+
     if 'augmentation' in inputCfg['data_prep']['training_conf']:
         TrainSet['isclone'] = 0
+        df_aug_list = []
+        for pmin in np.arange(0.15, 1., 0.02):
+            pmax = pmin + 0.02
+        df_pi_k_aug = augment_particles_raw(TrainSet, 0, 1, 0.65, 0.8)
+        df_p_k_aug = augment_particles_raw(TrainSet, 2, 1, 0.2, 0.6)
+        
+        df_pi_p_aug = augment_particles_raw(TrainSet, 0, 2, 0.65, 0.78)
+        df_k_p_aug = augment_particles_raw(TrainSet, 1, 2, 0.3, 0.7)
+        
+        if type(df_pi_k_aug) != int:
+            df_aug_list.append(df_pi_k_aug.sample(frac=0.2))
+        if type(df_p_k_aug) != int:
+            df_aug_list.append(df_p_k_aug)
+        if type(df_pi_p_aug) != int:
+            df_aug_list.append(df_pi_p_aug.sample(frac=0.2))
+        if type(df_k_p_aug) != int:
+            df_aug_list.append(df_k_p_aug)
 
-        #print('Augemented contribution of K from p')
-        #df_k_aug_from_p = TrainSet.query('nSigmaP < 1 and 0.3 < bg < 0.5', inplace=False)
-        #df_k_aug_from_p['p'] = df_k_aug_from_p['p']*(0.4937/0.93827200)
-        #df_k_aug_from_p['nSigmaK'] = 0
-        #df_k_aug_from_p['nSigmaP'] = 1000
-        #df_k_aug_from_p['isclone'] = 1
-
-        print('Augemented contribution of K from pi')
-        df_k_aug_from_pi = TrainSet.query('nSigmaPi < 1 and 0.5 < bg < 0.85', inplace=False)
-        print(df_k_aug_from_pi['p'])
-        df_k_aug_from_pi['p'] = df_k_aug_from_pi['p']*(0.4937/0.13957000)
-        print(df_k_aug_from_pi['p'])
-        df_k_aug_from_pi['nSigmaK'] = 0
-        df_k_aug_from_pi['nSigmaPi'] = 1000
-        df_k_aug_from_pi['isclone'] = 1
-
-        TrainSet = pd.concat([TrainSet, df_k_aug_from_pi], sort=True)
+        df_aug_list.append(TrainSet)
+        TrainSet = pd.concat(df_aug_list)
         yTrain = TrainSet['bg']
-    
+        
         dfPi = TrainSet.query('nSigmaPi < 1 and isclone == 0 and 0.5 < bg < 0.85', inplace=False)
         dfPiClone = TrainSet.query('nSigmaPi < 1 and isclone == 1 and 0.5 < bg < 0.85', inplace=False)
         dfP = TrainSet.query('nSigmaP < 1 and isclone == 0 and 0.5 < bg < 0.85', inplace=False)
@@ -180,10 +226,11 @@ def data_prep(inputCfg, OutPutDir, Df): #pylint: disable=too-many-statements, to
     #plt.savefig(f'{OutPutDir}/Weights.png')
     #plt.close('all')
 
-    TrainTestData = [TrainSet, yTrain, TestSet, yTest]
+    TrainTestData = [TrainSet, yTrain, TestSet, yTest, candw]
     ApplDf.eval('mean_patt_ID = (ClPattIDL0 + ClPattIDL1 + ClPattIDL2 + ClPattIDL3 + ClPattIDL4 + ClPattIDL5 + ClPattIDL6)/7', inplace=True)
+    
     print('Candidates in training:')
-    print(f'N pi:\t{len(TrainSet.query("nSigmaPi < 1"))}\nN K:\t{len(TrainSet.query("nSigmaK < 1 and nSigmaPi > 1"))}\nN p:\t{len(TrainSet.query("nSigmaP < 1"))}\nN e:\t{len(TrainSet.query("nSigmaE < 1 and nSigmaK > 1 and nSigmaPi > 1"))}\n')
+    print(f'N pi:\t{len(TrainSet.query("label == 0 "))}\nN K:\t{len(TrainSet.query("label == 1"))}\nN p:\t{len(TrainSet.query("label == 2 "))}\nN e:\t{len(TrainSet.query("nSigmaE < 1 and nSigmaK > 1 and nSigmaPi > 1"))}\n')
     print('Candidates in test:')
     print(f'N pi:\t{len(TestSet.query("nSigmaPi < 1"))}\nN K:\t{len(TestSet.query("nSigmaK < 1 and nSigmaPi > 1"))}\nN p:\t{len(TestSet.query("nSigmaP < 1"))}\nN d:\t{len(TestSet.query("label == 3"))}\nN e:\t{len(TestSet.query("nSigmaE < 1 and nSigmaK > 1 and nSigmaPi > 1"))}\n')
     print('Candidates in application:')
@@ -232,30 +279,42 @@ def regression(inputCfg, OutPutDir, TrainTestData): #pylint: disable=too-many-st
         print('\033[91mERROR: hyper-parameters must be defined or be an emy dict!\033[0m')
         sys.exit()
 
-    #TrainCols = ["ClSizeL0", "ClSizeL1", "ClSizeL2", "ClSizeL3", "ClSizeL4", "ClSizeL5", "ClSizeL6", "tgL", "meanClsize", 'mean_patt_ID', 'pt']
+    #TrainCols = ["ClSizeL0", "ClSizeL1", "ClSizeL2", "ClSizeL3", "ClSizeL4", "ClSizeL5", "ClSizeL6", "tgL", "meanClsize", 'mean_patt_ID', 'p']
 
     # model definition
     #ModelHandl = ModelHandler(modelReg, TrainCols)
     automl_settings = {
-        "metric": 'rmse',
-        'n_jobs':40, 
-        #'max_depth':5, 
-        #'learning_rate':0.06, 
-        #'n_estimators':1200, 
-        #'min_child_weight':243, 
-        #'subsample':0.6, 
-        #'colsample_bytree':0.7, 
+        "n_jobs": 80,
+        #"time_budget": 100,
+        "metric": 'r2',
+        #"task": 'regression',
+        #"log_file_name": "bdt.log",
+        "estimator_list" : ['xgboost'],
+        "colsample_bylevel": 0.6337942873486531, 
+        "colsample_bytree": 0.7,
+        "subsample": 0.710841077866278,
+        "learning_rate": 0.04952863262192068,
+        "n_estimators": 400,
+        "max_depth": 13,
+        "min_child_weight": 10, 
+        "eval_metric": 'rmse',
+        "reg_alpha": 0.349923237394973,
+        "reg_lambda": 0.5031161568154017
     }
+    modelReg = xgb.XGBRegressor()
+    ModelHandl = ModelHandler(modelReg, TrainCols, automl_settings)
     TrainSet = TrainTestData[0]
+    TestSet = TrainTestData[2]
     # train and test the model
-    modelReg.fit(TrainSet[TrainCols], TrainTestData[1], dataframe=TrainCols, task = 'regression', time_budget=10, **automl_settings)
-    yPredTest = modelReg.predict(TrainTestData[2])
+    modelReg.fit(TrainSet[TrainCols], TrainTestData[1], sample_weight=TrainTestData[4])
+    
+    yPredTest = modelReg.predict(TestSet[TrainCols])
     #yPredTest = ModelHandl.train_test_regrressor(TrainTestData, return_prediction=True, nfold=5, njobs=3)
-    yPredTrain = modelReg.predict(TrainTestData[0])
+    yPredTrain = modelReg.predict(TrainSet[TrainCols])
 
     # save model handler in pickle
-    #ModelHandl.dump_model_handler(f'{OutPutDir}/RegHandler.pickle')
-    #ModelHandl.dump_original_model(f'{OutPutDir}/XGBoostRegressor.model', True)
+    ModelHandl.dump_model_handler(f'{OutPutDir}/RegHandler.pickle')
+    ModelHandl.dump_original_model(f'{OutPutDir}/XGBoostRegressor.model', True)
 
     #with open(f"{OutPutDir}/automl.pkl", "wb") as f:
     #    pickle.dump(automl, f, pickle.HIGHEST_PROTOCOL)
@@ -318,9 +377,11 @@ def appl(inputCfg, OutPutDir, ModelHandl, ApplDf, TetsDf, yPredTest):
     print('Applying ML model: ...', end='\r')
     #with open(f"{OutPutDir}/automl.pkl", "rb") as f:
     #    ModelHandl = pickle.load(f)
-    Pred = ModelHandl.predict(ApplDf)
+    #TrainCols = ["ClSizeL0", "ClSizeL1", "ClSizeL2", "ClSizeL3", "ClSizeL4", "ClSizeL5", "ClSizeL6", "tgL", "meanClsize", 'mean_patt_ID', 'p']
+    TrainCols = inputCfg['ml']['training_columns']
+    Pred = ModelHandl.predict(ApplDf[TrainCols])
     ApplDf['Reg_output'] = Pred
-    ApplDf.to_parquet(f'{OutPutDir}/RegApplied_wE.parquet.gzip')
+    ApplDf.to_parquet(f'{OutPutDir}/RegApplied_betaflat_hypopt.parquet.gzip')
     print(f'Final dataframe:\n{ApplDf}')
     print('ML model application: Done!')
 
@@ -483,14 +544,28 @@ def appl(inputCfg, OutPutDir, ModelHandl, ApplDf, TetsDf, yPredTest):
 def optimization(trial: Trial, inputCfg, TrainTestData):
     HyperPars = {'tree_method':'hist',  # this parameter means using the GPU when training our model to speedup the training process
                  'n_jobs':40,
+                 'base_score': 0.5,
+                 #"metric": 'r2',
+                 #"task": 'regression',
+                 #"log_file_name": "bdt.log",
+                 #"estimator_list" : ['xgboost'],
+                 'booster': 'gbtree',
+                 'colsample_bylevel': trial.suggest_uniform('colsample_bylevel', 0.1, 1.),
                  'colsample_bytree': trial.suggest_categorical('colsample_bytree', [0.3, 0.5, 0.7, 0.9, 1.0]),
-                 'subsample': trial.suggest_categorical('subsample', [0.4, 0.6, 0.8, 1.0]),
-                 'learning_rate': trial.suggest_categorical('learning_rate', [0.008, 0.01, 0.014, 0.016, 0.018, 0.02, 0.04, 0.06]),
-                 'n_estimators': trial.suggest_categorical('n_estimators', [400, 500, 700, 800, 1000, 1200]),
-                 'max_depth': trial.suggest_categorical('max_depth', [3, 5, 7, 9, 11, 13, 15, 17, 20]),
-                 'min_child_weight': trial.suggest_int('min_child_weight', 100, 300),
+                 'subsample': trial.suggest_uniform('subsample', 0.1, 1.0),
+                 'learning_rate': trial.suggest_uniform('learning_rate', 0.005, 1.),
+                 'n_estimators': trial.suggest_categorical('n_estimators', [200, 300, 400, 500, 700, 800, 1000, 1200]),
+                 'max_depth': trial.suggest_categorical('max_depth', [0, 1, 3, 5, 7, 9, 11, 13, 15, 17, 20]),
+                 'min_child_weight': trial.suggest_int('min_child_weight', 0, 100),
                  "eval_metric": trial.suggest_categorical('eval_metric', ["logloss", "rmse", "rmsle"]),
-                 "objective": "reg:squarederror"
+                 "objective": "reg:squarederror",
+                 "max_leaves": 118,
+                 "importance_type": 'gain',
+                 #"gpu_id": 1,
+                 "grow_policy": 'lossguide',
+                 "max_delta_step": 0,
+                 "reg_alpha": trial.suggest_uniform("reg_alpha", 0.0, 1.), 
+                 "reg_lambda": trial.suggest_uniform("reg_lambda", 0.0, 1.)
                 }
     TrainCols = inputCfg['ml']['training_columns']
     modelReg = xgb.XGBRegressor(**HyperPars)
@@ -507,12 +582,12 @@ def optimization(trial: Trial, inputCfg, TrainTestData):
     # model definition
     ModelHandl = ModelHandler(modelReg, TrainCols)
 
-    # train and test the model
-    yPredTest = ModelHandl.train_test_regrressor(TrainTestData, return_prediction=True, nfold=5, njobs=3)
+    X = TrainTestData[0]
+    y = TrainTestData[1]
 
     # cross validation
     print('\033[93mCross validation!\033[0m')
-    cv_score = cross_val_score(ModelHandl.get_original_model(), TrainTestData[0], TrainTestData[1], cv=5, scoring='neg_mean_squared_error')
+    cv_score = cross_val_score(modelReg, X[TrainCols], y, cv=5, scoring='neg_mean_squared_error')
     for icv in cv_score:
         print(f'\033[93mcross_val_score: {icv:.6f}\033[0m')
     print('\033[93m==============================\033[0m')
@@ -549,7 +624,7 @@ def main(): #pylint: disable=too-many-statements
         print('\033[93mPerforming hyper parameter optimisation\033[0m')
         optuna.logging.get_logger("optuna").addHandler(logging.StreamHandler(sys.stdout))
         study = optuna.create_study(direction='minimize', pruner=optuna.pruners.MedianPruner())
-        study.optimize(lambda trial : optimization(trial, inputCfg, TrainTestData), n_trials=10, show_progress_bar=True)
+        study.optimize(lambda trial : optimization(trial, inputCfg, TrainTestData), n_trials=1000, timeout=36000, show_progress_bar=True)
         print('Number of finished trials:', len(study.trials))
         print('Best trial:', study.best_trial.params)
 
