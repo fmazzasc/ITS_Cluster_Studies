@@ -77,7 +77,7 @@ void checkTrackClusters()
         std::string histsName = str.str();
         std::string pString = Form("#it{p}_{T}^{%s}", itsOnlyStr.data());
 
-        histsClSize[layer] = new TH1D((histsName).data(), ("; " + histsName + "; Cluster size; Counts").data(), 80, 0.5, 80.5);
+        histsClSize[layer] = new TH1D((histsName).data(), ("; " + histsName + "; Cluster size; Counts").data(), 99, 1, 100);
         histsPt[layer] = new TH2D((histsName + Form("vs pT CL size%i", clsize_max)).data(), ("; " + histsName + Form("; %s (GeV/#it{c}); Counts", pString.data())).data(), (clsize_max - clsize_min), clsize_min, clsize_max, ptbins, 0, ptmax);
         histsPz[layer] = new TH2D((histsName + Form("vs pz CL size%i", clsize_max)).data(), ("; " + histsName + Form("; %s (GeV/#it{c}); Counts", pString.data())).data(), (clsize_max - clsize_min), clsize_min, clsize_max, ptbins, 0, ptmax);
         histsPt0[layer] = new TH2D((histsName + "vs pT 0").data(), ("; " + histsName + Form("; %s (GeV/#it{c}); Counts", pString.data())).data(), 14, 1, 15, 30, 0, 1);
@@ -118,9 +118,9 @@ void checkTrackClusters()
     gman->fillMatrixCache(o2::math_utils::bit2Mask(o2::math_utils::TransformType::T2L, o2::math_utils::TransformType::L2G));
     // Topology dictionary
     o2::itsmft::TopologyDictionary mdict;
-    mdict.readFromFile(o2::base::DetectorNameConf::getAlpideClusterDictionaryFileName(o2::detectors::DetID::ITS, "utils/ITSdictionary.bin"));
+    mdict.readFromFile(o2::base::DetectorNameConf::getAlpideClusterDictionaryFileName(o2::detectors::DetID::ITS, ""));
 
-    std::string path = "/data/fmazzasc/its_data/test_pass2";
+    std::string path = "/data/fmazzasc/its_data/505673";
     TSystemDirectory dir("MyDir", path.data());
     auto files = dir.GetListOfFiles();
     std::vector<std::string> dirs;
@@ -131,12 +131,15 @@ void checkTrackClusters()
             dirs.push_back(file);
     }
 
+    std::sort(dirs.begin(), dirs.end());
+
+
     int counter = 0;
 
     for (auto &dir : dirs)
     {
-        if (counter > 20)
-            continue;
+        // if (counter > 0)
+            // continue;
         counter++;
 
         LOG(info) << "Processing: " << counter << ", dir: " << dir;
@@ -195,7 +198,7 @@ void checkTrackClusters()
 
                 o2::track::TrackParCov baseTrack(useITSonly ? (o2::track::TrackParCov)ITStrack : TPCITStracks->at(iTrack));
 
-                std::vector<CompClusterExt> TrackClus;
+                std::array<CompClusterExt, 7> TrackClus;
 
                 auto firstClus = ITStrack.getFirstClusterEntry();
                 auto ncl = ITStrack.getNumberOfClusters();
@@ -204,10 +207,9 @@ void checkTrackClusters()
                 {
                     auto &clus = (*ITSclus)[(*ITSTrackClusIdx)[firstClus + icl]];
                     auto layer = gman->getLayer(clus.getSensorID());
-                    TrackClus.push_back(clus);
+                    TrackClus[layer] = clus;
                 }
-
-                std::reverse(TrackClus.begin(), TrackClus.end());
+                
 
                 for (int layer{0}; layer < 7; layer++)
                 {
@@ -271,7 +273,7 @@ void checkTrackClusters()
         }
     }
 
-    auto outFile = TFile("clusITS_pass2.root", "recreate");
+    auto outFile = TFile("clusITS_pass3.root", "recreate");
 
     // canvases
     TCanvas cClusterSize = TCanvas("cClusterSize", "cClusterSize", 1200, 800);
