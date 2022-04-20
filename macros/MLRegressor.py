@@ -458,7 +458,7 @@ def regression(inputCfg, OutPutDir, TrainSet, yTrain, TestSet, yTest, weigth=Non
     HyperPars = inputCfg['ml']['hyper_par']
     TrainCols = inputCfg['ml']['training_columns']
     isXGB = inputCfg['ml']['isXGB']
-    doPlots = inputCfg['plots']['doPlots'] 
+    doPlots = inputCfg['plots']['doPlots']
 
     # Hyper-pars opt
     #_____________________________________________
@@ -531,7 +531,7 @@ def regression(inputCfg, OutPutDir, TrainSet, yTrain, TestSet, yTest, weigth=Non
         # SHAP feature importance
         #_____________________________________________
         explainer = shap.Explainer(modelReg) 
-        TestSetShap = [] 
+        TestSetShap = []
         thr = min(len(TestSet.query('label == 0')), len(TestSet.query('label == 1')), len(TestSet.query('label == 2')), 1000)
         for i, species in enumerate(['pi', 'k', 'p']):
             TestSetShap.append(TestSet.query(f'label == {i}'))

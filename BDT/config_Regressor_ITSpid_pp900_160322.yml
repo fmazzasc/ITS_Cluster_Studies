@@ -60,7 +60,7 @@ ml:
                 "eval_metric": 'rmse', # not available in FLAML
                 "reg_alpha": 0.349923237394973, # not available in FLAML
                 "reg_lambda": 0.5031161568154017, # not available in FLAML
-                "verbosity": 1,
+                "verbosity": 1
                 } # dict of hyperparameters (XGB and AUTOML USE DIFFERENT HYPPARS!)
 
 plots:
