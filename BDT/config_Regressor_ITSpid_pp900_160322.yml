@@ -1,0 +1,76 @@
+input: # files to use, set FD to null for binary classification
+    data: /data/fmazzasc/its_data/pid_regressor.parquet.gzip
+    separateAppl: True
+
+output:
+    leg_labels: # legend labels, keep the right number of classes
+        pi: pi
+        Kaon: K
+        Proton: p
+        deuteron: d
+    out_labels: # output labels, keep the right number of classes
+        pi: pi
+        Kaon: K
+        Proton: p
+        deuteron: d
+    dir: "/home/spolitan/Analyses/Stefano_Analysis/ITS2pidML/reg/" # output dir
+    model_outlabel: ''
+
+data_prep:
+    skip_data_prep: True
+    preparedData: ['/home/spolitan/Analyses/Stefano_Analysis/ITS2pidML/reg/TrainSet_augmented_betaflat.parquet.gzip',
+                   '/home/spolitan/Analyses/Stefano_Analysis/ITS2pidML/reg/yTrain_augmented_betaflat.parquet.gzip',
+                   '/home/spolitan/Analyses/Stefano_Analysis/ITS2pidML/reg/TestSet_augmented_betaflat.parquet.gzip',
+                   '/home/spolitan/Analyses/Stefano_Analysis/ITS2pidML/reg/yTest_augmented_betaflat.parquet.gzip',
+                   '/home/spolitan/Analyses/Stefano_Analysis/ITS2pidML/reg/candw_augmented_betaflat.parquet.gzip',
+                   '/home/spolitan/Analyses/Stefano_Analysis/ITS2pidML/reg/ApplDf_augmented_betaflat.parquet.gzip',
+                    ] # path to TrainSet, yTrain, TestSet, yTest, (weights), ApplDf (KEEP THIS ORDER)
+    presel: "ClSizeL0 >= 0 and ClSizeL1 >= 0 and ClSizeL2 >= 0 and ClSizeL3 >= 0 and ClSizeL4 >= 0 and ClSizeL5 >= 0 and ClSizeL6 >= 0 and SnPhiL0 >= -1 and SnPhiL1 >= -1 and SnPhiL2 >= -1 and SnPhiL3 >= -1 and SnPhiL4 >= -1 and SnPhiL5 >= -1 and SnPhiL6 >= -1 and  0.05 < p"
+    seed_split: 42 # seed used for train_test_split(...)
+    training_conf: 'betaflat augmentation'            
+                 # - equal: same number of candidates for each class
+                 # - betaflat: same number of candidates in interval of beta
+                 # - augmentation: production of candidates clones
+    test_fraction: 0.01 # fraction of data used for test set
+
+ml:
+    roc_auc_average: "macro" # "macro" or "weighted"
+    roc_auc_approach: "ovo"  # "ovo" or "ovr"
+    training_columns: ['ClSizeL0', 'ClSizeL1', 'ClSizeL2',
+                       'ClSizeL3', 'ClSizeL4',
+                       'ClSizeL5', 'ClSizeL6', 'tgL', 'meanClsize', 'p', 'mean_patt_ID'
+                       ] 
+                       # list of training variables
+    isXGB: True
+    do_hyp_opt: False  # whether to do the parameter optimization
+    hyper_par: {"n_jobs": 80,
+                "time_budget": 100,
+                "metric": 'r2',
+                "task": 'regression',
+                "log_file_name": "bdt.log",
+                "tree_method": 'hist', # not available in FLAML
+                "estimator_list" : ['xgboost'], # not available in FLAML
+                "colsample_bylevel": 0.6337942873486531, # not available in FLAML 
+                "colsample_bytree": 0.7, # not available in FLAML
+                "subsample": 0.710841077866278, # not available in FLAML
+                "learning_rate": 0.04952863262192068, # not available in FLAML
+                "n_estimators": 400, # not available in FLAML
+                "max_depth": 13, # not available in FLAML
+                "min_child_weight": 10, # not available in FLAML
+                "eval_metric": 'rmse', # not available in FLAML
+                "reg_alpha": 0.349923237394973, # not available in FLAML
+                "reg_lambda": 0.5031161568154017, # not available in FLAML
+                "verbosity": 1,
+                } # dict of hyperparameters (XGB and AUTOML USE DIFFERENT HYPPARS!)
+
+plots:
+    doPlots: True
+    plotting_columns: ['p','ClSizeL0', 'ClSizeL1', 'ClSizeL2',
+                       'ClSizeL3', 'ClSizeL4',
+                       'ClSizeL5', 'ClSizeL6', 'meanClsize', 'tgL', 'mean_patt_ID']
+                       # list of variables to plot
+    train_test_log: True # use log scale for plots of train and test distributions
+
+appl: 
+    stand_alone: False
+    saved_model: '/home/spolitan/Analyses/Stefano_Analysis/ITS2pidML/reg/RegModel_CLEANUP.pickle' # list of saved ModelHandler (path+file)
