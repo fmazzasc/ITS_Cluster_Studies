@@ -54,7 +54,7 @@ def SetHistStyle(histo, color, marker, xtitle='', ytitle='', style=1):
     histo.GetYaxis().SetLabelSize(0.04)
     histo.GetYaxis().SetTitle(f'{ytitle}')
 
-def data_prep(data='', betamin=0.6, betamax=0.7, outlabel='', verbose=True): #pylint: disable=too-many-statements, too-many-branches
+def data_prep(data='', betamin=0.6, betamax=0.7, outlabel='', verbose=False): #pylint: disable=too-many-statements, too-many-branches
     '''
     function for data preparation
     '''
