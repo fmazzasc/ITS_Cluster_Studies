@@ -44,7 +44,7 @@ colors = [kAzure+2, kOrange-2, kSpring+2]
 eTag = '-2 < nSigmaE < 1 and nSigmaK > 4 and nSigmaPi > 2 and p < 0.2'
 piTag = 'nSigmaPiAbs < 1 and nSigmaKAbs > 3 and p <= 0.7'
 kTag = 'nSigmaKAbs < 1 and nSigmaPiAbs > 3 and p <= 0.7'
-pTag = 'nSigmaPAbs < 1 and nSigmaKAbs > 3 and nSigmaPiAbs > 3 and p <= 0.7'
+pTag = 'nSigmaPAbs < 1 and nSigmaKAbs > 3 and nSigmaPiAbs > 3 and p <= 0.7' 
 
 def SetHistStyle(histo, color, style=1):
     '''
@@ -156,6 +156,7 @@ def data_prep(inputCfg, OutPutDir, Df): #pylint: disable=too-many-statements, to
 
     doPlots = inputCfg['plots']['doPlots']
     training_conf = inputCfg['data_prep']['training_conf']
+    outlabel = inputCfg['output']['model_outlabel']
 
     if doPlots:
         print('Plotting variable distribution for pions and protons')
@@ -164,7 +165,7 @@ def data_prep(inputCfg, OutPutDir, Df): #pylint: disable=too-many-statements, to
         Vars = ["ClSizeL0", "ClSizeL1", "ClSizeL2",
                 "ClSizeL3", "ClSizeL4", "ClSizeL5", 
                 "ClSizeL6", "meanClsize", "p", "mean_patt_ID", "tgL"]
-        outFile = TFile('RegVars.root', 'recreate')
+        outFile = TFile(f'RegVars{outlabel}.root', 'recreate')
         leg = TLegend(0.4,0.4,0.8,0.8)
         leg.SetBorderSize(0)
         df_pi_sel = df_pi.query('0.1 < p < 0.7')
@@ -208,7 +209,7 @@ def data_prep(inputCfg, OutPutDir, Df): #pylint: disable=too-many-statements, to
             hVarp.Write()
         c1.Write()
         outFile.Close()
-        c1.SaveAs('RegVars.png')
+        c1.SaveAs(f'RegVars{outlabel}.png')
         print('Training variables plot completed.\n')
 
     seed_split = inputCfg['data_prep']['seed_split']
@@ -239,16 +240,16 @@ def data_prep(inputCfg, OutPutDir, Df): #pylint: disable=too-many-statements, to
         df_k_pi_aug = augment_particles_raw(TrainSet, 1, 0, 0., 1.)
         df_p_pi_aug = augment_particles_raw(TrainSet, 2, 0, 0., 1.)
 
-        df_pi_k_aug = augment_particles_raw(TrainSet, 0, 1, 0., 1.)
+        df_pi_k_aug = augment_particles_raw(TrainSet, 0, 1, 0., 0.6)
         df_p_k_aug = augment_particles_raw(TrainSet, 2, 1, 0., 1.)
         
         df_pi_p_aug = augment_particles_raw(TrainSet, 0, 2, 0., 1.)
         df_k_p_aug = augment_particles_raw(TrainSet, 1, 2, 0., 1.)
         
         if type(df_k_pi_aug) != int:
-            df_aug_list.append(df_k_pi_aug.sample(frac=0.2))
+            df_aug_list.append(df_k_pi_aug)
         if type(df_p_pi_aug) != int:
-            df_aug_list.append(df_p_pi_aug.sample(frac=0.2))
+            df_aug_list.append(df_p_pi_aug)
         if type(df_pi_k_aug) != int:
             df_aug_list.append(df_pi_k_aug)
         if type(df_p_k_aug) != int:
@@ -272,7 +273,7 @@ def data_prep(inputCfg, OutPutDir, Df): #pylint: disable=too-many-statements, to
             Vars = ["ClSizeL0", "ClSizeL1", "ClSizeL2",
                     "ClSizeL3", "ClSizeL4", "ClSizeL5", 
                     "ClSizeL6", "meanClsize", "p", "mean_patt_ID", "tgL"]
-            outFile = TFile('RegVarsClones.root', 'recreate')
+            outFile = TFile(f'RegVarsClones{outlabel}.root', 'recreate')
             leg = TLegend(0.4,0.4,0.8,0.8)
             leg.SetBorderSize(0)
             df_pi_sel = TrainSet.query('label == 0 and 0.1 < p < 0.7 and isclone == 0')
@@ -332,7 +333,7 @@ def data_prep(inputCfg, OutPutDir, Df): #pylint: disable=too-many-statements, to
                 hVarp_clones.Write()
             c1.Write()
             outFile.Close()
-            c1.SaveAs('RegVarsClones.png')
+            c1.SaveAs(f'RegVarsClones{outlabel}.png')
             print('Training variables plot completed.\n')
 
             dfPi = TrainSet.query('label == 0 and isclone == 0 and 0.5 < beta < 0.85', inplace=False)
@@ -346,7 +347,7 @@ def data_prep(inputCfg, OutPutDir, Df): #pylint: disable=too-many-statements, to
             plt.ylabel('b')
             plt.xlabel('p')
             plt.legend(frameon=False, fontsize=12, loc='best')
-            plt.savefig(f'{OutPutDir}/betaVspVSClones_Pi.png')
+            plt.savefig(f'{OutPutDir}/betaVspVSClones_Pi{outlabel}.png')
             plt.close('all')
     
             plt.scatter(dfK['p'], dfK['beta'], facecolors='none', edgecolors='orange', label='k')
@@ -354,14 +355,14 @@ def data_prep(inputCfg, OutPutDir, Df): #pylint: disable=too-many-statements, to
             plt.ylabel('beta')
             plt.xlabel('p')
             plt.legend(frameon=False, fontsize=12, loc='best')
-            plt.savefig(f'{OutPutDir}/betaVspVSClones_K.png')
+            plt.savefig(f'{OutPutDir}/betaVspVSClones_K{outlabel}.png')
             plt.close('all')
 
             plt.scatter(TrainSet['p'], TrainSet['beta'], facecolors='none', edgecolors='g', label='all')
             plt.ylabel('b')
             plt.xlabel('p')
             plt.legend(frameon=False, fontsize=12, loc='best')
-            plt.savefig(f'{OutPutDir}/BVspAll.png')
+            plt.savefig(f'{OutPutDir}/BVspAll{outlabel}.png')
             plt.close('all')
 
     if 'betaflat' in training_conf:
@@ -389,7 +390,7 @@ def data_prep(inputCfg, OutPutDir, Df): #pylint: disable=too-many-statements, to
              label=f'weigths')
             plt.legend(frameon=False, fontsize=12, loc='best')
             plt.xlabel('w')
-            plt.savefig(f'{OutPutDir}/Weights.png')
+            plt.savefig(f'{OutPutDir}/Weights{outlabel}.png')
             plt.close('all')
 
 
@@ -417,20 +418,20 @@ def data_prep(inputCfg, OutPutDir, Df): #pylint: disable=too-many-statements, to
         plot_utils.plot_distr(list_df, VarsToDraw, 100, LegLabels, figsize=(24, 14),
                               alpha=0.3, log=True, grid=False, density=True)
         plt.subplots_adjust(left=0.06, bottom=0.06, right=0.99, top=0.96, hspace=0.55, wspace=0.55)
-        plt.savefig(f'{OutPutDir}/DistributionsAllTrainTest.png')
+        plt.savefig(f'{OutPutDir}/DistributionsAllTrainTest{outlabel}.png')
         plt.close('all')
 
         plot_utils.plot_distr([TestSet, ApplDf], VarsToDraw, 100, ['test', 'appl'], figsize=(24, 14),
                               alpha=0.3, log=True, grid=False, density=True)
         plt.subplots_adjust(left=0.06, bottom=0.06, right=0.99, top=0.96, hspace=0.55, wspace=0.55)
-        plt.savefig(f'{OutPutDir}/DistributionsAllAppl.png')
+        plt.savefig(f'{OutPutDir}/DistributionsAllAppl{outlabel}.png')
         plt.close('all')
 
         CorrMatrixFig = plot_utils.plot_corr(list_df, VarsToDraw, LegLabels)
         for Fig, Lab in zip(CorrMatrixFig, OutputLabels):
             plt.figure(Fig.number)
             plt.subplots_adjust(left=0.2, bottom=0.25, right=0.95, top=0.9)
-            Fig.savefig(f'{OutPutDir}/CorrMatrix{Lab}.png')
+            Fig.savefig(f'{OutPutDir}/CorrMatrix{Lab}{outlabel}.png')
 
     dfTrainSet = pd.DataFrame(TrainSet)
     dfyTrain = pd.DataFrame(yTrain)
@@ -438,15 +439,15 @@ def data_prep(inputCfg, OutPutDir, Df): #pylint: disable=too-many-statements, to
     dfyTest = pd.DataFrame(yTest)
 
     print(f'Training, Test and Appl sample saved in {OutPutDir}')
-    dfTestSet.to_parquet(f'{OutPutDir}/TestSet{data_conf}.parquet.gzip')
-    dfTrainSet.to_parquet(f'{OutPutDir}/TrainSet{data_conf}.parquet.gzip')
-    dfyTrain.to_parquet(f'{OutPutDir}/yTrain{data_conf}.parquet.gzip')
-    dfyTest.to_parquet(f'{OutPutDir}/yTest{data_conf}.parquet.gzip')
+    dfTestSet.to_parquet(f'{OutPutDir}/TestSet{data_conf}{outlabel}.parquet.gzip')
+    dfTrainSet.to_parquet(f'{OutPutDir}/TrainSet{data_conf}{outlabel}.parquet.gzip')
+    dfyTrain.to_parquet(f'{OutPutDir}/yTrain{data_conf}{outlabel}.parquet.gzip')
+    dfyTest.to_parquet(f'{OutPutDir}/yTest{data_conf}{outlabel}.parquet.gzip')
     if 'betaflat' in training_conf:
         dfcandw = pd.DataFrame()
         dfcandw['candw'] = candw
-        dfcandw.to_parquet(f'{OutPutDir}/candw{data_conf}.parquet.gzip')
-    ApplDf.to_parquet(f'{OutPutDir}/ApplDf{data_conf}.parquet.gzip')
+        dfcandw.to_parquet(f'{OutPutDir}/candw{data_conf}{outlabel}.parquet.gzip')
+    ApplDf.to_parquet(f'{OutPutDir}/ApplDf{data_conf}{outlabel}.parquet.gzip')
 
     return TrainTestData, ApplDf
 
@@ -459,6 +460,7 @@ def regression(inputCfg, OutPutDir, TrainSet, yTrain, TestSet, yTest, weigth=Non
     TrainCols = inputCfg['ml']['training_columns']
     isXGB = inputCfg['ml']['isXGB']
     doPlots = inputCfg['plots']['doPlots']
+    outlabel = inputCfg['output']['model_outlabel']
 
     # Hyper-pars opt
     #_____________________________________________
@@ -470,14 +472,14 @@ def regression(inputCfg, OutPutDir, TrainSet, yTrain, TestSet, yTest, weigth=Non
         print('Number of finished trials:', len(study.trials))
         print('Best trial:', study.best_trial.params)
         fig = optuna.visualization.plot_optimization_history(study)
-        fig.write_image(f'{OutPutDir}/OptHistoryOptuna.png')
+        fig.write_image(f'{OutPutDir}/OptHistoryOptuna{outlabel}.png')
         fig = optuna.visualization.plot_param_importances(study)
-        fig.write_image(f'{OutPutDir}/ParamImportanceOptuna.png')
+        fig.write_image(f'{OutPutDir}/ParamImportanceOptuna{outlabel}.png')
     
         fig = optuna.visualization.plot_parallel_coordinate(study)
-        fig.write_image(f'{OutPutDir}/ParalleCoordinatesOptuna.png')
+        fig.write_image(f'{OutPutDir}/ParalleCoordinatesOptuna{outlabel}.png')
         fig = optuna.visualization.plot_contour(study)
-        fig.write_image(f'{OutPutDir}/ContourPlotOptuna.png')
+        fig.write_image(f'{OutPutDir}/ContourPlotOptuna{outlabel}.png')
 
         HyperPars = study.best_trial.params
     print(f'Hyper-pars: {HyperPars}')
@@ -519,19 +521,19 @@ def regression(inputCfg, OutPutDir, TrainSet, yTrain, TestSet, yTest, weigth=Non
     #_____________________________________________
     if isXGB:
         print(f'Regressor model saved in {OutPutDir}')
-        with open(f'{OutPutDir}/RegModel_CLEANUP.pickle', "wb") as output_file:
+        with open(f'{OutPutDir}/RegModel{outlabel}.pickle', "wb") as output_file:
             pickle.dump(modelReg, output_file)
 
         # xgb feature importance
         #_____________________________________________
         FeatureImportance = xgb.plot_importance(modelReg)
-        plt.savefig(f'{OutPutDir}/RegFeatureImportance.png')
+        plt.savefig(f'{OutPutDir}/RegFeatureImportance{outlabel}.png')
         plt.close('all')
 
         # SHAP feature importance
         #_____________________________________________
         explainer = shap.Explainer(modelReg) 
-        TestSetShap = []
+        TestSetShap = [] 
         thr = min(len(TestSet.query('label == 0')), len(TestSet.query('label == 1')), len(TestSet.query('label == 2')), 1000)
         for i, species in enumerate(['pi', 'k', 'p']):
             TestSetShap.append(TestSet.query(f'label == {i}'))
@@ -540,7 +542,7 @@ def regression(inputCfg, OutPutDir, TrainSet, yTrain, TestSet, yTest, weigth=Non
             shap_obj = explainer(data[TrainCols])
             plt.figure(figsize=(28, 9))
             shap.plots.beeswarm(shap_obj, max_display=len(TrainCols))
-            plt.savefig(f'{OutPutDir}/ShapImportance{species}.png', bbox_inches='tight')
+            plt.savefig(f'{OutPutDir}/ShapImportance{species}{outlabel}.png', bbox_inches='tight')
             plt.close('all')
 
     # Plots
@@ -557,7 +559,7 @@ def regression(inputCfg, OutPutDir, TrainSet, yTrain, TestSet, yTest, weigth=Non
         
         print('Plotting BDT vs beta in Training and Test')
         c1 = TCanvas("c1", "", 1200, 1200)
-        outFile = TFile('TrainTestRegOut.root', 'recreate')
+        outFile = TFile(f'TrainTestRegOut{outlabel}.root', 'recreate')
         leg = TLegend(0.4,0.4,0.8,0.8)
         leg.SetBorderSize(0)
 
@@ -604,8 +606,6 @@ def regression(inputCfg, OutPutDir, TrainSet, yTrain, TestSet, yTest, weigth=Non
             hRegPerformance.Fill(beta, beta - regout)
         gRegPerformance.SetPoint(2, 2, hRegPerformanceP.GetMean(2))
         gRegPerformance.SetPointError(2, 1.e-10, hRegPerformanceP.GetMeanError(2))
-        print(hRegPerformanceP.GetMean(2))
-        input()
 
         hBetapi.DrawNormalized('hist')
         hRegOutpi.DrawNormalized('hist')
@@ -627,7 +627,6 @@ def regression(inputCfg, OutPutDir, TrainSet, yTrain, TestSet, yTest, weigth=Non
         gRegPerformance.Write()
         outFile.Close()
 
-    input('Press enter to continue')
     return modelReg
 
 def appl(inputCfg, OutPutDir, Model, ApplDf):
@@ -641,12 +640,12 @@ def appl(inputCfg, OutPutDir, Model, ApplDf):
     ApplDf['Reg_output'] = Pred
     print('ML model application completed')
 
-    outlabel = ''
+    outlabel = inputCfg['output']['model_outlabel']
     if inputCfg['ml']['isXGB']:
         outlabel += 'XGB'
     else:
         outlabel += 'AutoML'
-    ApplDf.to_parquet(f'{OutPutDir}/RegApplied_CLEANING_{outlabel}_betaflat.parquet.gzip')
+    ApplDf.to_parquet(f'{OutPutDir}/RegApplied_{outlabel}_betaflat.parquet.gzip')
     print(f'Final dataframe:\n{ApplDf}')
 
 

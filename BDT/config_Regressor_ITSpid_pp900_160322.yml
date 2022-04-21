@@ -14,7 +14,7 @@ output:
         Proton: p
         deuteron: d
     dir: "/home/spolitan/Analyses/Stefano_Analysis/ITS2pidML/reg/" # output dir
-    model_outlabel: ''
+    model_outlabel: '' # every output file (plots included) will have this label
 
 data_prep:
     skip_data_prep: True
