@@ -49,6 +49,8 @@ using CompClusterExt = o2::itsmft::CompClusterExt;
 using ITSCluster = o2::BaseCluster<float>;
 using Vec3 = ROOT::Math::SVector<double, 3>;
 
+void getClusterPatterns(std::vector<o2::itsmft::ClusterPattern> &pattVec, std::vector<CompClusterExt> *ITSclus, std::vector<unsigned char> *ITSpatt, o2::itsmft::TopologyDictionary &mdict, o2::its::GeometryTGeo *gman);
+
 void checkTrackClusters()
 {
     bool useITSonly = true;
@@ -57,8 +59,8 @@ void checkTrackClusters()
     double ptmax = 5;
     double ptbins = ptmax / 0.033;
 
-    int clsize_min = 0;
-    int clsize_max = 80;
+    int clsize_min = 50;
+    int clsize_max = 150;
     std::vector<TH2D *> histsPt(7);
     std::vector<TH2D *> histsPz(7);
     std::vector<TH2D *> histsPt0(7);
@@ -120,7 +122,7 @@ void checkTrackClusters()
     o2::itsmft::TopologyDictionary mdict;
     mdict.readFromFile(o2::base::DetectorNameConf::getAlpideClusterDictionaryFileName(o2::detectors::DetID::ITS, ""));
 
-    std::string path = "/data/fmazzasc/its_data/505673";
+    std::string path = "/data/fmazzasc/its_data/505658";
     TSystemDirectory dir("MyDir", path.data());
     auto files = dir.GetListOfFiles();
     std::vector<std::string> dirs;
@@ -133,13 +135,12 @@ void checkTrackClusters()
 
     std::sort(dirs.begin(), dirs.end());
 
-
     int counter = 0;
 
     for (auto &dir : dirs)
     {
         // if (counter > 0)
-            // continue;
+        // continue;
         counter++;
 
         LOG(info) << "Processing: " << counter << ", dir: " << dir;
@@ -186,7 +187,8 @@ void checkTrackClusters()
             if (!loopTree->GetEvent(frame) || !treeITSclus->GetEvent(frame) || !treeITS->GetEvent(frame))
                 continue;
 
-            auto pattIt = ITSpatt->cbegin();
+            std::vector<o2::itsmft::ClusterPattern> pattVec;
+            getClusterPatterns(pattVec, ITSclus, ITSpatt, mdict, gman);
 
             int trackSize = useITSonly ? ITStracks->size() : TPCITStracks->size();
 
@@ -199,6 +201,7 @@ void checkTrackClusters()
                 o2::track::TrackParCov baseTrack(useITSonly ? (o2::track::TrackParCov)ITStrack : TPCITStracks->at(iTrack));
 
                 std::array<CompClusterExt, 7> TrackClus;
+                std::array<o2::itsmft::ClusterPattern, 7> TrackPatt;
 
                 auto firstClus = ITStrack.getFirstClusterEntry();
                 auto ncl = ITStrack.getNumberOfClusters();
@@ -206,10 +209,11 @@ void checkTrackClusters()
                 for (int icl = 0; icl < ncl; icl++)
                 {
                     auto &clus = (*ITSclus)[(*ITSTrackClusIdx)[firstClus + icl]];
+                    auto &patt = pattVec[(*ITSTrackClusIdx)[firstClus + icl]];
                     auto layer = gman->getLayer(clus.getSensorID());
                     TrackClus[layer] = clus;
+                    TrackPatt[layer] = patt;
                 }
-                
 
                 for (int layer{0}; layer < 7; layer++)
                 {
@@ -217,17 +221,8 @@ void checkTrackClusters()
                     {
 
                         auto pattID = TrackClus[layer].getPatternID();
-                        int npix;
-                        if (pattID == o2::itsmft::CompCluster::InvalidPatternID || mdict.isGroup(pattID))
-                        {
-                            o2::itsmft::ClusterPattern patt(pattIt);
-                            npix = patt.getNPixels();
-                        }
-                        else
-                        {
-
-                            npix = mdict.getNpixels(pattID);
-                        }
+                        auto &pattern = TrackPatt[layer];
+                        int npix = pattern.getNPixels();
 
                         histsClSize[layer]->Fill(npix);
 
@@ -318,6 +313,7 @@ void checkTrackClusters()
         histsClSize[layer]->GetYaxis()->SetDecimals();
         histsClSize[layer]->GetYaxis()->SetTitleOffset(1.);
         histsClSize[layer]->SetStats(1);
+        histsClSize[layer]->Write();
         histsClSize[layer]->DrawCopy();
         if (layer + 1 == 7)
         {
@@ -362,7 +358,11 @@ void checkTrackClusters()
         }
 
         cClusterMeanVsPt.cd(layer + 1);
+        histsPtMean_EtaOver8[layer]->SetMinimum(2.5);
+        histsPtMean_EtaOver8[layer]->SetStats(0);
+
         histsPtMean_EtaOver8[layer]->Draw("samePL][");
+
         histsPtMean_EtaUnder8[layer]->Draw("samePL][");
         histsPtMean_EtaUnder4[layer]->Draw("samePL][");
         if (layer + 1 == 7)
@@ -408,4 +408,34 @@ void checkTrackClusters()
     cClusterMeanVsPt.SaveAs("ITSClusterMeanVsPt.pdf");
 
     outFile.Close();
+}
+
+void getClusterPatterns(std::vector<o2::itsmft::ClusterPattern> &pattVec, std::vector<CompClusterExt> *ITSclus, std::vector<unsigned char> *ITSpatt, o2::itsmft::TopologyDictionary &mdict, o2::its::GeometryTGeo *gman)
+{
+    pattVec.reserve(ITSclus->size());
+    auto pattIt = ITSpatt->cbegin();
+    for (unsigned int iClus{0}; iClus < ITSclus->size(); ++iClus)
+    {
+        auto &clus = (*ITSclus)[iClus];
+        auto layer = gman->getLayer(clus.getSensorID());
+
+        auto pattID = clus.getPatternID();
+        int npix;
+        o2::itsmft::ClusterPattern patt;
+
+        if (pattID == o2::itsmft::CompCluster::InvalidPatternID || mdict.isGroup(pattID))
+        {
+            patt.acquirePattern(pattIt);
+            npix = patt.getNPixels();
+        }
+        else
+        {
+
+            npix = mdict.getNpixels(pattID);
+            patt = mdict.getPattern(pattID);
+        }
+        // LOG(info) << "npix: " << npix << " Patt Npixel: " << patt.getNPixels();
+        pattVec.push_back(patt);
+    }
+    // LOG(info) << " Patt Npixel: " << pattVec[0].getNPixels();
 }
