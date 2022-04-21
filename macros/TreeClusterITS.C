@@ -92,14 +92,12 @@ float nSigmaK(const float &momentum, const float &TPCSignal)
     return std::abs(TPCSignal - dedx) / (0.07 * dedx);
 }
 
-bool propagateToClus(const ITSCluster &clus, o2::track::TrackParCov &track, o2::its::GeometryTGeo *gman, float Bz = -5.);
+bool propagateToClus(const ITSCluster &clus, o2::track::TrackParCov &track, o2::its::GeometryTGeo *gman);
 void getClusterPatterns(std::vector<o2::itsmft::ClusterPattern> &pattVec, std::vector<CompClusterExt> *ITSclus, std::vector<unsigned char> *ITSpatt, o2::itsmft::TopologyDictionary &mdict, o2::its::GeometryTGeo *gman);
 
-
-void pidITS()
+void TreeClusterITS()
 {
     int runNumber = 505658;
-
 
     TFile outFile = TFile(Form("TreeITSClusters%i.root", runNumber), "recreate");
 
@@ -132,6 +130,17 @@ void pidITS()
     // Topology dictionary
     o2::itsmft::TopologyDictionary mdict;
     mdict.readFromFile(o2::base::DetectorNameConf::getAlpideClusterDictionaryFileName(o2::detectors::DetID::ITS, ""));
+
+    // Propagator
+    const auto grp = GRPObject::loadFrom();
+    // load propagator
+    o2::base::Propagator::initFieldFromGRP(grp);
+    auto *lut = o2::base::MatLayerCylSet::loadFromFile("matbud.root");
+    o2::base::Propagator::Instance()->setMatLUT(lut);
+
+    if (lut)
+        LOG(info) << "Loaded material LUT";
+
     std::string path = Form("/data/fmazzasc/its_data/%i", runNumber);
     TSystemDirectory dir("MyDir", path.data());
     auto files = dir.GetListOfFiles();
@@ -193,12 +202,8 @@ void pidITS()
         treeITSclus->SetBranchAddress("ITSClusterComp", &ITSclus);
         treeITSclus->SetBranchAddress("ITSClusterPatt", &ITSpatt);
 
-        bool isFileCorrupted = false;
-
         for (int frame = 0; frame < treeITSTPC->GetEntriesFast(); frame++)
         {
-            if (isFileCorrupted)
-                break;
 
             if (!treeITSTPC->GetEvent(frame) || !treeITSclus->GetEvent(frame) || !treeITS->GetEvent(frame) || !treeTPC->GetEvent(frame))
                 continue;
@@ -216,15 +221,6 @@ void pidITS()
             {
 
                 auto &ITSTPCtrack = TPCITStracks->at(iTrack);
-
-                if (int(ITSTPCtrack.getRefITS().getIndex()) > int(ITStracks->size()) - 1 || int(ITSTPCtrack.getRefTPC().getIndex()) > int(TPCtracks->size()) - 1)
-                {
-                    LOG(info) << "Frame:" << frame << ", Ind exception: " << ITSTPCtrack.getRefITS().getIndex() << ", ITS Track size" << ITStracks->size();
-                    LOG(info) << "Frame:" << frame << ", Ind exception: " << ITSTPCtrack.getRefITS().getIndex() << ", TPC Track size" << ITStracks->size();
-                    isFileCorrupted = true;
-                    break;
-                }
-
                 auto &ITStrack = ITStracks->at(ITSTPCtrack.getRefITS());
                 auto &TPCtrack = TPCtracks->at(ITSTPCtrack.getRefTPC());
 
@@ -306,7 +302,11 @@ void pidITS()
                             }
                         }
                         else
+                        {
+                            pattIDarr[layer] = -10;
                             snPhiArr[layer] = -10;
+                            tanLamArr[layer] = -10;
+                        }
                     }
                     MLtree->Fill();
                 }
@@ -325,12 +325,14 @@ void pidITS()
     outFile.Close();
 }
 
-bool propagateToClus(const ITSCluster &clus, o2::track::TrackParCov &track, o2::its::GeometryTGeo *gman, float Bz)
+bool propagateToClus(const ITSCluster &clus, o2::track::TrackParCov &track, o2::its::GeometryTGeo *gman)
 {
+
     float alpha = gman->getSensorRefAlpha(clus.getSensorID()), x = clus.getX();
     if (track.rotate(alpha))
     {
         auto corrType = o2::base::PropagatorImpl<float>::MatCorrType::USEMatCorrLUT;
+
         auto propInstance = o2::base::Propagator::Instance();
         float alpha = gman->getSensorRefAlpha(clus.getSensorID()), x = clus.getX();
         int layer{gman->getLayer(clus.getSensorID())};
@@ -338,10 +340,10 @@ bool propagateToClus(const ITSCluster &clus, o2::track::TrackParCov &track, o2::
         if (!track.rotate(alpha))
             return false;
 
-        if (propInstance->propagateToX(track, x, Bz, o2::base::PropagatorImpl<float>::MAX_SIN_PHI, o2::base::PropagatorImpl<float>::MAX_STEP, corrType))
-
+        if (propInstance->propagateToX(track, x, propInstance->getNominalBz(), o2::base::PropagatorImpl<float>::MAX_SIN_PHI, o2::base::PropagatorImpl<float>::MAX_STEP, corrType))
             return true;
     }
+
     return false;
 }
 
