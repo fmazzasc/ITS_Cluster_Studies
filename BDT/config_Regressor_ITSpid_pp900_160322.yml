@@ -1,6 +1,7 @@
 input: # files to use, set FD to null for binary classification
-    data: /data/fmazzasc/its_data/pid_regressor.parquet.gzip
+    data: /home/fmazzasc/alice/run_clus_study/TreeITSClusters505658.root
     separateAppl: True
+    data_appl: /home/fmazzasc/alice/run_clus_study/TreeITSClusters505673.root 
 
 output:
     leg_labels: # legend labels, keep the right number of classes
@@ -14,10 +15,12 @@ output:
         Proton: p
         deuteron: d
     dir: "/home/spolitan/Analyses/Stefano_Analysis/ITS2pidML/reg/" # output dir
-    model_outlabel: '' # every output file (plots included) will have this label
+    model_outlabel: 'AugmentedAll_0.8_1_0.3_0.7_0.2_0.8bflat_wMeanSnPhi_newdata_240422' # every output file (plots included) will have this label
+    save_prepared_data: False # save prepaed data (Appl df is always saved)
+    save_model: False # save regressor model (only available for XGB)
 
 data_prep:
-    skip_data_prep: True
+    skip_data_prep: False
     preparedData: ['/home/spolitan/Analyses/Stefano_Analysis/ITS2pidML/reg/TrainSet_augmented_betaflat.parquet.gzip',
                    '/home/spolitan/Analyses/Stefano_Analysis/ITS2pidML/reg/yTrain_augmented_betaflat.parquet.gzip',
                    '/home/spolitan/Analyses/Stefano_Analysis/ITS2pidML/reg/TestSet_augmented_betaflat.parquet.gzip',
@@ -27,23 +30,26 @@ data_prep:
                     ] # path to TrainSet, yTrain, TestSet, yTest, (weights), ApplDf (KEEP THIS ORDER)
     presel: "ClSizeL0 >= 0 and ClSizeL1 >= 0 and ClSizeL2 >= 0 and ClSizeL3 >= 0 and ClSizeL4 >= 0 and ClSizeL5 >= 0 and ClSizeL6 >= 0 and SnPhiL0 >= -1 and SnPhiL1 >= -1 and SnPhiL2 >= -1 and SnPhiL3 >= -1 and SnPhiL4 >= -1 and SnPhiL5 >= -1 and SnPhiL6 >= -1 and  0.05 < p"
     seed_split: 42 # seed used for train_test_split(...)
-    training_conf: 'betaflat augmentation'            
+    training_conf: 'augmentation betaflat'            
                  # - equal: same number of candidates for each class
                  # - betaflat: same number of candidates in interval of beta
                  # - augmentation: production of candidates clones
+    betamin: [8., 0.3, 0.2] # beta range for "betaflat" configuation [pi, k, p]
+    betamax: [1., 0.7, 0.8] # beta range for "betaflat" configuation [pi, k, p]
     test_fraction: 0.01 # fraction of data used for test set
 
 ml:
-    roc_auc_average: "macro" # "macro" or "weighted"
-    roc_auc_approach: "ovo"  # "ovo" or "ovr"
-    training_columns: ['ClSizeL0', 'ClSizeL1', 'ClSizeL2',
-                       'ClSizeL3', 'ClSizeL4',
-                       'ClSizeL5', 'ClSizeL6', 'tgL', 'meanClsize', 'p', 'mean_patt_ID'
+    training_columns: ["ClSizeL0", "ClSizeL1", "ClSizeL2", "ClSizeL3", "ClSizeL4", "ClSizeL5", "ClSizeL6",
+                      "mean_SnPhi",
+                       #"PattIDL0", "PattIDL1", "PattIDL2", "PattIDL3", "PattIDL4", "PattIDL5", "PattIDL6",
+                       #"TanLamL0", "TanLamL1", "TanLamL2", "TanLamL3", "TanLamL4", "TanLamL5", "TanLamL6",
+                       #"SnPhiL0", "SnPhiL1", "SnPhiL2", "SnPhiL3", "SnPhiL4", "SnPhiL5", "SnPhiL6",  
+                       "meanClsize", "tgL", "mean_patt_ID", "p"
                        ] 
                        # list of training variables
     isXGB: True
     do_hyp_opt: False  # whether to do the parameter optimization
-    hyper_par: {"n_jobs": 80,
+    hyper_par: {"n_jobs": 100,
                 "time_budget": 100,
                 "metric": 'r2',
                 "task": 'regression',
@@ -60,17 +66,13 @@ ml:
                 "eval_metric": 'rmse', # not available in FLAML
                 "reg_alpha": 0.349923237394973, # not available in FLAML
                 "reg_lambda": 0.5031161568154017, # not available in FLAML
-                "verbosity": 1
-                } # dict of hyperparameters (XGB and AUTOML USE DIFFERENT HYPPARS!)
+                "verbosity": 1,
+                } # dict of hyperparameters (XGB and AUTOML USE DIFFERENT HYPER-PARS!)
+    savemodel: False
 
 plots:
-    doPlots: True
-    plotting_columns: ['p','ClSizeL0', 'ClSizeL1', 'ClSizeL2',
-                       'ClSizeL3', 'ClSizeL4',
-                       'ClSizeL5', 'ClSizeL6', 'meanClsize', 'tgL', 'mean_patt_ID']
-                       # list of variables to plot
-    train_test_log: True # use log scale for plots of train and test distributions
+    doPlots: False
 
 appl: 
     stand_alone: False
-    saved_model: '/home/spolitan/Analyses/Stefano_Analysis/ITS2pidML/reg/RegModel_CLEANUP.pickle' # list of saved ModelHandler (path+file)
+    saved_model: '/home/spolitan/Analyses/Stefano_Analysis/ITS2pidML/reg/RegModel_CLEANUP.pickle' # Saved model
