@@ -54,7 +54,7 @@ def SetHistStyle(histo, color, marker, xtitle='', ytitle='', style=1):
     histo.GetYaxis().SetLabelSize(0.04)
     histo.GetYaxis().SetTitle(f'{ytitle}')
 
-def data_prep(data='', betamin=0.6, betamax=0.7, outlabel='', verbose=False): #pylint: disable=too-many-statements, too-many-branches
+def data_prep(data = '', betamin = 0.6, betamax = 0.7, SnPhiMin = 0., SnPhiMax = 0.2, outlabel = '', verbose = False): #pylint: disable=too-many-statements, too-many-branches
     '''
     function for data preparation
     '''
@@ -62,7 +62,7 @@ def data_prep(data='', betamin=0.6, betamax=0.7, outlabel='', verbose=False): #p
     df = uproot.open(data)['ITStreeML'].arrays(library='pd')
     if verbose:
         print(f'Loading data from {data}')
-        print(f'Data loaded: {df.head()}')
+        print(f'Data loaded: {df.keys()}')
 
     # Adding columns in dataframe
     for i in range(7):
@@ -71,7 +71,7 @@ def data_prep(data='', betamin=0.6, betamax=0.7, outlabel='', verbose=False): #p
     df['nSigmaPiAbs'] = abs(df['nSigmaPi'])
     df['nSigmaKAbs'] = abs(df['nSigmaK'])
     df['nSigmaPAbs'] = abs(df['nSigmaP'])
-    df.eval('mean_patt_ID = (ClPattIDL0 + ClPattIDL1 + ClPattIDL2 + ClPattIDL3 + ClPattIDL4 + ClPattIDL5 + ClPattIDL6)/7', inplace=True)
+    df.eval('mean_patt_ID = (PattIDL0 + PattIDL1 + PattIDL2 + PattIDL3 + PattIDL4 + PattIDL5 + PattIDL6)/7', inplace=True)
     presel = "ClSizeL0 >= 0 and ClSizeL1 >= 0 and ClSizeL2 >= 0 and ClSizeL3 >= 0 and ClSizeL4 >= 0 and ClSizeL5 >= 0 and ClSizeL6 >= 0 and SnPhiL0 >= -1 and SnPhiL1 >= -1 and SnPhiL2 >= -1 and SnPhiL3 >= -1 and SnPhiL4 >= -1 and SnPhiL5 >= -1 and SnPhiL6 >= -1 and  0.05 < p"
     if verbose:
         print(f'Preselection: {presel}')
@@ -115,9 +115,10 @@ def data_prep(data='', betamin=0.6, betamax=0.7, outlabel='', verbose=False): #p
 
     # Training variables
     Vars = ["ClSizeL0", "ClSizeL1", "ClSizeL2", "ClSizeL3", "ClSizeL4", "ClSizeL5", "ClSizeL6",
-            "ClPattIDL0", "ClPattIDL1", "ClPattIDL2", "ClPattIDL3", "ClPattIDL4", "ClPattIDL5", "ClPattIDL6",
-            "SnPhiL0", "SnPhiL1", "SnPhiL2", "SnPhiL3", "SnPhiL4", "SnPhiL5", "SnPhiL6",
-            "meanClsize", "tgL", "mean_patt_ID", "p"]
+            "PattIDL0", "PattIDL1", "PattIDL2", "PattIDL3", "PattIDL4", "PattIDL5", "PattIDL6",
+            "TanLamL0", "TanLamL1", "TanLamL2", "TanLamL3", "TanLamL4", "TanLamL5", "TanLamL6",
+            "SnPhiL0", "SnPhiL1", "SnPhiL2", "SnPhiL3", "SnPhiL4", "SnPhiL5", "SnPhiL6",  
+            "meanClsize", "tgL", "mean_patt_ID", "p"] # maintain order of plotting for consistency
 
     # Legend and labels
     leg = TLegend(0.4,0.4,0.8,0.8)
@@ -143,6 +144,11 @@ def data_prep(data='', betamin=0.6, betamax=0.7, outlabel='', verbose=False): #p
         for i, _ in enumerate(Vars):
             pad = c1.cd(i+1)
             pad.SetLogy()
+            pad.SetRightMargin(0.005)
+            pad.SetLeftMargin(0.1)
+            pad.SetTopMargin(0.05)
+            pad.SetBottomMargin(0.1)
+            pad.SetTickx()
 
             # Binnning and histograms
             if 'ClSize' in Vars[i]: # ClSize
@@ -151,11 +157,23 @@ def data_prep(data='', betamin=0.6, betamax=0.7, outlabel='', verbose=False): #p
                 bins = 10
                 latX = 0.2
                 latY = 0.2
-            elif ('SnPhi' in Vars[i]) or ('tgL' in Vars[i]): # SnPhi and tgL
+            elif ('SnPhi' in Vars[i]): # SnPhi
                 minvar = -1.
                 maxvar = 1.
                 bins = 2000
-                latX = 0.15
+                latX = 0.25
+                latY = 0.85
+            elif ('TanLam' in Vars[i]): # TanLam
+                minvar = -1
+                maxvar = 1
+                bins = 100
+                latX = 0.25
+                latY = 0.85
+            elif ('tgL' in Vars[i]): # tgL
+                minvar = -1
+                maxvar = 1
+                bins = 100
+                latX = 0.25
                 latY = 0.85
             elif 'p' == Vars[i]: # p
                 minvar = 0.
@@ -166,7 +184,7 @@ def data_prep(data='', betamin=0.6, betamax=0.7, outlabel='', verbose=False): #p
             else:   # patt_ID
                 minvar = min(min(df_pi[Vars[i]]), min(df_P[Vars[i]]))
                 maxvar = max(max(df_pi[Vars[i]]), max(df_P[Vars[i]]))
-                bins = int((maxvar - minvar)*100)
+                bins = int((maxvar - minvar)*10)
                 latX = 0.6
                 latY = 0.8
             hVarpi = TH1F(f'h{Vars[i]}_pi', f';{Vars[i]}; counts', bins, minvar, maxvar)
@@ -174,25 +192,20 @@ def data_prep(data='', betamin=0.6, betamax=0.7, outlabel='', verbose=False): #p
             SetHistStyle(hVarpi, colors[0], markers[0], xtitle=f'{Vars[i]}', ytitle='counts')
             SetHistStyle(hVarp, colors[2], markers[2], xtitle=f'{Vars[i]}', ytitle='counts')
 
-            # Filling histograms
-            # pions
-            if verbose:
-                print(f'Filling histogram for {Vars[i]}')
-            if ('ClSizeL' in Vars[i]):
-                df_pi_sel_var = df_pi_sel.query(f'0.< SnPhiL{i} < 0.2', inplace=False)
-            elif ('SnPhiL' in Vars[i]):
-                df_pi_sel_var = df_pi_sel.query(f'0.< {Vars[i]} < 0.2', inplace=False)
-            else: 
+
+            # Apply selections and fill histograms
+            if ('ClSizeL' in Vars[i]) or ('PattIDL' in Vars[i]) or ('TanLamL' in Vars[i]) or ('SnPhiL' in Vars[i]):
+                j = int(Vars[i][-1])
+                if verbose:
+                    print(f'Applying SnPhi selection ({SnPhiMin} < SnPhi{j} < {SnPhiMax}) and fill histograms for {Vars[i]}')
+                df_pi_sel_var = df_pi_sel.query(f'{SnPhiMin}< SnPhiL{j} < {SnPhiMax}', inplace=False)
+                df_p_sel_var = df_p_sel.query(f'{SnPhiMin}< SnPhiL{j} < {SnPhiMax}', inplace=False)
+            else:
                 df_pi_sel_var = df_pi_sel
+                df_p_sel_var = df_p_sel
+
             for pi in (df_pi_sel_var[f'{Vars[i]}']):
                 hVarpi.Fill(pi)
-            # protons
-            if ('ClSizeL' in Vars[i]):
-                df_p_sel_var = df_p_sel.query(f'0.< SnPhiL{i} < 0.2', inplace=False)
-            elif ('SnPhiL' in Vars[i]):
-                df_p_sel_var = df_p_sel.query(f'0.< {Vars[i]} < 0.2', inplace=False)
-            else: 
-                df_p_sel_var = df_p_sel
             for p in df_p_sel_var[f'{Vars[i]}']:
                 hVarp.Fill(p)
 
@@ -227,8 +240,8 @@ def data_prep(data='', betamin=0.6, betamax=0.7, outlabel='', verbose=False): #p
         print('Training variables plot completed.\n')
 
 def main():
-    data = '/data/fmazzasc/its_data/TreePID_505658.root'
-    outlabel = 'snphicut'
+    data = '/data/fmazzasc/its_data/TreeITSClusters505658.root'
+    outlabel = 'test'
     data_prep(data, betamin=0.7, betamax=0.8, outlabel=outlabel)
     input('Press enter to exit')
     sys.exit()
