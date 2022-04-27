@@ -60,7 +60,7 @@ void bigClusterAnalyser()
     bool useITSonly = true;
     bool doTrckClusCorr = false;
     bool doCluShape = true;
-
+    bool debug = true;
     std::string itsOnlyStr = useITSonly ? "ITS-SA" : "ITS-TPC";
 
     double ptmax = 5;
