@@ -58,7 +58,9 @@ static bool npix_compare(o2::itsmft::ClusterPattern a, o2::itsmft::ClusterPatter
 void bigClusterAnalyser()
 {
     bool useITSonly = true;
-    bool doTrckClusCorr = true;
+    bool doTrckClusCorr = false;
+    bool doCluShape = true;
+
     std::string itsOnlyStr = useITSonly ? "ITS-SA" : "ITS-TPC";
 
     double ptmax = 5;
@@ -76,13 +78,26 @@ void bigClusterAnalyser()
     TH1D *hClSizeCorrAllHigh = new TH1D("hClSizeCorrAllHigh", ";Cluster size;Entries", 50, 0.5, 50.5);
     std::vector<TH1D *> hClSizeCorrVsLayerHigh(7);
 
+    // cluster shape
+    std::vector<TH1D *> hClSigmaXvsLayer(7);
+    std::vector<TH1D *> hClSigmaYvsLayer(7);
+
     for (int layer{0}; layer < 7; layer++)
     {
         histsClMapTracks[layer] = new TH2D(Form("ClMapTrackL%i", layer), "; Column; Row ; Hits", 1024, -0.5, 1023.5, 512, -0.5, 511.5);
         histsClMapNoTracks[layer] = new TH2D(Form("ClMapNoTrackL%i", layer), "; Column; Row ; Hits", 1024, -0.5, 1023.5, 512, -0.5, 511.5);
 
-        hClSizeCorrVsLayerLow[layer] = new TH1D(Form("hClSizeCorrVsLayerLowL%i", layer), "; Cluster size; Entries", 50, 0.5, 50.5);
-        hClSizeCorrVsLayerHigh[layer] = new TH1D(Form("hClSizeCorrVsLayerHighL%i", layer), "; Cluster size; Entries", 50, 0.5, 50.5);
+        if (doTrckClusCorr)
+        {
+            hClSizeCorrVsLayerLow[layer] = new TH1D(Form("hClSizeCorrVsLayerLowL%i", layer), "; Cluster size; Entries", 50, 0.5, 50.5);
+            hClSizeCorrVsLayerHigh[layer] = new TH1D(Form("hClSizeCorrVsLayerHighL%i", layer), "; Cluster size; Entries", 50, 0.5, 50.5);
+        }
+
+        if(doCluShape)
+        {
+            hClSigmaXvsLayer[layer] = new TH1D(Form("hClSigmaXvsLayerL%i", layer), "; Cluster size; Entries", 50, 0.5, 50.5);
+            hClSigmaYvsLayer[layer] = new TH1D(Form("hClSigmaYvsLayerL%i", layer), "; Cluster size; Entries", 50, 0.5, 50.5);
+        }
     }
 
     // Geometry
@@ -110,9 +125,9 @@ void bigClusterAnalyser()
 
     for (auto &dir : dirs)
     {
-        //if (counter > 100)
-        //    continue;
-        //counter++;
+        if (counter > 10)
+            continue;
+        counter++;
 
         LOG(info) << "Processing: " << counter << ", dir: " << dir;
 
@@ -203,7 +218,7 @@ void bigClusterAnalyser()
                     {
 
                         auto &pattern = TrackPatt[layer];
-                        auto npix = pattern.getNPixels();
+                        auto npix= pattern.getNPixels();
 
                         if (npix > 50)
                         {
@@ -211,6 +226,11 @@ void bigClusterAnalyser()
                             // LOG(info) << "Track " << iTrack << " has cluster on layer " << layer << " and " << npix << " pixels";
                             // printClusTrackInfo(TrackClus, TrackPatt, ITStrack);
                             fillClusterMap(TrackClus[layer], pattern, histsClMapTracks[layer]);
+                            if (doCluShape)
+                            {
+                                hClSigmaXvsLayer[layer]->Fill(pattern.getRowSpan());
+                                hClSigmaYvsLayer[layer]->Fill(pattern.getColumnSpan());
+                            }
                         }
                     }
                 }
@@ -288,6 +308,27 @@ void bigClusterAnalyser()
             hClSizeCorrVsLayerLow[layer]->Write();
         }
         outFileCorr.Close();
+    }
+
+    // Saving shape plots
+    if (doCluShape)
+    {
+        auto outFileShape = TFile(Form("outFileShape_Thr%i.root", pixThr), "recreate");
+
+        for (int layer{0}; layer < 7; layer++)
+        {
+            TCanvas cClusterSize = TCanvas(Form("cClusterSizeL%i", layer), Form("cClusterSizeL%i", layer));
+            cClusterSize.SetLogy();
+            hClSigmaXvsLayer[layer]->SetLineColor(kRed);
+            hClSigmaYvsLayer[layer]->SetLineColor(kBlue);
+            hClSigmaXvsLayer[layer]->DrawNormalized();
+            hClSigmaYvsLayer[layer]->DrawNormalized("same");
+
+            hClSigmaXvsLayer[layer]->Write();
+            hClSigmaYvsLayer[layer]->Write();
+            cClusterSize.Write();
+        }
+        outFileShape.Close();
     }
 }
 
