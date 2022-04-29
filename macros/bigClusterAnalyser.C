@@ -2,6 +2,8 @@
 
 #include <iostream>
 
+#include "../utils/ClusterStudyUtils.h"
+
 #include "CommonDataFormat/RangeReference.h"
 #include "ReconstructionDataFormats/Cascade.h"
 #include "ReconstructionDataFormats/PID.h"
@@ -28,6 +30,7 @@
 #include "TH1D.h"
 #include "TF1.h"
 #include "TMath.h"
+#include "TFile.h"
 #include "TString.h"
 #include "TTree.h"
 #include "TLegend.h"
@@ -49,18 +52,16 @@ using CompClusterExt = o2::itsmft::CompClusterExt;
 using ITSCluster = o2::BaseCluster<float>;
 using Vec3 = ROOT::Math::SVector<double, 3>;
 
-void getClusterPatterns(std::vector<o2::itsmft::ClusterPattern> &pattVec, std::vector<CompClusterExt> *ITSclus, std::vector<unsigned char> *ITSpatt, o2::itsmft::TopologyDictionary &mdict, o2::its::GeometryTGeo *gman);
-void printClusTrackInfo(const std::array<CompClusterExt, 7> &TrackClus, const std::array<o2::itsmft::ClusterPattern, 7> &TrackPatt, o2::its::TrackITS &ITStrack);
-void fillClusterMap(CompClusterExt &clus, o2::itsmft::ClusterPattern &patt, TH2D *histo);
-void TrackLayerCorr(o2::its::TrackITS &ITStrack, const std::array<CompClusterExt, 7>clus, const std::array<o2::itsmft::ClusterPattern, 7>patt, TH1D* hClSizeAll, std::vector<TH1D *> hClSizeAllvsLayer, int pixThr, std::string cut);
-static bool npix_compare(o2::itsmft::ClusterPattern a, o2::itsmft::ClusterPattern b);
+bool propagateToClusITS(const ITSCluster &clus, o2::track::TrackParCov &track, o2::its::GeometryTGeo *gman);
 
 void bigClusterAnalyser()
 {
+    // operation configuration
     bool useITSonly = true;
-    bool doTrckClusCorr = false;
+    bool doTrckClusCorr = true;
     bool doCluShape = true;
-    bool debug = true;
+    bool doSnPhi = true;
+    bool debug = false; // debug mode: stop after 10 iterations
     std::string itsOnlyStr = useITSonly ? "ITS-SA" : "ITS-TPC";
 
     double ptmax = 5;
@@ -82,6 +83,10 @@ void bigClusterAnalyser()
     std::vector<TH1D *> hClSigmaXvsLayer(7);
     std::vector<TH1D *> hClSigmaYvsLayer(7);
 
+    // cluster angles
+    std::vector<TH1D *> hClSnPhiVsLayer(7);
+    std::vector<TH1D *> hClTgLVsLayer(7);
+
     for (int layer{0}; layer < 7; layer++)
     {
         histsClMapTracks[layer] = new TH2D(Form("ClMapTrackL%i", layer), "; Column; Row ; Hits", 1024, -0.5, 1023.5, 512, -0.5, 511.5);
@@ -95,8 +100,14 @@ void bigClusterAnalyser()
 
         if(doCluShape)
         {
-            hClSigmaXvsLayer[layer] = new TH1D(Form("hClSigmaXvsLayerL%i", layer), "; Cluster size; Entries", 50, 0.5, 50.5);
-            hClSigmaYvsLayer[layer] = new TH1D(Form("hClSigmaYvsLayerL%i", layer), "; Cluster size; Entries", 50, 0.5, 50.5);
+            hClSigmaXvsLayer[layer] = new TH1D(Form("hClSigmaXvsLayerL%i", layer), "; Cluster columns; Entries", 50, 0.5, 50.5);
+            hClSigmaYvsLayer[layer] = new TH1D(Form("hClSigmaYvsLayerL%i", layer), "; Cluster rows; Entries", 50, 0.5, 50.5);
+        }
+
+        if(doSnPhi)
+        {
+            hClSnPhiVsLayer[layer] = new TH1D(Form("hClSnPhiVsLayerL%i", layer), "; Cl SnPhi; Entries", 200, -1, 1);
+            hClTgLVsLayer[layer] = new TH1D(Form("hClTgLVsLayerL%i", layer), "; Cl TgL; Entries", 200, -1, 1);
         }
     }
 
@@ -107,6 +118,14 @@ void bigClusterAnalyser()
     // Topology dictionary
     o2::itsmft::TopologyDictionary mdict;
     mdict.readFromFile(o2::base::DetectorNameConf::getAlpideClusterDictionaryFileName(o2::detectors::DetID::ITS, "../utils/ITSdictionary.bin"));
+
+
+    // load propagator
+    TFile *f = TFile::Open("../utils/grp");
+    auto grp = reinterpret_cast<o2::parameters::GRPObject*>(f->Get("ccdb_object"));
+    o2::base::Propagator::initFieldFromGRP(grp);
+    auto *lut = o2::base::MatLayerCylSet::loadFromFile("../utils/matbud.root");
+    o2::base::Propagator::Instance()->setMatLUT(lut);
 
     std::string path = "/data/fmazzasc/its_data/505658";
     TSystemDirectory dir("MyDir", path.data());
@@ -125,7 +144,7 @@ void bigClusterAnalyser()
 
     for (auto &dir : dirs)
     {
-        if (counter > 10)
+        if (counter > 10 && debug)
             continue;
         counter++;
 
@@ -173,6 +192,13 @@ void bigClusterAnalyser()
             if (!loopTree->GetEvent(frame) || !treeITSclus->GetEvent(frame) || !treeITS->GetEvent(frame))
                 continue;
 
+            std::vector<ITSCluster> ITSClusXYZ;
+            ITSClusXYZ.reserve((*ITSclus).size());
+            gsl::span<const unsigned char> spanPatt{*ITSpatt};
+            auto pattIt = spanPatt.begin();
+            o2::its::ioutils::convertCompactClusters(*ITSclus, pattIt, ITSClusXYZ, mdict); // converting cluster info in positional info on layers
+
+
             std::vector<int> clusTrackIdxs;
             std::vector<o2::itsmft::ClusterPattern> pattVec;
             getClusterPatterns(pattVec, ITSclus, ITSpatt, mdict, gman);
@@ -189,6 +215,7 @@ void bigClusterAnalyser()
                 o2::track::TrackParCov baseTrack(useITSonly ? (o2::track::TrackParCov)ITStrack : TPCITStracks->at(iTrack));
 
                 std::array<CompClusterExt, 7> TrackClus;
+                std::array<ITSCluster, 7> TrackClusXYZ;
                 std::array<o2::itsmft::ClusterPattern, 7> TrackPatt;
 
                 auto firstClus = ITStrack.getFirstClusterEntry();
@@ -198,10 +225,13 @@ void bigClusterAnalyser()
                 {
                     auto &clus = (*ITSclus)[(*ITSTrackClusIdx)[firstClus + icl]];
                     auto &patt = pattVec[(*ITSTrackClusIdx)[firstClus + icl]];
+                    auto &clusXYZ = ITSClusXYZ[(*ITSTrackClusIdx)[firstClus + icl]];
+
                     // LOG(info) << "Patt Npixels: " << pattVec[0].getNPixels();
 
                     auto layer = gman->getLayer(clus.getSensorID());
                     TrackClus[layer] = clus;
+                    TrackClusXYZ[layer] = clusXYZ;
                     TrackPatt[layer] = patt;
                     clusTrackIdxs.push_back((*ITSTrackClusIdx)[firstClus + icl]);
                 }
@@ -218,6 +248,7 @@ void bigClusterAnalyser()
                     {
 
                         auto &pattern = TrackPatt[layer];
+                        auto &clusXYZ = TrackClusXYZ[layer];
                         auto npix= pattern.getNPixels();
 
                         if (npix > 50)
@@ -230,6 +261,16 @@ void bigClusterAnalyser()
                             {
                                 hClSigmaXvsLayer[layer]->Fill(pattern.getRowSpan());
                                 hClSigmaYvsLayer[layer]->Fill(pattern.getColumnSpan());
+                            }
+
+                            if (doSnPhi)
+                            {
+                                bool propagateToClus = propagateToClusITS(clusXYZ, ITStrack, gman);
+                                if (propagateToClus)
+                                {
+                                    hClSnPhiVsLayer[layer]->Fill(ITStrack.getSnp());
+                                    hClTgLVsLayer[layer]->Fill(ITStrack.getTgl());
+                                }
                             }
                         }
                     }
@@ -330,139 +371,17 @@ void bigClusterAnalyser()
         }
         outFileShape.Close();
     }
-}
 
-void getClusterPatterns(std::vector<o2::itsmft::ClusterPattern> &pattVec, std::vector<CompClusterExt> *ITSclus, std::vector<unsigned char> *ITSpatt, o2::itsmft::TopologyDictionary &mdict, o2::its::GeometryTGeo *gman)
-{
-    pattVec.reserve(ITSclus->size());
-    auto pattIt = ITSpatt->cbegin();
-    for (unsigned int iClus{0}; iClus < ITSclus->size(); ++iClus)
+    // Saving angle plots
+    if (doSnPhi)
     {
-        auto &clus = (*ITSclus)[iClus];
-        auto layer = gman->getLayer(clus.getSensorID());
+        auto outFileAng = TFile(Form("clusITSAngles_Thr%i.root", pixThr), "recreate");
 
-        auto pattID = clus.getPatternID();
-        int npix;
-        o2::itsmft::ClusterPattern patt;
-
-        if (pattID == o2::itsmft::CompCluster::InvalidPatternID || mdict.isGroup(pattID))
+        for (int layer{0}; layer < 7; layer++)
         {
-            patt.acquirePattern(pattIt);
-            npix = patt.getNPixels();
+            hClSnPhiVsLayer[layer]->Write();
+            hClTgLVsLayer[layer]->Write();
         }
-        else
-        {
-
-            npix = mdict.getNpixels(pattID);
-            patt = mdict.getPattern(pattID);
-        }
-        // LOG(info) << "npix: " << npix << " Patt Npixel: " << patt.getNPixels();
-        pattVec.push_back(patt);
+        outFileAng.Close();
     }
-        // LOG(info) << " Patt Npixel: " << pattVec[0].getNPixels();
-}
-void printClusTrackInfo(const std::array<CompClusterExt, 7> &TrackClus, const std::array<o2::itsmft::ClusterPattern, 7> &TrackPatt, o2::its::TrackITS &ITStrack)
-{
-    for (int layer{0}; layer < 7; layer++)
-    {
-        if (ITStrack.hasHitOnLayer(layer))
-        {
-
-            LOG(info) << "Layer " << layer << ": " << TrackPatt[layer].getNPixels() << " pixels";
-            LOG(info) << "Track P: " << ITStrack.getP() << " Eta: " << ITStrack.getEta();
-        }
-    }
-}
-void fillClusterMap(CompClusterExt &clus, o2::itsmft::ClusterPattern &patt, TH2D *histo)
-{
-
-    auto col = clus.getCol();
-    auto row = clus.getRow();
-
-    // LOG(info) << "row: " << row << "col: " << col;
-    // LOG(info) << patt;
-
-    int ic = 0, ir = 0;
-
-    auto colSpan = patt.getColumnSpan();
-    auto rowSpan = patt.getRowSpan();
-    auto nBits = rowSpan * colSpan;
-
-    for (int i = 2; i < patt.getUsedBytes() + 2; i++)
-    {
-        unsigned char tempChar = patt.getByte(i);
-        int s = 128; // 0b10000000
-        while (s > 0)
-        {
-            if ((tempChar & s) != 0) // checking active pixels
-            {
-                histo->Fill(col + ic, row + rowSpan - ir);
-            }
-            ic++;
-            s >>= 1;
-            if ((ir + 1) * ic == nBits)
-            {
-                break;
-            }
-            if (ic == colSpan)
-            {
-                ic = 0;
-                ir++;
-            }
-            if ((ir + 1) * ic == nBits)
-            {
-                break;
-            }
-        }
-    }
-}
-
-void TrackLayerCorr(o2::its::TrackITS &ITStrack, const std::array<CompClusterExt, 7>clus, const std::array<o2::itsmft::ClusterPattern, 7>patt, TH1D* hClSizeAll, std::vector<TH1D *> hClSizeAllvsLayer, int pixThr, std::string cut)
-{
-    int maxClpos = std::distance(patt.begin(), std::max_element(patt.begin(), patt.end(), npix_compare));
-    int npixTrigger = patt[maxClpos].getNPixels();
-    
-    //LOG(info) << "maxClpos: " << maxClpos;
-
-    if ((cut == "upper") && (npixTrigger > pixThr))
-    { 
-        for (int layer{0}; layer < 7; layer++) // loop over layer
-        {
-            //LOG(info) << "Layer: " << layer;
-            if (layer != maxClpos)
-            {
-                if (ITStrack.hasHitOnLayer(layer)) // check hit on layer
-                {
-                    auto &pattern = patt[layer];
-                    auto npix = pattern.getNPixels();
-                    //LOG(info) << "npix: " << npix;
-                    hClSizeAll->Fill(npix);
-                    hClSizeAllvsLayer[layer]->Fill(npix);
-                }
-            }
-        }
-    }
-    else if ((cut == "lower") && (npixTrigger <= pixThr)) // npix <= 50
-    {
-        for (int layer{0}; layer < 7; layer++) // loop over layer
-        {
-            //LOG(info) << "Layer: " << layer;
-            if (layer != maxClpos)
-            {
-                if (ITStrack.hasHitOnLayer(layer)) // check hit on layer
-                {
-                    auto &pattern = patt[layer];
-                    auto npix = pattern.getNPixels();
-                    //LOG(info) << "npix: " << npix;
-                    hClSizeAll->Fill(npix);
-                    hClSizeAllvsLayer[layer]->Fill(npix);
-                }
-            }
-        }
-    }
-}
-
-static bool npix_compare(o2::itsmft::ClusterPattern a, o2::itsmft::ClusterPattern b)
-{
-    return std::abs(a.getNPixels()) < std::abs(b.getNPixels());
 }

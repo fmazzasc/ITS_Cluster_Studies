@@ -6,3 +6,4 @@
 *.pdf
 
 !LHCCplots/*
+!utils/*
