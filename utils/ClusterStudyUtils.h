@@ -219,4 +219,22 @@ void TrackLayerCorr(o2::its::TrackITS &ITStrack, const std::array<CompClusterExt
             }
         }
     }
+    else if ((cut == "all")) // exclude only trigger particle
+    {
+        for (int layer{0}; layer < 7; layer++) // loop over layer
+        {
+            //LOG(info) << "Layer: " << layer;
+            if (layer != maxClpos)
+            {
+                if (ITStrack.hasHitOnLayer(layer)) // check hit on layer
+                {
+                    auto &pattern = patt[layer];
+                    auto npix = pattern.getNPixels();
+                    //LOG(info) << "npix: " << npix;
+                    hClSizeAll->Fill(npix);
+                    hClSizeAllvsLayer[layer]->Fill(npix);
+                }
+            }
+        }
+    }
 }

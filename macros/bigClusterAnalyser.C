@@ -58,8 +58,8 @@ void bigClusterAnalyser()
 {
     // operation configuration
     bool useITSonly = true;
-    bool doTrckClusCorr = true;
-    bool doCluShape = true;
+    bool doTrckClusCorr = false;
+    bool doCluShape = false;
     bool doSnPhi = true;
     bool debug = false; // debug mode: stop after 10 iterations
     std::string itsOnlyStr = useITSonly ? "ITS-SA" : "ITS-TPC";
@@ -67,7 +67,7 @@ void bigClusterAnalyser()
     double ptmax = 5;
     double ptbins = ptmax / 0.033;
 
-    int pixThr = 50;
+    int pixThr = 10;
     int clsize_min = 50;
     int clsize_max = 150;
     std::vector<TH2D *> histsClMapTracks(7);
@@ -85,7 +85,11 @@ void bigClusterAnalyser()
 
     // cluster angles
     std::vector<TH1D *> hClSnPhiVsLayer(7);
+    std::vector<TH1D *> hClSnPhiVsLayerAll(7);
     std::vector<TH1D *> hClTgLVsLayer(7);
+    std::vector<TH1D *> hClTgLVsLayerAll(7);
+    int lowerCut = 50;
+    int upperCut = 1000000000; 
 
     for (int layer{0}; layer < 7; layer++)
     {
@@ -106,6 +110,8 @@ void bigClusterAnalyser()
 
         if(doSnPhi)
         {
+            hClSnPhiVsLayerAll[layer] = new TH1D(Form("hClSnPhiVsLayerAllL%i", layer), "; Cl SnPhi; Entries", 200, -1, 1);
+            hClTgLVsLayerAll[layer] = new TH1D(Form("hClTgLVsLayerAllL%i", layer), "; Cl TgL; Entries", 200, -1, 1);
             hClSnPhiVsLayer[layer] = new TH1D(Form("hClSnPhiVsLayerL%i", layer), "; Cl SnPhi; Entries", 200, -1, 1);
             hClTgLVsLayer[layer] = new TH1D(Form("hClTgLVsLayerL%i", layer), "; Cl TgL; Entries", 200, -1, 1);
         }
@@ -239,7 +245,7 @@ void bigClusterAnalyser()
                 if (doTrckClusCorr)
                 {
                     TrackLayerCorr(ITStrack, TrackClus, TrackPatt, hClSizeCorrAllHigh, hClSizeCorrVsLayerHigh, pixThr, "upper"); 
-                    TrackLayerCorr(ITStrack, TrackClus, TrackPatt, hClSizeCorrAllLow, hClSizeCorrVsLayerLow, pixThr, "lower");
+                    TrackLayerCorr(ITStrack, TrackClus, TrackPatt, hClSizeCorrAllLow, hClSizeCorrVsLayerLow, pixThr, "all");
                 }
 
                 for (int layer{0}; layer < 7; layer++)
@@ -262,17 +268,22 @@ void bigClusterAnalyser()
                                 hClSigmaXvsLayer[layer]->Fill(pattern.getRowSpan());
                                 hClSigmaYvsLayer[layer]->Fill(pattern.getColumnSpan());
                             }
-
-                            if (doSnPhi)
+                        }
+                        if (doSnPhi)
+                        {
+                            bool propagateToClus = propagateToClusITS(clusXYZ, ITStrack, gman);
+                            if (propagateToClus)
                             {
-                                bool propagateToClus = propagateToClusITS(clusXYZ, ITStrack, gman);
-                                if (propagateToClus)
+                                hClSnPhiVsLayerAll[layer]->Fill(ITStrack.getSnp());
+                                hClTgLVsLayerAll[layer]->Fill(ITStrack.getTgl());
+                                if (npix < upperCut && npix >= lowerCut)
                                 {
                                     hClSnPhiVsLayer[layer]->Fill(ITStrack.getSnp());
                                     hClTgLVsLayer[layer]->Fill(ITStrack.getTgl());
                                 }
                             }
                         }
+                        
                     }
                 }
             }
@@ -319,7 +330,7 @@ void bigClusterAnalyser()
     // Saving correlation plots
     if (doTrckClusCorr)
     {
-        auto outFileCorr = TFile(Form("clusITStrackCorr%iUpdate.root", pixThr), "recreate");
+        auto outFileCorr = TFile(Form("clusITStrackCorr%iUpdateAll.root", pixThr), "recreate");
         TCanvas clusITStrackCorr = TCanvas("clusITStrackCorr", "clusITStrackCorr", 800, 800);
         clusITStrackCorr.cd()->SetLogy();
         hClSizeCorrAllHigh->SetLineColor(kRed);
@@ -375,12 +386,41 @@ void bigClusterAnalyser()
     // Saving angle plots
     if (doSnPhi)
     {
-        auto outFileAng = TFile(Form("clusITSAngles_Thr%i.root", pixThr), "recreate");
+        auto outFileAng = TFile(Form("clusITSAngles_Thr%i_%i.root", lowerCut, upperCut), "recreate");
 
         for (int layer{0}; layer < 7; layer++)
         {
+            TCanvas cClusterSnPhi = TCanvas(Form("cClusterSnPhiL%i", layer), Form("cClusterSnPhiL%i", layer));
+            cClusterSnPhi.cd();
+            hClSnPhiVsLayer[layer]->SetLineColor(kRed);
+            hClSnPhiVsLayerAll[layer]->SetLineColor(kBlue);
+            hClSnPhiVsLayerAll[layer]->DrawNormalized();
+            hClSnPhiVsLayer[layer]->DrawNormalized("same");
+            double KS = hClSnPhiVsLayer[layer]->KolmogorovTest(hClSnPhiVsLayerAll[layer]);
+            auto legSnPhi= new TLegend(0.33, 0.65, 0.8, 0.85);
+            legSnPhi->SetHeader(Form("ALICE pp #sqrt{s} = 900 GeV, ITS2 Layer%i - KS=%f", layer, KS));
+            legSnPhi->AddEntry(hClSnPhiVsLayer[layer], Form(" %i < Cluster size < %i", lowerCut, upperCut), "l");
+            legSnPhi->AddEntry(hClSnPhiVsLayerAll[layer], "All clusters", "l");
+            legSnPhi->Draw();
+            hClSnPhiVsLayerAll[layer]->Write();
             hClSnPhiVsLayer[layer]->Write();
+            cClusterSnPhi.Write();
+
+            TCanvas cClusterTgl = TCanvas(Form("cClusterTglL%i", layer), Form("cClusterTglL%i", layer));
+            cClusterTgl.cd();
+            hClTgLVsLayer[layer]->SetLineColor(kRed);
+            hClTgLVsLayerAll[layer]->SetLineColor(kBlue);
+            hClTgLVsLayerAll[layer]->DrawNormalized();
+            hClTgLVsLayer[layer]->DrawNormalized("same");
+            KS = hClTgLVsLayerAll[layer]->KolmogorovTest(hClTgLVsLayer[layer]);
+            auto legTgl = new TLegend(0.33, 0.65, 0.8, 0.85);
+            legTgl->SetHeader(Form("ALICE pp #sqrt{s} = 900 GeV, ITS2 Layer %i - KS=%f", layer, KS));
+            legTgl->AddEntry(hClTgLVsLayer[layer], Form(" %i < Cluster size < %i", lowerCut, upperCut), "l");
+            legTgl->AddEntry(hClTgLVsLayerAll[layer], "All clusters", "l");
+            legTgl->Draw();
+            hClTgLVsLayerAll[layer]->Write();
             hClTgLVsLayer[layer]->Write();
+            cClusterTgl.Write();
         }
         outFileAng.Close();
     }
