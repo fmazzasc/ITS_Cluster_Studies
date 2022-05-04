@@ -1,0 +1,62 @@
+inputs:
+    dirname: null # leave null if not common for all input files
+    filenames: [ClusITSAngles_10_50.root, ClusITSAngles_Cl10_50_p0_0.2.root]
+    objectnames: [hSnPhiL6, hSnPhiL6, hSnPhiL6, hSnPhiL6, hSnPhiL6] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
+
+output: 
+    filename: SnPhiL6Comparison_w_wo_pcut # with path and w/o extension
+    extensions: [png, root] # possibilities: pdf, eps, png, root
+
+options:
+    ROOTobject: [TH1, TH1, TH1, TH1, TH1, TH1, TH1, TH1, TH1] # TH1 or TGraph: no need to specify TH1F, TH1D or TGraphErrors, TGraphAsymmErrors
+    scale: [1., 1., 1., 1, 1., 1., 1., 1., 1.]
+    rebin: [1, 1, 1, 1, 1]
+    normalize: [true, true, true, true, true, false, false, false, false] # divide histogram by its area
+    colors: [kBlack,  kAzure+4, kSpring+2, kRed+1, kMagenta+1, kBlue, kCyan+3, kSpring-5]
+    markers: [kFullCircle, kFullSquare, kFullCross, kFullDiamond, kFullCircle, kFullCircle, kFullCircle, kFullCircle, kFullCircle]
+    markersize: 1.5
+    linewidth: 1
+    fillstyle: [0,0,0,0,0]
+    fillalpha: [1,1,1,1,1]
+    drawopt: [e, e, e, e, e]
+    
+    ratio: 
+        enable: false
+        uncertainties:
+            enable: false
+            corr: false
+        displayRMS: true
+
+    errcomp: # comparison of uncertainties
+        enable: false
+        relative: true
+    
+    KS: true
+
+    legend:
+        avoid: false #set true to avoid the legend in the final plot
+        xlimits: [0.2, 0.4]
+        ylimits: [0.7, 0.9]
+        header: '10 < Cl size < 50'
+        titles: ['w/o #it{p} cut ', '#it{p} < 0.2', Cl size < 10 - TPC, wide left, wide right, wide left and right, alt step 1, alt step 2]
+        options: [lp, lp, lp, lp, lp, lp, lp, lp, lp]
+        textsize: 0.045
+        ncolumns: 1
+
+    canvas:
+        width: 1080
+        heigth: 1080
+        xaxistitle: 'Sin(#phi) L6'
+        yaxistitle: 'Norm. entries'
+        xlimits: [-1.0, 1.0]
+        ylimits: [1.e-6, 1.2]
+        ylimitsratio: [0., 2.]
+        ylimitserr: [0., 0.35]
+        logy: true
+        logx: false
+        ratio:
+            logy: false
+            logx: false
+        errcomp:
+            logy: false
+            logx: false  

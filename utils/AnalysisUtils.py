@@ -533,6 +533,16 @@ def ComputeRatioDiffBins(hNum, hDen, uncOpt=''):
 
     return hRatio
 
+def KS(h1, h2):
+    '''
+    Helper function to calculate KS test
+    '''
+    h1.Scale(1/h1.Integral())
+    h2.Scale(1/h2.Integral())
+
+    KS = h1.KolmogorovTest(h2)
+
+    return KS
 
 def ScaleGraph(graph, scaleFactor):
     '''

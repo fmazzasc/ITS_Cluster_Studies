@@ -69,6 +69,7 @@ xLegLimits = inputCfg['options']['legend']['xlimits']
 yLegLimits = inputCfg['options']['legend']['ylimits']
 legNames = inputCfg['options']['legend']['titles']
 legOpt = inputCfg['options']['legend']['options']
+header = inputCfg['options']['legend']['header']
 legTextSize = inputCfg['options']['legend']['textsize']
 ncolumns = inputCfg['options']['legend']['ncolumns']
 
@@ -79,6 +80,7 @@ leg = TLegend(xLegLimits[0], yLegLimits[0], xLegLimits[1], yLegLimits[1])
 leg.SetFillStyle(0)
 leg.SetTextSize(legTextSize)
 leg.SetNColumns(ncolumns)
+leg.SetHeader(header)
 
 hToCompare, hRatioToCompare, hUncToCompare = [], [], []
 for iFile, (inFileName, objName, objType, scale, normalize, color, marker, fillstyle, fillalpha, rebin) in \
