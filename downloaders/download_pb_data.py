@@ -1,18 +1,18 @@
 import os
 import yaml
 
-run_number = 505673
-target_dir = 'data/fmazzasc/its_data/PBdata'
+run_number = 505582
+target_dir = '/data/fmazzasc/its_data/PBdata/BNEG'
 input_dir = f'/alice/data/2021/OCT/{run_number}/apass3/'
 
 
-if not os.path.exists(f'{run_number}'):
-        os.makedirs(f'{run_number}')
+if not os.path.exists(f'{target_dir}/{run_number}'):
+        os.makedirs(f'{target_dir}/{run_number}')
 
-os.system(f'rm -rf {run_number}/*')
-os.system(f'alien.py ls /alice/data/2021/OCT/{run_number}/apass3/ > {run_number}/out.txt')
+os.system(f'rm -rf {target_dir}/{run_number}/*')
+os.system(f'alien.py ls /alice/data/2021/OCT/{run_number}/apass3/ > {target_dir}/{run_number}/out.txt')
 
-with open(f'{run_number}/out.txt') as file:
+with open(f'{target_dir}/{run_number}/out.txt') as file:
     lines = file.readlines()
     lines = [line.rstrip() for line in lines]
 
