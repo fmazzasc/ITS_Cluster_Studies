@@ -14,18 +14,18 @@ export O2DPG_ROOT=/home/fmazzasc/alice/O2DPG
 
 # ----------- START ACTUAL JOB  ----------------------------- 
 
-NWORKERS=8
+NWORKERS=50
 MODULES="--skipModules ZDC"
 SIMENGINE=${SIMENGINE:-TGeant4}
 
 # create workflow
-${O2DPG_ROOT}/MC/bin/o2dpg_sim_workflow.py -eCM 14000  -col pp -gen pythia8 -proc inel -tf 1     \
+${O2DPG_ROOT}/MC/bin/o2dpg_sim_workflow.py -eCM 900  -col pp -gen pythia8 -proc inel -tf 10     \
                                                        -ns 600 -e ${SIMENGINE}                   \
                                                        -j ${NWORKERS} -interactionRate 500000    \
                                                        -confKey "Diamond.width[2]=6."            \
                                                        -mod "--skipModules ZDC"                  
 
-${O2DPG_ROOT}/MC/bin/o2_dpg_workflow_runner.py -f workflow.json
+${O2DPG_ROOT}/MC/bin/o2_dpg_workflow_runner.py -f workflow.json --cpu-limit 64
 
 # publish the current dir to ALIEN
 # copy_ALIEN

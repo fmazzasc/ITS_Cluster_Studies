@@ -1,4 +1,7 @@
+#if !defined(CLING) || defined(ROOTCLING)
+
 #include <iostream>
+
 #include "CommonDataFormat/RangeReference.h"
 #include "ReconstructionDataFormats/Cascade.h"
 #include "ReconstructionDataFormats/PID.h"
@@ -46,6 +49,8 @@
 #include <TSystemFile.h>
 #include <DataFormatsTPC/BetheBlochAleph.h>
 #include <TDatabasePDG.h>
+
+#endif
 
 using GIndex = o2::dataformats::VtxTrackIndex;
 using V0 = o2::dataformats::V0;
@@ -97,16 +102,21 @@ void getClusterPatterns(std::vector<o2::itsmft::ClusterPattern> &pattVec, std::v
 
 void TreeClusterITS()
 {
-    int runNumber = 505658;
+    bool isMC = false;
+    int runNumber = 505658;                            // 301004 for MC
+    isMC ? runNumber = 301004 : runNumber = runNumber; // 301004 for MC
 
     TFile outFile = TFile(Form("TreeITSClusters%i.root", runNumber), "recreate");
 
     TTree *MLtree = new TTree("ITStreeML", "ITStreeML");
     std::array<float, 7> clSizeArr, snPhiArr, tanLamArr, pattIDarr;
-    float p, pt, tgL, meanClsize, dedx, nsigmaDeu, nsigmaP, nsigmaK, nsigmaPi;
+    float p, pTPC, pt, ptTPC, tgL, meanClsize, dedx, nsigmaDeu, nsigmaP, nsigmaK, nsigmaPi, tpcITSchi2;
+    bool isPositive;
 
     MLtree->Branch("p", &p);
     MLtree->Branch("pt", &pt);
+    MLtree->Branch("pTPC", &pTPC);
+    MLtree->Branch("ptTPC", &ptTPC);
     MLtree->Branch("tgL", &tgL);
     MLtree->Branch("meanClsize", &meanClsize);
     MLtree->Branch("dedx", &dedx);
@@ -114,6 +124,8 @@ void TreeClusterITS()
     MLtree->Branch("nSigmaP", &nsigmaP);
     MLtree->Branch("nSigmaK", &nsigmaK);
     MLtree->Branch("nSigmaPi", &nsigmaPi);
+    MLtree->Branch("tpcITSchi2", &tpcITSchi2);
+    MLtree->Branch("isPositive", &isPositive);
 
     for (int i{0}; i < 7; i++)
     {
@@ -131,17 +143,19 @@ void TreeClusterITS()
     o2::itsmft::TopologyDictionary mdict;
     mdict.readFromFile(o2::base::DetectorNameConf::getAlpideClusterDictionaryFileName(o2::detectors::DetID::ITS, ""));
 
-    // Propagator
-    const auto grp = GRPObject::loadFrom();
     // load propagator
+    TFile *f = TFile::Open("utils_clus/ccdb_grp_low_field_pos");
+    auto grp = isMC ? GRPObject::loadFrom("utils_clus/o2sim_grp_MC.root") : reinterpret_cast<o2::parameters::GRPObject *>(f->Get("ccdb_object"));
     o2::base::Propagator::initFieldFromGRP(grp);
-    auto *lut = o2::base::MatLayerCylSet::loadFromFile("matbud.root");
+    auto *lut = o2::base::MatLayerCylSet::loadFromFile("utils_clus/matbud.root");
     o2::base::Propagator::Instance()->setMatLUT(lut);
 
     if (lut)
         LOG(info) << "Loaded material LUT";
 
-    std::string path = Form("/data/fmazzasc/its_data/%i", runNumber);
+    std::string resDir = isMC ? "MC" : "PBdata";
+
+    std::string path = Form("/data/fmazzasc/its_data/%s/BPOS/%i", resDir.data(), runNumber);
     TSystemDirectory dir("MyDir", path.data());
     auto files = dir.GetListOfFiles();
     std::vector<std::string> dirs;
@@ -165,7 +179,7 @@ void TreeClusterITS()
         LOG(info) << "Processing: " << counter << ", dir: " << dir;
 
         std::string o2match_itstpc_file = path + "/" + dir + "/" + "o2match_itstpc.root";
-        std::string o2trac_tpc_file = path + "/" + dir + "/" + "tpc_tracks.root";
+        std::string o2trac_tpc_file = path + "/" + dir + "/" + "tpctracks.root";
         std::string o2trac_its_file = path + "/" + dir + "/" + "o2trac_its.root";
         std::string o2clus_its_file = path + "/" + dir + "/" + "o2clus_its.root";
 
@@ -212,7 +226,7 @@ void TreeClusterITS()
             ITSClusXYZ.reserve((*ITSclus).size());
             gsl::span<const unsigned char> spanPatt{*ITSpatt};
             auto pattIt = spanPatt.begin();
-            o2::its::ioutils::convertCompactClusters(*ITSclus, pattIt, ITSClusXYZ, mdict);
+            o2::its::ioutils::convertCompactClusters(*ITSclus, pattIt, ITSClusXYZ, &mdict);
 
             std::vector<o2::itsmft::ClusterPattern> pattVec;
             getClusterPatterns(pattVec, ITSclus, ITSpatt, mdict, gman);
@@ -256,7 +270,7 @@ void TreeClusterITS()
                         clSizeArr[layer] = -10;
                 }
 
-                if (std::abs(ITSTPCtrack.getEta()) < 0.9 && ITSTPCtrack.getChi2Match() < 10)
+                if (ITSTPCtrack.getChi2Match() < 10)
                 {
 
                     float mean = 0, norm = 0;
@@ -271,8 +285,11 @@ void TreeClusterITS()
                     mean /= norm;
                     mean *= std::sqrt(1. / (1 + ITSTPCtrack.getTgl() * ITSTPCtrack.getTgl()));
 
+                    p = ITSTPCtrack.getP();
+                    pt = ITSTPCtrack.getPt();
                     p = TPCtrack.getP();
                     pt = TPCtrack.getPt();
+                    isPositive = ITSTPCtrack.getSign() == 1;
                     tgL = ITSTPCtrack.getTgl();
                     meanClsize = mean;
                     dedx = TPCtrack.getdEdx().dEdxTotTPC;
@@ -281,6 +298,8 @@ void TreeClusterITS()
                     nsigmaP = nSigmaP(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
                     nsigmaPi = nSigmaPi(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
                     nsigmaK = nSigmaK(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
+
+                    tpcITSchi2 = ITSTPCtrack.getChi2Match();
 
                     for (unsigned int layer{0}; layer < clSizeArr.size(); layer++)
                     {
@@ -296,7 +315,6 @@ void TreeClusterITS()
 
                             else
                             {
-                                pattIDarr[layer] = -10;
                                 snPhiArr[layer] = -10;
                                 tanLamArr[layer] = -10;
                             }
@@ -328,23 +346,18 @@ void TreeClusterITS()
 bool propagateToClus(const ITSCluster &clus, o2::track::TrackParCov &track, o2::its::GeometryTGeo *gman)
 {
 
+    auto corrType = o2::base::PropagatorImpl<float>::MatCorrType::USEMatCorrLUT;
+    auto propInstance = o2::base::Propagator::Instance();
     float alpha = gman->getSensorRefAlpha(clus.getSensorID()), x = clus.getX();
-    if (track.rotate(alpha))
-    {
-        auto corrType = o2::base::PropagatorImpl<float>::MatCorrType::USEMatCorrLUT;
+    int layer{gman->getLayer(clus.getSensorID())};
 
-        auto propInstance = o2::base::Propagator::Instance();
-        float alpha = gman->getSensorRefAlpha(clus.getSensorID()), x = clus.getX();
-        int layer{gman->getLayer(clus.getSensorID())};
+    if (!track.rotate(alpha))
+        return false;
 
-        if (!track.rotate(alpha))
-            return false;
+    if (!propInstance->propagateToX(track, x, propInstance->getNominalBz(), o2::base::PropagatorImpl<float>::MAX_SIN_PHI, o2::base::PropagatorImpl<float>::MAX_STEP, corrType))
+        return false;
 
-        if (propInstance->propagateToX(track, x, propInstance->getNominalBz(), o2::base::PropagatorImpl<float>::MAX_SIN_PHI, o2::base::PropagatorImpl<float>::MAX_STEP, corrType))
-            return true;
-    }
-
-    return false;
+    return true;
 }
 
 void getClusterPatterns(std::vector<o2::itsmft::ClusterPattern> &pattVec, std::vector<CompClusterExt> *ITSclus, std::vector<unsigned char> *ITSpatt, o2::itsmft::TopologyDictionary &mdict, o2::its::GeometryTGeo *gman)
@@ -362,6 +375,8 @@ void getClusterPatterns(std::vector<o2::itsmft::ClusterPattern> &pattVec, std::v
 
         if (pattID == o2::itsmft::CompCluster::InvalidPatternID || mdict.isGroup(pattID))
         {
+            // LOG(info) << "is invalid pattern: "<< (pattID == o2::itsmft::CompCluster::InvalidPatternID);
+            // LOG(info) << "is group: "<< mdict.isGroup(pattID);
             patt.acquirePattern(pattIt);
             npix = patt.getNPixels();
         }
