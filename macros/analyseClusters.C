@@ -54,12 +54,15 @@ using Vec3 = ROOT::Math::SVector<double, 3>;
 
 void fillIBmap(TH2D *histo, CompClusterExt &clus, o2::itsmft::ChipMappingITS &chipMapping, int weight = 1);
 void fillOBmap(TH2D *histo, CompClusterExt &clus, o2::itsmft::ChipMappingITS &chipMapping, int weight = 1);
+void getClusterPatterns(std::vector<o2::itsmft::ClusterPattern> &pattVec, std::vector<CompClusterExt> *ITSclus, std::vector<unsigned char> *ITSpatt, o2::itsmft::TopologyDictionary &mdict, o2::its::GeometryTGeo *gman);
 
 char *getIBLabel(int iBin, int layer);
 char *getOBLabel(int iBin, int layer);
 
-void clusterMap()
+void analyseClusters()
 {
+    std::string eventFlag = "data"; // could be "mc_delta", "mc_no_delta" or "data"
+
     gStyle->SetPalette(55);
     gStyle->SetPadRightMargin(0.25);
     // gStyle->SetPadLeftMargin(0.005);
@@ -68,7 +71,7 @@ void clusterMap()
     bool doLHCCplots = true;
     const char *outFormat[2] = {".pdf", ".root"};
 
-    std::vector<int> pixelThrs{0};
+    std::vector<int> pixelThrs{40};
     o2::itsmft::ChipMappingITS chipMapping;
     std::vector<TH2D *> ClSizeMaps(7);
     std::vector<TH1D *> AverageClSize(7);
@@ -105,7 +108,6 @@ void clusterMap()
                 ClusterCounterMap[layer] = new TH2D(Form("Cluster counter map L%i", layer), "; Chip ID; Stave ID; # Clusters / # PVs", 49, -0.5, 48.5, 4 * nStaves[layer], -0.5, 4 * nStaves[layer] - 0.5);
             }
 
-            // AverageClSize[layer]->SetLineStyle(5);
             AverageClSize[layer]->SetLineColor(kRed + 2);
 
             // CL position
@@ -113,51 +115,65 @@ void clusterMap()
         }
 
         // Geometry
-        o2::base::GeometryManager::loadGeometry("o2_geometry.root");
+        o2::base::GeometryManager::loadGeometry("utils_clus/o2_geometry.root");
         auto gman = o2::its::GeometryTGeo::Instance();
         gman->fillMatrixCache(o2::math_utils::bit2Mask(o2::math_utils::TransformType::T2L, o2::math_utils::TransformType::L2G));
         // Topology dictionary
         o2::itsmft::TopologyDictionary mdict;
-        mdict.readFromFile(o2::base::DetectorNameConf::getAlpideClusterDictionaryFileName(o2::detectors::DetID::ITS, "utils/ITSdictionary.bin"));
+        std::string path;
+
+        if (eventFlag == "mc_delta")
+        {
+            path = "/data/shared/ITS/delta_ray_check/";
+            auto f = TFile("utils_clus/o2_itsmft_TopologyDictionary_1653153873993.root");
+            mdict = *(reinterpret_cast<o2::itsmft::TopologyDictionary *>(f.Get("ccdb_object")));
+        }
+
+        else if (eventFlag == "mc_no_delta")
+        {
+            auto f = TFile("utils_clus/o2_itsmft_TopologyDictionary_1653153873993.root");
+            mdict = *(reinterpret_cast<o2::itsmft::TopologyDictionary *>(f.Get("ccdb_object")));
+        }
+
+        else
+        {
+            path = "/data/fmazzasc/its_data/PBdata/BPOS/505658/";
+            mdict.readFromFile(o2::base::DetectorNameConf::getAlpideClusterDictionaryFileName(o2::detectors::DetID::ITS, "utils_clus/ITSdictionary.bin"));
+        }
 
         int nPrimaries = 0.;
 
-        std::string path = "/data/fmazzasc/its_data/merge";
+
         TSystemDirectory dir("MyDir", path.data());
         auto files = dir.GetListOfFiles();
         std::vector<std::string> dirs;
         for (auto fileObj : *files)
         {
             std::string file = ((TSystemFile *)fileObj)->GetName();
-            if (file.substr(0, 6) == "o2_ctf")
+            if (file.substr(0, 6) == "o2_ctf" || file.substr(0, 2) == "tf")
                 dirs.push_back(file);
         }
-
         int counter = 0;
-
         for (auto &dir : dirs)
         {
-            if (counter > 10)
-                continue;
-            counter++;
 
             LOG(info) << "Processing: " << counter << ", dir: " << dir;
+            // if (counter > 10)
+            //     continue;
+            // counter++;
             std::string o2clus_its_file;
             std::string primary_vertex_file;
-            if (!isMC)
-            {
-                o2clus_its_file = path + "/" + dir + "/" + "o2clus_its.root";
-                primary_vertex_file = path + "/" + dir + "/" + "o2_primary_vertex.root";
-            }
-            else
-            {
-                o2clus_its_file = "ITS_MC/o2clus_its.root";
-                primary_vertex_file = "ITS_MC/o2_primary_vertex.root";
-            }
+
+            o2clus_its_file = path + "/" + dir + "/" + "o2clus_its.root";
+            primary_vertex_file = path + "/" + dir + "/" + "o2_primary_vertex.root";
 
             auto fITSclus = TFile::Open(o2clus_its_file.data());
-            auto treeITSclus = (TTree *)fITSclus->Get("o2sim");
             auto fPrimary = TFile::Open(primary_vertex_file.data());
+
+            if (!fITSclus || !fPrimary)
+                continue;
+
+            auto treeITSclus = (TTree *)fITSclus->Get("o2sim");
             auto treePrimaries = (TTree *)fPrimary->Get("o2sim");
 
             std::vector<CompClusterExt> *ITSclus = nullptr;
@@ -178,37 +194,25 @@ void clusterMap()
 
                 nPrimaries += Primaries->size();
 
-                auto pattIt = ITSpatt->cbegin();
+                std::vector<o2::itsmft::ClusterPattern> pattVec;
+                getClusterPatterns(pattVec, ITSclus, ITSpatt, mdict, gman);
 
-                for (auto &clus : *ITSclus)
+                for (unsigned int iClus{0}; iClus < ITSclus->size(); iClus++)
                 {
-                    o2::itsmft::ClusterPattern patt;
+                    auto &patt = pattVec[iClus];
+                    auto &clus = ITSclus->at(iClus);
 
                     auto chipID = clus.getChipID();
                     int layer, sta, ssta, mod, chipInMod;
                     chipMapping.expandChipInfoHW(chipID, layer, sta, ssta, mod, chipInMod);
 
                     auto pattID = clus.getPatternID();
-                    int npix;
-                    if (pattID == o2::itsmft::CompCluster::InvalidPatternID || mdict.isGroup(pattID))
-                    {
-                        patt.acquirePattern(pattIt);
-                        npix = patt.getNPixels();
-                    }
-                    else
-                    {
-                        npix = mdict.getNpixels(pattID);
-                        patt = mdict.getPattern(pattID);
-                    }
+                    int npix = patt.getNPixels();
 
                     if (npix > pixelThr) // considering only "large" CL for CL position
                     {
                         auto col = clus.getCol();
                         auto row = clus.getRow();
-
-                        // LOG(info) << "row: " << row << "col: " << col;
-                        // LOG(info) << patt;
-
                         int ic = 0, ir = 0;
 
                         auto colSpan = patt.getColumnSpan();
@@ -263,6 +267,7 @@ void clusterMap()
             fPrimary->Close();
             fITSclus->Close();
         }
+
         LOG(info) << nPrimaries;
 
         TCanvas cClusterSize = TCanvas("cClusterSize", "cClusterSize", 1200, 800);
@@ -280,9 +285,9 @@ void clusterMap()
         laClPos.SetNDC();
         laClPos.SetTextFont(42);
 
-        // LOG(info) << "Integral, " << AverageClSizeMap[0]->GetSumOfWeights() << ", entries: " << AverageClSizeMap[0]->GetEntries();
+        auto outFile = TFile(Form("clMaps_%s", eventFlag.data()), "recreate");
+        AverageClSize[0]->Write("ClSize_L0");
 
-        auto outFile = TFile(Form("clMaps_data_thr%i.root", pixelThr), "recreate");
         for (int layer{0}; layer < 7; layer++)
         {
             ClSizeMaps[layer]->Scale(1. / nPrimaries);
@@ -488,6 +493,7 @@ void fillIBmap(TH2D *histo, CompClusterExt &clus, o2::itsmft::ChipMappingITS &ch
     int lay, sta, ssta, mod, chipInMod;
     chipMapping.expandChipInfoHW(chipID, lay, sta, ssta, mod, chipInMod);
     histo->Fill(chipInMod, sta, weight);
+    // if((chipInMod) == 8 && lay==0) LOG(info) << weight;
 }
 
 void fillOBmap(TH2D *histo, CompClusterExt &clus, o2::itsmft::ChipMappingITS &chipMapping, int weight)
@@ -508,4 +514,38 @@ char *getIBLabel(int iBin, int layer)
 char *getOBLabel(int iBin, int layer)
 {
     return Form("L%i_%i", layer, (iBin - 1) / 4);
+}
+
+void getClusterPatterns(std::vector<o2::itsmft::ClusterPattern> &pattVec, std::vector<CompClusterExt> *ITSclus, std::vector<unsigned char> *ITSpatt, o2::itsmft::TopologyDictionary &mdict, o2::its::GeometryTGeo *gman)
+{
+    pattVec.reserve(ITSclus->size());
+    auto pattIt = ITSpatt->cbegin();
+    // LOG(info) << (*ITSclus).size() << " clusters";
+    // LOG(info) << pattVec.size() << " patterns";
+
+    for (unsigned int iClus{0}; iClus < ITSclus->size(); ++iClus)
+    {
+        auto &clus = (*ITSclus)[iClus];
+        auto layer = gman->getLayer(clus.getSensorID());
+
+        auto pattID = clus.getPatternID();
+        int npix;
+        o2::itsmft::ClusterPattern patt;
+
+        if (pattID == o2::itsmft::CompCluster::InvalidPatternID || mdict.isGroup(pattID))
+        {
+            // LOG(info) << "is invalid pattern: "<< (pattID == o2::itsmft::CompCluster::InvalidPatternID);
+            // LOG(info) << "is group: "<< mdict.isGroup(pattID);
+            patt.acquirePattern(pattIt);
+            npix = patt.getNPixels();
+        }
+        else
+        {
+
+            npix = mdict.getNpixels(pattID);
+            patt = mdict.getPattern(pattID);
+        }
+
+        pattVec.push_back(patt);
+    }
 }

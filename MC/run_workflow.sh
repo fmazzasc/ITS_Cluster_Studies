@@ -19,8 +19,8 @@ MODULES="--skipModules ZDC"
 SIMENGINE=${SIMENGINE:-TGeant4}
 
 # create workflow
-${O2DPG_ROOT}/MC/bin/o2dpg_sim_workflow.py -eCM 900  -col pp -gen pythia8 -proc inel -tf 10     \
-                                                       -ns 600 -e ${SIMENGINE}                   \
+${O2DPG_ROOT}/MC/bin/o2dpg_sim_workflow.py -eCM 14000  -col pp -gen pythia8 -proc inel -tf 10     \
+                                                       -ns 100 -e ${SIMENGINE}                   \
                                                        -j ${NWORKERS} -interactionRate 500000    \
                                                        -confKey "Diamond.width[2]=6."            \
                                                        -mod "--skipModules ZDC"                  
