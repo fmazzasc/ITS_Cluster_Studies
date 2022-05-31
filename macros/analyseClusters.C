@@ -131,6 +131,7 @@ void analyseClusters()
 
         else if (eventFlag == "mc_no_delta")
         {
+            path = "/data/shared/ITS/mc_no_delta/";
             auto f = TFile("utils_clus/o2_itsmft_TopologyDictionary_1653153873993.root");
             mdict = *(reinterpret_cast<o2::itsmft::TopologyDictionary *>(f.Get("ccdb_object")));
         }
@@ -285,11 +286,12 @@ void analyseClusters()
         laClPos.SetNDC();
         laClPos.SetTextFont(42);
 
-        auto outFile = TFile(Form("clMaps_%s", eventFlag.data()), "recreate");
-        AverageClSize[0]->Write("ClSize_L0");
+        auto outFile = TFile(Form("/data/shared/ITS/clMaps_%s.root", eventFlag.data()), "recreate");
+        
 
         for (int layer{0}; layer < 7; layer++)
         {
+            AverageClSize[layer]->Write(Form("ClSize_L%i", layer));
             ClSizeMaps[layer]->Scale(1. / nPrimaries);
             AverageOccupancyMap[layer]->Scale(1. / nPrimaries);
             AverageClSizeMap[layer]->Divide(ClusterCounterMap[layer]);
