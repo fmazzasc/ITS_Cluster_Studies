@@ -61,6 +61,7 @@ void pbdataClSizeAnalyser(bool verbose=false)
     o2::base::GeometryManager::loadGeometry("../utils/o2_geometry.root");
     auto gman = o2::its::GeometryTGeo::Instance();
     gman->fillMatrixCache(o2::math_utils::bit2Mask(o2::math_utils::TransformType::T2L, o2::math_utils::TransformType::L2G));
+    std::vector<int> nStaves{12, 16, 20, 24, 30, 42, 48};
 
 
     LOG(INFO) << "------------------ PB DATA FROM JUNE ------------------";
@@ -69,6 +70,7 @@ void pbdataClSizeAnalyser(bool verbose=false)
         LOG(INFO) << "Loading topology dictionary";
     }
     o2::itsmft::TopologyDictionary mdict;
+    o2::itsmft::ChipMappingITS chipMapping;
     auto f = TFile("../utils/o2_itsmft_TopologyDictionary_1653153873993.root");
     mdict = *(reinterpret_cast<o2::itsmft::TopologyDictionary *>(f.Get("ccdb_object")));
 
@@ -86,12 +88,15 @@ void pbdataClSizeAnalyser(bool verbose=false)
     treeITSclus->SetBranchAddress("ITSClusterPatt", &ITSpatt);
 
     // Define the output file
-    if (verbose)
-    {
-        LOG(INFO) << "Preparing outfile: outFileClSizeJuneData.root";
-    }
-    auto outFile = TFile::Open("outFileClSizeJuneData.root", "recreate");
     TH1D *hClSize = new TH1D("hClSizehJune", ";Cluster size; entries", 100, 0.5, 100.5);
+    TH2D* hClSizeMap = new TH2D("Cluster size map L0 June", "; Chip ID; Stave ID; #LT Cluster size #GT", 9, -0.5, 8.5, nStaves[0], -0.5, nStaves[0] - 0.5);
+    std::vector<TH1D *> histsClSize(7);
+    std::vector<TH2D *> histsClSizeMap(7);
+    for (int layer{0}; layer < 7; layer++)
+    {
+        histsClSize[layer] = new TH1D(Form("Cluster Size L%i", layer), Form("; Cluster size for L%i; Counts", layer), 100, 0.5, 100.5);
+        histsClSizeMap[layer] = new TH2D(Form("Clusters map L%i", layer), "; Chip ID; Stave ID; Cluster size", 9, -0.5, 8.5, nStaves[layer], -0.5, nStaves[layer] - 0.5);
+    }
 
     // Filling histos
     if (verbose)
@@ -106,7 +111,7 @@ void pbdataClSizeAnalyser(bool verbose=false)
         getClusterPatterns(pattVec, ITSclus, ITSpatt, mdict, gman);
         for (unsigned int iClus{0}; iClus < ITSclus->size(); iClus++)
         {
-            if (iClus%10 == 0)
+            if (iClus%10 == 0 && verbose)
             {
                 LOG(INFO) << iClus;
             }
@@ -116,19 +121,33 @@ void pbdataClSizeAnalyser(bool verbose=false)
             int layer, sta, ssta, mod, chipInMod;
             auto pattID = clus.getPatternID();
             int npix = patt.getNPixels();
+            chipMapping.expandChipInfoHW(chipID, layer, sta, ssta, mod, chipInMod);
+            if (layer == 0)
+            {
+                fillIBmap(hClSizeMap, clus, chipMapping, npix);
+            }
+            fillIBmap(histsClSizeMap[layer], clus, chipMapping, npix);
+            histsClSize[layer]->Fill(npix);
             hClSize->Fill(npix);
             //LOG(INFO) << "Filling histogram for JUNE" << hClSize->GetEntries();
         }
     }
-    
-    hClSize->Write();
-    hClSize->SaveAs("hClSizeJune.root");
+    hClSizeMap->SaveAs("hClSizeMapJune.root");
+    fITSclus.Close();
 
     LOG(INFO) << "------------------ PB DATA FROM OCT ------------------";
 
     // Define the output file
     TH1D *hClSizeOct = new TH1D("hClSizehOct", ";Cluster size; entries", 100, 0.5, 100.5);
-    
+    TH2D* hClSizeMapOct = new TH2D("Cluster size map L0 Oct", "; Chip ID; Stave ID; #LT Cluster size #GT", 9, -0.5, 8.5, nStaves[0], -0.5, nStaves[0] - 0.5);
+    //std::vector<TH1D *> histsClSizeOct(7);
+    //std::vector<TH2D *> histsClSizeMapOct(7);
+    for (int layer{0}; layer < 7; layer++)
+    {
+        //histsClSizeOct[layer] = new TH1D(Form("Cluster Size L%i Oct", layer), Form("; Cluster size for L%i; Counts", layer), 100, 0.5, 100.5);
+        //histsClSizeMapOct[layer] = new TH2D(Form("Clusters map L%i Oct", layer), "; Chip ID; Stave ID; Cluster size", 9, -0.5, 8.5, nStaves[layer], -0.5, nStaves[layer] - 0.5);
+    }
+
     // Topology dictionary
     if (verbose){
         LOG(INFO) << "Loading topology dictionary";
@@ -148,28 +167,25 @@ void pbdataClSizeAnalyser(bool verbose=false)
     int counter = 0;
     for (auto &dir : dirs)
     {
-
-        LOG(info) << "Processing: " << counter << ", dir: " << dir;
+        if (verbose)
+        {
+            LOG(info) << "Processing: " << counter << ", dir: " << dir;
+        }
         if (counter > 100)
              continue;
         counter++;
         std::string o2clus_its_file;
         std::string primary_vertex_file;
-
         o2clus_its_file = path + "/" + dir + "/" + "o2clus_its.root";
         auto fITSclusOct = TFile::Open(o2clus_its_file.data());
         if (!fITSclusOct)
             continue;
 
         auto treeITSclus = (TTree *)fITSclusOct->Get("o2sim");
-
         std::vector<CompClusterExt> *ITSclus = nullptr;
         std::vector<unsigned char> *ITSpatt = nullptr;
-
         treeITSclus->SetBranchAddress("ITSClusterComp", &ITSclus);
         treeITSclus->SetBranchAddress("ITSClusterPatt", &ITSpatt);
-
-
 
         for (int frame = 0; frame < treeITSclus->GetEntriesFast(); frame++)
         {
@@ -185,9 +201,38 @@ void pbdataClSizeAnalyser(bool verbose=false)
                 int layer, sta, ssta, mod, chipInMod;
                 auto pattID = clus.getPatternID();
                 int npix = patt.getNPixels();
+                chipMapping.expandChipInfoHW(chipID, layer, sta, ssta, mod, chipInMod);
+                if (layer == 0)
+                {
+                    fillIBmap(hClSizeMapOct, clus, chipMapping, npix);
+                }
+                //fillIBmap(histsClSizeMapOct[layer], clus, chipMapping, npix);
+                //histsClSizeOct[layer]->Fill(npix);
                 hClSizeOct->Fill(npix);
             }
         }
     }
+    fITSclus.Close();
+
+    auto outFile = TFile("outFileClSizeJuneData.root", "recreate");
+    // June
+    hClSize->Write();
+    hClSizeMap->Write();
+    hClSize->SaveAs("hClSizeJune.root");
+    hClSizeMap->SaveAs("hClSizeMapJune.root");
+    // Oct
+    hClSizeOct->Write();
+    hClSizeMapOct->Write();
     hClSizeOct->SaveAs("hClSizeOct.root");
+    hClSizeMapOct->SaveAs("hClSizeMapOct.root");
+    //for (int layer{0}; layer < 7; layer++)
+    //{
+    //    histsClSizeOct[layer]->SaveAs(Form("histsClSizeOctL%i.root", layer));
+    //    histsClSize[layer]->SaveAs(Form("histsClSizeL%i.root", layer));
+    //    histsClSizeOct[layer]->Write();
+    //    //histsClSize[layer]->Write(Form("ClSize_L%iJune", layer));
+    //    histsClSizeMap[layer]->SaveAs(Form("ClSizeMap_L%iJune.root", layer));
+    //    histsClSizeMapOct[layer]->SaveAs(Form("ClSizeMap_L%iOct.root", layer));
+    //}
+    //outFile.Close();
 }

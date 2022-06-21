@@ -170,6 +170,15 @@ void fillClusterMap(CompClusterExt &clus, o2::itsmft::ClusterPattern &patt, TH2D
     }
 }
 
+void fillIBmap(TH2D *histo, CompClusterExt &clus, o2::itsmft::ChipMappingITS &chipMapping, int weight)
+{
+    auto chipID = clus.getChipID();
+    int lay, sta, ssta, mod, chipInMod;
+    chipMapping.expandChipInfoHW(chipID, lay, sta, ssta, mod, chipInMod);
+    histo->Fill(chipInMod, sta, weight);
+    // if((chipInMod) == 8 && lay==0) LOG(info) << weight;
+}
+
 
 static bool npix_compare(o2::itsmft::ClusterPattern a, o2::itsmft::ClusterPattern b)
 {
