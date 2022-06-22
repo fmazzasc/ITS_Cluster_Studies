@@ -98,13 +98,22 @@ void pbdataClSizeAnalyser(bool verbose=false)
     TH1D *hClSizeVsChipIDL6 = new TH1D("hClSizeVsChipIDJuneL6", ";Chip on stave; entries", 20, 0., 20);
     TH2D* hClSizeMap = new TH2D("hClusterSizeMapL0June", "; Chip ID; Stave ID; #LT Cluster size #GT", 9, -0.5, 8.5, nStaves[0], -0.5, nStaves[0] - 0.5);
     TH2D* hClSizeMapCounter = new TH2D("hClusterSizeMaphClSizeMapCounterL0June", "; Chip ID; Stave ID; #LT Cluster occupancy #GT", 9, -0.5, 8.5, nStaves[0], -0.5, nStaves[0] - 0.5);
-    //std::vector<TH1D *> histsClSize(7);
-    //std::vector<TH2D *> histsClSizeMap(7);
-    //for (int layer{0}; layer < 7; layer++)
-    //{
-    //    histsClSize[layer] = new TH1D(Form("hClusterSizeL%iJune", layer), Form("; Cluster size for L%i; Counts", layer), 100, 0.5, 100.5);
-    //    histsClSizeMap[layer] = new TH2D(Form("hClusterSizeMapL%iJune", layer), "; Chip ID; Stave ID; Cluster size", 9, -0.5, 8.5, nStaves[layer], -0.5, nStaves[layer] - 0.5);
-    //}
+    hClSize->SetDirectory(nullptr);
+    hClSizeL0->SetDirectory(nullptr);
+    hClSizeL6->SetDirectory(nullptr);
+    hClSizeVsChipIDL0->SetDirectory(nullptr);
+    hClSizeVsChipIDL0EtaScaled->SetDirectory(nullptr);
+    hClSizeVsChipIDL6->SetDirectory(nullptr);
+    hClSizeMap->SetDirectory(nullptr);
+    std::vector<TH1D *> histsClSize(7);
+    std::vector<TH2D *> histsClSizeMap(7);
+    for (int layer{0}; layer < 7; layer++)
+    {
+        histsClSize[layer] = new TH1D(Form("hClusterSizeL%iJune", layer), Form("; Cluster size for L%i; Counts", layer), 100, 0.5, 100.5);
+        histsClSize[layer]->SetDirectory(nullptr);
+        histsClSizeMap[layer] = new TH2D(Form("hClusterSizeMapL%iJune", layer), "; Chip ID; Stave ID; Cluster size", 9, -0.5, 8.5, nStaves[layer], -0.5, nStaves[layer] - 0.5);
+        histsClSizeMap[layer]->SetDirectory(nullptr);
+    }
 
     // Filling histos
     if (verbose)
@@ -147,8 +156,8 @@ void pbdataClSizeAnalyser(bool verbose=false)
                 hClSizeVsChipIDL6->Fill(chipInMod);
                 hClSizeL6->Fill(npix);
             }
-            //fillIBmap(histsClSizeMap[layer], clus, chipMapping, npix);
-            //histsClSize[layer]->Fill(npix);
+            fillIBmap(histsClSizeMap[layer], clus, chipMapping, npix);
+            histsClSize[layer]->Fill(npix);
             hClSize->Fill(npix);
         }
     }
@@ -159,7 +168,10 @@ void pbdataClSizeAnalyser(bool verbose=false)
     hClSizeMap->SaveAs("hClSizeMapJune.root");
     for (int chip{0}; chip < 9; chip++)
     {
-        LOG(info) << "Chip " << chip << ": " << hClSizeVsChipIDL0->GetBinContent(chip + 1) << "deltaEta" << deltaEta[chip];
+        if (verbose)
+        {
+            LOG(info) << "Chip " << chip << ": " << hClSizeVsChipIDL0->GetBinContent(chip + 1) << " deltaEta: " << deltaEta[chip];
+        }
         hClSizeVsChipIDL0EtaScaled->SetBinContent(chip +1, hClSizeVsChipIDL0EtaScaled->GetBinContent(chip +1) / deltaEta[chip]);
     }
     hClSizeVsChipIDL0EtaScaled->SaveAs("hClSizeVsChipIDL0EtaScaled.root");
@@ -182,13 +194,15 @@ void pbdataClSizeAnalyser(bool verbose=false)
     TH2D* hClSizeMapOct = new TH2D("hClusterSizeMapL0Oct", "; Chip ID; Stave ID; #LT Cluster size #GT", 9, -0.5, 8.5, nStaves[0], -0.5, nStaves[0] - 0.5);
     TH2D* hClSizeMapCounterOct = new TH2D("hClusterSizeMaphClSizeMapCounterL0Oct", "; Chip ID; Stave ID; #LT Cluster occupancy #GT", 9, -0.5, 8.5, nStaves[0], -0.5, nStaves[0] - 0.5);
 
-    //std::vector<TH1D *> histsClSizeOct(7);
-    //std::vector<TH2D *> histsClSizeMapOct(7);
-    //for (int layer{0}; layer < 7; layer++)
-    //{
-    //    histsClSizeOct[layer] = new TH1D(Form("hClusterSizeL%iOct", layer), Form("; Cluster size for L%i; Counts", layer), 100, 0.5, 100.5);
-    //    histsClSizeMapOct[layer] = new TH2D(Form("ClusterSizeMapL%iOct", layer), "; Chip ID; Stave ID; Cluster size", 9, -0.5, 8.5, nStaves[layer], -0.5, nStaves[layer] - 0.5);
-    //}
+    std::vector<TH1D *> histsClSizeOct(7);
+    std::vector<TH2D *> histsClSizeMapOct(7);
+    for (int layer{0}; layer < 7; layer++)
+    {
+        histsClSizeOct[layer] = new TH1D(Form("hClusterSizeL%iOct", layer), Form("; Cluster size for L%i; Counts", layer), 100, 0.5, 100.5);
+        histsClSizeOct[layer]->SetDirectory(nullptr);
+        histsClSizeMapOct[layer] = new TH2D(Form("ClusterSizeMapL%iOct", layer), "; Chip ID; Stave ID; Cluster size", 9, -0.5, 8.5, nStaves[layer], -0.5, nStaves[layer] - 0.5);
+        histsClSizeMapOct[layer]->SetDirectory(nullptr);
+    }
 
     // Topology dictionary
     if (verbose){
@@ -261,8 +275,8 @@ void pbdataClSizeAnalyser(bool verbose=false)
                     hClSizeVsChipIDOctL6->Fill(chipInMod);
                     hClSizeOctL6->Fill(npix);
                 }
-                //fillIBmap(histsClSizeMapOct[layer], clus, chipMapping, npix);
-                //histsClSizeOct[layer]->Fill(npix);
+                fillIBmap(histsClSizeMapOct[layer], clus, chipMapping, npix);
+                histsClSizeOct[layer]->Fill(npix);
                 hClSizeOct->Fill(npix);
             }
         }
@@ -276,32 +290,28 @@ void pbdataClSizeAnalyser(bool verbose=false)
     {
         hClSizeVsChipIDOctL0EtaScaled->SetBinContent(chip +1, hClSizeVsChipIDOctL0EtaScaled->GetBinContent(chip +1) / deltaEta[chip]);
     }
+    fITSclus.Close();
     hClSizeVsChipIDOctL0EtaScaled->SaveAs("hClSizeVsChipIDOctL0EtaScaled.root");
     hClSizeVsChipIDOctL0->SaveAs("hClSizeVsChipIDOctL0.root");
     hClSizeVsChipIDOctL6->SaveAs("hClSizeVsChipIDOctL6.root");
-    fITSclus.Close();
 
     LOG(INFO) << "------------------ SAVING OUTFILE ------------------";
     auto outFile = TFile("outFileClSizeJuneData.root", "recreate");
     // June
     hClSize->Write();
     hClSizeMap->Write();
-    //hClSize->SaveAs("hClSizeJune.root");
-    //hClSizeMap->SaveAs("hClSizeMapJune.root");
     hClSizeVsChipIDL0->Write();
+    hClSizeVsChipIDL0EtaScaled->Write();
     // Oct
     hClSizeOct->Write();
-    //hClSizeOct->SaveAs("hClSizeOct.root");
-    //hClSizeMapOct->SaveAs("hClSizeMapOct.root");
     hClSizeVsChipIDOctL0->Write();
-    //for (int layer{0}; layer < 7; layer++)
-    //{
-    //    histsClSizeOct[layer]->SaveAs(Form("histsClSizeOctL%i.root", layer));
-    //    histsClSize[layer]->SaveAs(Form("histsClSizeL%i.root", layer));
-    //    histsClSize[layer]->Write();
-    //    histsClSizeOct[layer]->Write();
-    //    histsClSizeMap[layer]->SaveAs(Form("ClSizeMap_L%iJune.root", layer));
-    //    histsClSizeMapOct[layer]->SaveAs(Form("ClSizeMap_L%iOct.root", layer));
-    //}
+    hClSizeVsChipIDOctL0EtaScaled->Write();
+    for (int layer{0}; layer < 7; layer++)
+    {
+        histsClSize[layer]->Write();
+        histsClSizeOct[layer]->Write();
+        histsClSizeMap[layer]->Write();
+        histsClSizeMapOct[layer]->Write();
+    }
     outFile.Close();
 }
