@@ -1,0 +1,50 @@
+#
+# Guide containing o2 workflows for PB data analyeses
+#
+
+# REMEMBER to ad  " | " between the different commands
+
+
+################# COPY FILES ######################
+alien_cp -f -T 80  alien:///alice/data/2022/JUN/517689/raw/0840/o2_rawtf_run00517689_tf00005121_epn094.tf file://data/shared/ITS/JUN/517689/raw/0840/o2_rawtf_run00517689_tf00005121_epn094.tf
+
+################# READ FILES ######################
+# Reading CTF files from input .dat 
+o2-ctf-reader-workflow -b --ctf-input INPUT.dat --remote-regex "^alien:///alice/data/.+" --copy-cmd no-copy --onlyDet ITS 
+
+# Reading TF files from input .dat 
+o2-raw-tf-reader-workflow -b --delay 0.2 --input-data INPUT.dat --max-tf 10 --onlyDet ITS --shm-segment-size 40000000000
+
+
+################# WRITE FILES #####################
+# Writing CTF files from input .dat 
+o2-its-cluster-writer-workflow -b --disable-mc
+
+
+
+
+################# RECONTSRUCTION ##################
+# Recostructing tracks from input .dat
+o2-its-reco-workflow -b --clusters-from-upstream --disable-mc --trackerCA --tracking-mode sync_misaligned --configKeyValues='fastMultConfig.cutMultClusLow=-1;fastMultConfig.cutMultClusHigh=-1;fastMultConfig.cutMultVtxHigh=-1;ITSVertexerParam.phiCut=0.5;ITSVertexerParam.clusterContributorsCut=3;ITSVertexerParam.tanLambdaCut=0.2;'
+
+#To disable masking (sup-1 on the plot of previous message):
+o2-itsmft-stf-decoder-workflow --configKeyValues "ITSClustererParam.maxBCDiffToMaskBias=-10;" 
+
+#To set sup0 (current default):
+o2-itsmft-stf-decoder-workflow --configKeyValues "ITSClustererParam.maxRowColDiffToMask=0"
+
+#To set sup1:
+o2-itsmft-stf-decoder-workflow --configKeyValues "ITSClustererParam.maxRowColDiffToMask=1"
+
+
+############# ALL ################
+
+
+# default
+o2-raw-tf-reader-workflow -b --delay 0.2 --input-data /data/shared/ITS/JUN/517677/raw/0310/o2_rawtf_run00517677_tf00000002_epn005.tf --max-tf 10 --onlyDet ITS --shm-segment-size 40000000000 | o2-itsmft-stf-decoder-workflow --configKeyValues "ITSClustererParam.maxBCDiffToMaskBias=-10;" | o2-its-reco-workflow -b --clusters-from-upstream --disable-mc --trackerCA --tracking-mode sync_misaligned --configKeyValues='fastMultConfig.cutMultClusLow=-1;fastMultConfig.cutMultClusHigh=-1;fastMultConfig.cutMultVtxHigh=-1;ITSVertexerParam.phiCut=0.5;ITSVertexerParam.clusterContributorsCut=3;ITSVertexerParam.tanLambdaCut=0.2;' | o2-its-cluster-writer-workflow -b --disable-mc > 517144_read_deco_wrt.log
+
+o2-raw-tf-reader-workflow -b --delay 0.2 --input-data /data/shared/ITS/JUN/517677/raw/0310/o2_rawtf_run00517677_tf00000002_epn005.tf --max-tf 10 --onlyDet ITS --shm-segment-size 40000000000 | o2-its-reco-workflow -b --clusters-from-upstream --disable-mc --trackerCA --tracking-mode sync_misaligned --configKeyValues='fastMultConfig.cutMultClusLow=-1;fastMultConfig.cutMultClusHigh=-1;fastMultConfig.cutMultVtxHigh=-1;ITSVertexerParam.phiCut=0.5;ITSVertexerParam.clusterContributorsCut=3;ITSVertexerParam.tanLambdaCut=0.2;' | o2-its-cluster-writer-workflow -b --disable-mc > 517144_read_deco_wrt.log
+
+
+# mask
+o2-raw-tf-reader-workflow -b --delay 0.2 --input-data /data/shared/ITS/JUN/517144/raw/1350/o2_rawtf_run00517144_tf00000002_epn030.tf --max-tf 10 --onlyDet ITS --shm-segment-size 40000000000 | o2-itsmft-stf-decoder-workflow --configKeyValues "ITSClustererParam.maxRowColDiffToMask=1;" | o2-its-reco-workflow -b --clusters-from-upstream --disable-mc --trackerCA --tracking-mode sync_misaligned --configKeyValues='fastMultConfig.cutMultClusLow=-1;fastMultConfig.cutMultClusHigh=-1;fastMultConfig.cutMultVtxHigh=-1;ITSVertexerParam.phiCut=0.5;ITSVertexerParam.clusterContributorsCut=3;ITSVertexerParam.tanLambdaCut=0.2;' | o2-its-cluster-writer-workflow -b --disable-mc > 517144_read_deco_wrt_mask2.log
