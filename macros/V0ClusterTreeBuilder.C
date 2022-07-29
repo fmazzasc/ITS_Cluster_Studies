@@ -54,6 +54,8 @@
 
 using GIndex = o2::dataformats::VtxTrackIndex;
 using V0 = o2::dataformats::V0;
+using PID = o2::track::PID;
+
 using Cascade = o2::dataformats::Cascade;
 using RRef = o2::dataformats::RangeReference<int, int>;
 using VBracket = o2::math_utils::Bracket<int>;
@@ -75,57 +77,75 @@ float BetheBlochParam(const float &momentum, const float &mass)
 float nSigmaDeu(const float &momentum, const float &TPCSignal)
 {
     float dedx = BetheBlochParam(momentum, 1.87561);
-    return std::abs(TPCSignal - dedx) / (0.07 * dedx);
+    return (TPCSignal - dedx) / (0.07 * dedx);
 }
 
 float nSigma(const float &momentum, const float &TPCSignal, int pdgCode)
 {
-    float dedx = BetheBlochParam(momentum, TDatabasePDG::Instance()->GetParticle(2212)->Mass());
-    return std::abs(TPCSignal - dedx) / (0.07 * dedx);
+    float dedx = BetheBlochParam(momentum, TDatabasePDG::Instance()->GetParticle(pdgCode)->Mass());
+    return (TPCSignal - dedx) / (0.08 * dedx);
 }
-
 
 bool propagateToClus(const ITSCluster &clus, o2::track::TrackParCov &track, o2::its::GeometryTGeo *gman);
 void getClusterPatterns(std::vector<o2::itsmft::ClusterPattern> &pattVec, std::vector<CompClusterExt> *ITSclus, std::vector<unsigned char> *ITSpatt, o2::itsmft::TopologyDictionary &mdict, o2::its::GeometryTGeo *gman);
 double calcV0alpha(const V0 &v0);
+double calcMass(const V0 &v0, PID v0PID);
 
 void V0ClusterTreeBuilder()
 {
 
     TFile outFile = TFile("V0TreePIDITS.root", "recreate");
 
-    TTree *MLtree = new TTree("ITStreeV0", "ITStreeV0");
+    TTree *DauTree = new TTree("DauTree", "DauTree");
+    TTree *V0Tree = new TTree("V0Tree", "V0Tree");
     std::array<float, 7> clSizeArr, snPhiArr, tanLamArr, pattIDarr;
     float p, pTPC, pt, ptTPC, tgL, clSizeCosLam, dedx, tpcITSchi2;
     float nsigmaDeu, nsigmaP, nsigmaK, nsigmaPi, nsigmaE;
-    float V0radius, V0CosPA, V0ArmenterosAlpha;
+    int V0ind;
+
+    // V0 tree elements
+    float V0radius, V0CosPA, V0ArmenterosAlpha, V0p;
+    float photMassHyp, k0sMassHyp, lamMassHyp;
+    float nSigmaPosDauP = -10, nSigmaNegDauP = -10, nSigmaPosDauPi = -10, nSigmaNegDauPi = -10, nSigmaPosDauE = -10, nSigmaNegDauE = -10;
     bool isPositive;
 
-    MLtree->Branch("V0radius", &V0radius);
-    MLtree->Branch("V0CosPA", &V0CosPA);
+    V0Tree->Branch("V0radius", &V0radius);
+    V0Tree->Branch("V0CosPA", &V0CosPA);
+    V0Tree->Branch("V0ArmenterosAlpha", &V0ArmenterosAlpha);
+    V0Tree->Branch("photMassHyp", &photMassHyp);
+    V0Tree->Branch("k0sMassHyp", &k0sMassHyp);
+    V0Tree->Branch("lamMassHyp", &lamMassHyp);
+    V0Tree->Branch("v0Ind", &V0ind);
+    V0Tree->Branch("V0p", &V0p);
+    V0Tree->Branch("nSigmaPosDauP", &nSigmaPosDauP);
+    V0Tree->Branch("nSigmaNegDauP", &nSigmaNegDauP);
+    V0Tree->Branch("nSigmaPosDauPi", &nSigmaPosDauPi);
+    V0Tree->Branch("nSigmaNegDauPi", &nSigmaNegDauPi);
+    V0Tree->Branch("nSigmaPosDauE", &nSigmaPosDauE);
+    V0Tree->Branch("nSigmaNegDauE", &nSigmaNegDauE);
 
-    MLtree->Branch("p", &p);
-    MLtree->Branch("pt", &pt);
-    MLtree->Branch("pTPC", &pTPC);
-    MLtree->Branch("ptTPC", &ptTPC);
-    MLtree->Branch("tgL", &tgL);
-    MLtree->Branch("clSizeCosLam", &clSizeCosLam);
-    MLtree->Branch("dedx", &dedx);
-    MLtree->Branch("nSigmaDeu", &nsigmaDeu);
-    MLtree->Branch("nSigmaP", &nsigmaP);
-    MLtree->Branch("nSigmaK", &nsigmaK);
-    MLtree->Branch("nSigmaPi", &nsigmaPi);
-    MLtree->Branch("nSigmaE", &nsigmaE);
-
-    MLtree->Branch("tpcITSchi2", &tpcITSchi2);
-    MLtree->Branch("isPositive", &isPositive);
+    DauTree->Branch("p", &p);
+    DauTree->Branch("pt", &pt);
+    DauTree->Branch("pTPC", &pTPC);
+    DauTree->Branch("ptTPC", &ptTPC);
+    DauTree->Branch("tgL", &tgL);
+    DauTree->Branch("clSizeCosLam", &clSizeCosLam);
+    DauTree->Branch("dedx", &dedx);
+    DauTree->Branch("nSigmaDeu", &nsigmaDeu);
+    DauTree->Branch("nSigmaP", &nsigmaP);
+    DauTree->Branch("nSigmaK", &nsigmaK);
+    DauTree->Branch("nSigmaPi", &nsigmaPi);
+    DauTree->Branch("nSigmaE", &nsigmaE);
+    DauTree->Branch("tpcITSchi2", &tpcITSchi2);
+    DauTree->Branch("isPositive", &isPositive);
+    DauTree->Branch("v0Ind", &V0ind);
 
     for (int i{0}; i < 7; i++)
     {
-        MLtree->Branch(Form("ClSizeL%i", i), &clSizeArr[i]);
-        MLtree->Branch(Form("SnPhiL%i", i), &snPhiArr[i]);
-        MLtree->Branch(Form("TanLamL%i", i), &tanLamArr[i]);
-        MLtree->Branch(Form("PattIDL%i", i), &pattIDarr[i]);
+        DauTree->Branch(Form("ClSizeL%i", i), &clSizeArr[i]);
+        DauTree->Branch(Form("SnPhiL%i", i), &snPhiArr[i]);
+        DauTree->Branch(Form("TanLamL%i", i), &tanLamArr[i]);
+        DauTree->Branch(Form("PattIDL%i", i), &pattIDarr[i]);
     }
 
     // Geometry
@@ -237,6 +257,11 @@ void V0ClusterTreeBuilder()
                 V0CosPA = v0.getCosPA();
                 V0radius = v0.calcR2();
                 V0ArmenterosAlpha = calcV0alpha(v0);
+                V0p = v0.getP();
+                V0ind = iV0;
+                photMassHyp = v0.calcMass2(PID::Electron, PID::Electron);
+                k0sMassHyp = calcMass(v0, PID::K0);
+                lamMassHyp = calcMass(v0, PID::Lambda);
 
                 for (int v0Dau{0}; v0Dau < 2; v0Dau++)
                 {
@@ -305,14 +330,24 @@ void V0ClusterTreeBuilder()
                         dedx = TPCtrack.getdEdx().dEdxTotTPC;
                         tpcITSchi2 = ITSTPCtrack.getChi2Match();
 
-
                         nsigmaDeu = nSigmaDeu(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
                         nsigmaP = nSigma(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC, 2212);
                         nsigmaK = nSigma(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC, 321);
                         nsigmaPi = nSigma(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC, 211);
                         nsigmaE = nSigma(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC, 11);
 
-
+                        if (isPositive)
+                        {
+                            nSigmaPosDauP = nsigmaP;
+                            nSigmaPosDauPi = nsigmaPi;
+                            nSigmaPosDauE = nsigmaE;
+                        }
+                        else
+                        {
+                            nSigmaNegDauP = nsigmaP;
+                            nSigmaNegDauPi = nsigmaPi;
+                            nSigmaNegDauE = nsigmaE;
+                        }
 
                         for (unsigned int layer{0}; layer < clSizeArr.size(); layer++)
                         {
@@ -339,7 +374,8 @@ void V0ClusterTreeBuilder()
                                 tanLamArr[layer] = -10;
                             }
                         }
-                        MLtree->Fill();
+                        DauTree->Fill();
+                        V0Tree->Fill();
                     }
                 }
             }
@@ -353,7 +389,8 @@ void V0ClusterTreeBuilder()
         fITSclus->Close();
     }
     outFile.cd();
-    MLtree->Write();
+    DauTree->Write();
+    V0Tree->Write();
     outFile.Close();
 }
 
@@ -419,4 +456,27 @@ double calcV0alpha(const V0 &v0)
     Double_t lQlPos = momPos.Dot(momTot) / momTot.Mag();
 
     return (lQlPos - lQlNeg) / (lQlPos + lQlNeg);
+}
+
+double calcMass(const V0 &v0, PID v0PID)
+{
+    std::array<double, 2> dauMass{TDatabasePDG::Instance()->GetParticle(211)->Mass(), TDatabasePDG::Instance()->GetParticle(211)->Mass()};
+    if (v0PID == PID::Lambda)
+        dauMass = {TDatabasePDG::Instance()->GetParticle(2212)->Mass(), TDatabasePDG::Instance()->GetParticle(211)->Mass()};
+
+    if (calcV0alpha(v0) < 0)
+        std::swap(dauMass[0], dauMass[1]);
+
+    std::vector<o2::dataformats::V0::Track> dauTracks = {v0.getProng(0), v0.getProng(1)};
+    TLorentzVector moth, prong;
+    std::array<float, 3> p;
+    for (int i = 0; i < 2; i++)
+    {
+        auto &track = dauTracks[i];
+        auto &mass = dauMass[i];
+        track.getPxPyPzGlo(p);
+        prong.SetVectM({p[0], p[1], p[2]}, mass);
+        moth += prong;
+    }
+    return moth.M();
 }
