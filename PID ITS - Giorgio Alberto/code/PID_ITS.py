@@ -21,6 +21,7 @@ from ROOT import TH2F, TCanvas, TH1F, gStyle, kBird, gPad, gROOT, TLegend
 from ROOT_graph import set_obj_style, fill_hist
 
 gROOT.SetBatch()
+PATH_TO_PID_ITS = '/Users/giogi/Desktop/Stage INFN/PID ITS'
 
 # Tags
 #_____________________________________
@@ -120,14 +121,16 @@ def multiple_hist(dfs, columns, plot_specifics, filename, logx=False, logy=True,
         if logx:    canvas.SetLogx()
 
         for i, df in enumerate(dfs):
-            if df.dtype == pd.DataFrame:    
-                if 'label' in df.columns:   hist_name = f"{df['label'][0]}"
+            if type(df) == pd.DataFrame:    
+                if 'label' in df.columns:   
+                    hist_name = f'{df.label[0]}'
+                    print('check')
             if hist_names != None:          hist_name = hist_names[i]
             else:                           hist_name = f'{i}'
 
             hist = TH1F(hist_name, hist_name, nbinsx, xlow, xup)
 
-            if df.dtype == pd.DataFrame:    
+            if type(df) == pd.DataFrame:    
                 fill_hist(hist, df[column])
                 if normalized:  set_obj_style(hist, x_label=f'{column}', y_label='Normalized counts', line_color=(i+1), y_title_offset=1.7)
                 else:           set_obj_style(hist, x_label=f'{column}', y_label='Counts', line_color=(i+1), y_title_offset=1.7)
@@ -212,8 +215,40 @@ def multiplots(xs, ys, n_pads, filename, plot, plot_specifics):
 def augmentation_raw():
     return 0
 
-def augmentation_betaflat():
-    return 0
+def augmentation_fine(df, mother, daughter, pmin, pmax):
+    """
+    This function performs data augmentation, generating new data for the daughter species from the pre-existing data of the mother species.
+
+    Parameters
+    ----------------------------------
+    - df: full dataframe of already identified particles
+    - mother: label of the mother species
+    - daughter: label of the daughter species
+    - pmin, pmax: momentum range to perform the data augmentation in
+    """
+
+    mass_mother = mass_dict[mother]
+    mass_daughter = mass_dict[daughter]
+
+    betamin = pmin / mass_mother 
+    betamax = pmax / mass_mother 
+    mother_to_augm = df.query(f'label == "{mother}" and {betamin} <= beta < {betamax}')
+
+    n_mother = len(df.query(f'label == "{mother}" and {pmin} <= p < {pmax}'))
+    n_daughter = len(df.query(f'label == "{daughter}" and {pmin} <= p < {pmax}'))
+
+    if n_mother < n_daughter:       return 0
+    else:
+        n_sample = min(n_mother-n_daughter, len(mother_to_augm))
+        augm_daughter = mother_to_augm.sample(n_sample)
+
+        augm_daughter['p'] = augm_daughter['p'] * mass_daughter / mass_mother
+        augm_daughter['label'] = daughter
+        augm_daughter['copy'] = 1
+
+        return augm_daughter
+
+    
 
 
 # ML Related Functions
@@ -229,10 +264,10 @@ def callback(study, trial):
     if trial.value < EXIT_THRESHOLD:
         raise optuna.StopStudy
 
-def Delta(model, X, y, abs=False):
+def Delta(model, X, y, absolute=False):
     pred = model.predict(X)
-    if abs:     return abs(y - pred)/y
-    else:       return abs(y - pred)/y
+    if absolute:    return abs(y - pred)/y
+    else:           return abs(y - pred)/y
 
 #def Delta_score(model, X, y, weight:pd.Series):
 def Delta_score(model, X, y):
@@ -246,7 +281,7 @@ def Delta_score(model, X, y):
     return Delta.sum()
     #return Delta.sum()/weight.sum()
 
-def plot_score(X, y, model, x_label, plot_specifics, x=None, filename='', logy=False, abs=True):
+def plot_score(X, y, model, x_label, plot_specifics, x=None, filename='', logy=False, absolute=True):
     """
     Plot a prediction scoring variable (defined as (true-predicted)/true) vs a chosen variable from X columns.
 
@@ -255,17 +290,17 @@ def plot_score(X, y, model, x_label, plot_specifics, x=None, filename='', logy=F
     - plot_specifics: list with the following entries [nbinsx, xlow, xup, nbinsy, ylow, yup]
     """
 
-    delta = Delta(model, X, y, abs=abs)
+    delta = Delta(model, X, y, absolute=absolute)
 
     canvas = TCanvas('canvas', 'canvas', 700, 700)
 
     plot_spec = [x_label, '#Delta'] + plot_specifics
-    if x == None:   density_scatter(y, delta, f'../ML_output/score{filename}', canvas, plot_spec, logy=logy)
-    else:           density_scatter(x, delta, f'../ML_output/score{filename}', canvas, plot_spec, logy=logy)
+    if x == None:   density_scatter(y, delta, f'{filename}_score', canvas, plot_spec, logy=logy)
+    else:           density_scatter(x, delta, f'{filename}_score', canvas, plot_spec, logy=logy)
 
     del canvas
 
-def plot_score_train(TrainTestData, RegressionColumns, model, x_label, plot_specifics, x_train=None, x_test=None, filename='', logx=False, logy=False, abs=True):
+def plot_score_train(TrainTestData, RegressionColumns, model, x_label, plot_specifics, x_train=None, x_test=None, filename='', output_dir='', logx=False, logy=False, absolute=True):
     """
     Plot a prediction scoring variable (defined as (true-predicted)/true) vs a chosen variable from X columns.
 
@@ -278,19 +313,19 @@ def plot_score_train(TrainTestData, RegressionColumns, model, x_label, plot_spec
 
     X_train, y_train, X_test, y_test = TrainTestData
 
-    delta_train = Delta(model, X_train[RegressionColumns], y_train, abs=abs)
-    delta_test = Delta(model, X_test[RegressionColumns], y_test, abs=abs)
+    delta_train = Delta(model, X_train[RegressionColumns], y_train, absolute=absolute)
+    delta_test = Delta(model, X_test[RegressionColumns], y_test, absolute=absolute)
 
     canvas = TCanvas('canvas', 'canvas', 700, 700)
 
     plot_spec = [x_label, '#Delta'] + plot_specifics
-    if x_train == None:     density_scatter(y_train, delta_train, f'../ML_output/score{filename}_scatter_train', canvas, plot_spec, logy=logy)
-    else:                   density_scatter(x_train, delta_train, f'../ML_output/score{filename}_scatter_train', canvas, plot_spec, logy=logy)
+    if x_train == None:     density_scatter(y_train, delta_train, f'{filename}_score_scatter_train', canvas, plot_spec, logy=logy)
+    else:                   density_scatter(x_train, delta_train, f'{filename}_score_scatter_train', canvas, plot_spec, logy=logy)
 
-    if x_test == None:      density_scatter(y_test, delta_test, f'../ML_output/score{filename}_scatter_test', canvas, plot_spec, logy=logy)
-    else:                   density_scatter(x_test, delta_test, f'../ML_output/score{filename}_scatter_test', canvas, plot_spec, logy=logy)
+    if x_test == None:      density_scatter(y_test, delta_test, f'{filename}_score_scatter_test', canvas, plot_spec, logy=logy)
+    else:                   density_scatter(x_test, delta_test, f'{filename}_score_scatter_test', canvas, plot_spec, logy=logy)
 
-    multiple_hist([delta_train, delta_test], [filename], plot_specifics[:3], '../ML_output/score_hist', logx=logx, hist_names=['Train', 'Test'], x_label='#Delta')
+    multiple_hist([delta_train, delta_test], [filename], plot_specifics[:3], f'{filename}_score_hist', logx=logx, hist_names=['Train', 'Test'], x_label='#Delta')
 
     del canvas
 
@@ -299,7 +334,7 @@ def plot_score_train(TrainTestData, RegressionColumns, model, x_label, plot_spec
 
 
 
-def data_prep(data_path, test_frac, do_plots=False):
+def data_prep(data_path, test_frac, do_plots=False, data_augm=True):
     """"
     Data preparation function. The full data will be uploaded and dataframes for single particle species will be created according to the tag rules. 
     Histograms for some of the column variables will be created. A data augmentation process will be added.
@@ -317,6 +352,7 @@ def data_prep(data_path, test_frac, do_plots=False):
 
     # Upload data
     df_full = pd.read_parquet(data_path)
+    output_dir = PATH_TO_PID_ITS
 
     # define some new columns
     df_full.eval('meanPattID = (PattIDL0+PattIDL1+PattIDL2+PattIDL3+PattIDL4+PattIDL5+PattIDL6)/7', inplace=True)
@@ -348,11 +384,11 @@ def data_prep(data_path, test_frac, do_plots=False):
         hist_variables = ['meanClsize', 'meanPattID', 'ClSizeL0', 'ClSizeL1', 'ClSizeL2', 'ClSizeL3', 'ClSizeL4', 'ClSizeL5', 'ClSizeL6', 'L6_L0']
         angular_hist_variables = ['SnPhiL0', 'SnPhiL1', 'SnPhiL2', 'SnPhiL3', 'SnPhiL4', 'SnPhiL5', 'SnPhiL6', 'meanSnPhi']
         hist_specifics = [100, 0, 100]
-        multiple_hist(filt_dfs, hist_variables, hist_specifics, 'data_visual/')
-        multiple_hist(filt_dfs, angular_hist_variables, [100, -1, 1], 'data_visual/')
-        multiple_hist(filt_dfs, ['L6_L0'], [100, 0, 10], 'data_visual/')
-        multiple_hist(filt_dfs, ['p'], [100, 0, 2], 'data_visual/')
-        multiple_hist(filt_dfs, ['tgL'], [100, -10, 10], 'data_visual/')
+        multiple_hist(filt_dfs, hist_variables, hist_specifics, f'{output_dir}/data_visual/')
+        multiple_hist(filt_dfs, angular_hist_variables, [100, -1, 1], f'{output_dir}/data_visual/')
+        multiple_hist(filt_dfs, ['L6_L0'], [100, 0, 10], f'{output_dir}/data_visual/')
+        multiple_hist(filt_dfs, ['p'], [100, 0, 2], f'{output_dir}/data_visual/')
+        multiple_hist(filt_dfs, ['tgL'], [100, -10, 10], f'{output_dir}/data_visual/')
 
 
         canvas = TCanvas('canvas', 'canvas', 700, 700)
@@ -360,10 +396,10 @@ def data_prep(data_path, test_frac, do_plots=False):
         dedx_scatter_specifics = ['p', '#frac{dE}{dx}', 10000, 0, 1.3, 10000, 0, 600]
         beta_scatter_specifics = ['p', '#beta', 10000, 0, 1.3, 10000, 0, 1]
         for df in filt_dfs:
-            density_scatter(df['p'], df['dedx'], '../data_visual/dEdx_{}'.format(df['label'][0]), canvas, dedx_scatter_specifics)
-            density_scatter(df['p'], df['beta'], '../data_visual/beta_{}'.format(df['label'][0]), canvas, beta_scatter_specifics)
-        density_scatter(df_full['p'], df_full['dedx'], '../data_visual/dEdx_all', canvas, dedx_scatter_specifics)
-        density_scatter(total_df['p'], total_df['beta'], '../data_visual/beta_all', canvas, beta_scatter_specifics)
+            density_scatter(df['p'], df['dedx'], f'{output_dir}/data_visual/dEdx_{df.label[0]}', canvas, dedx_scatter_specifics)
+            density_scatter(df['p'], df['beta'], f'{output_dir}/data_visual/beta_{df.label[0]}', canvas, beta_scatter_specifics)
+        density_scatter(df_full['p'], df_full['dedx'], f'{output_dir}/data_visual/dEdx_all', canvas, dedx_scatter_specifics)
+        density_scatter(total_df['p'], total_df['beta'], f'{output_dir}/data_visual/beta_all', canvas, beta_scatter_specifics)
         
         del canvas
 
@@ -376,8 +412,31 @@ def data_prep(data_path, test_frac, do_plots=False):
     for i in range(7):
         total_df[f'ClSizeL{i}'] = np.where(total_df[f'ClSizeL{i}'] < 0, 0, total_df[f'ClSizeL{i}'])
 
-    TrainSet, a, b, c = train_test_split(total_df, total_df.beta, test_size=test_frac ,random_state=0)
+    TrainSet, TestSet, yTrain, yTest = train_test_split(total_df, total_df.beta, test_size=test_frac ,random_state=0)
 
+
+    # Data augmentation
+    #_________________________________
+
+    if data_augm:
+        print('Data augmentation...\n')
+        TrainSet['copy'] = 0
+
+        to_augm = ['K']
+        mothers = ['Pi']
+        p_ranges = [(0., 1.2)]
+
+        augm = []
+        for (daughter, mother, (pmin, pmax)) in zip(to_augm, mothers, p_ranges):  
+            augm_df = augmentation_fine(TrainSet, mother, daughter, pmin, pmax)
+            if type(augm_df) != int:  augm.append(augm_df)
+        augm.append(TrainSet)
+        TrainSet = pd.concat(augm)
+        yTrain = TrainSet['beta']
+
+        for name in to_augm:    
+            len_name = len(TrainSet.query(f"label == '{name}' and copy == 1"))
+            print(f'Augmented {name}: {len_name} \n')
 
 
     # Beta flat weights
@@ -390,19 +449,16 @@ def data_prep(data_path, test_frac, do_plots=False):
     for betamin, betamax in zip(betamins, betamaxs):
         weights.append( len(TrainSet.query(f'{betamin} <= beta < {betamax}'))/len(TrainSet) )
 
-    conditions = [(total_df['beta'] >= betamin) & (total_df['beta'] < betamax) for betamin, betamax in zip(betamins, betamaxs)]
+    conditions = [(TrainSet['beta'] >= betamin) & (TrainSet['beta'] < betamax) for betamin, betamax in zip(betamins, betamaxs)]
     for weight in weights:  weight = 1./weight
-    total_df['beta_weight'] = np.select(conditions, weights)
+    TrainSet['beta_weight'] = np.select(conditions, weights)
 
 
     
-    # Dataframe splitting
+    # Return complete dataframe ready for ML
     #____________________________________
     
-    TrainTestData = train_test_split(total_df, total_df.beta, test_size=test_frac ,random_state=0) 
-    TrainTestData[1], TrainTestData[2] = TrainTestData[2], TrainTestData[1]                         # TrainTestData = [X_train, y_train, X_test, y_test]
-
-
+    TrainTestData = [TrainSet, yTrain, TestSet, yTest]
     return TrainTestData
     
 
@@ -423,8 +479,9 @@ def regression(TrainTestData, ModelParams, HyperParamsRange, optimization=True, 
     """
 
     X_train, y_train, X_test, y_test = TrainTestData
-    unwanted = 'beta', 'label', 'beta_weights' 
+    unwanted = 'beta', 'label', 'beta_weight', 'copy' 
     RegressionColumns = [col for col in X_train.columns if col not in unwanted]
+    output_dir = PATH_TO_PID_ITS
     
 
     # Model definition
@@ -446,21 +503,22 @@ def regression(TrainTestData, ModelParams, HyperParamsRange, optimization=True, 
         print('Best trial:', study.best_trial.params)
 
         fig = optuna.visualization.plot_optimization_history(study)
-        fig.write_image('../ML_output/plot_optimization_history.ong')
+        fig.write_image(f'{output_dir}/ML_output/plot_optimization_history.png')
 
         fig = optuna.visualization.plot_param_importances(study)
-        fig.write_image('../ML_output/plot_param_importances.ong')
+        fig.write_image(f'{output_dir}/ML_output/plot_param_importances.png')
 
         fig = optuna.visualization.plot_parallel_coordinate(study)
-        fig.write_image('../ML_output/plot_parallel_coordinate.ong')
+        fig.write_image(f'{output_dir}/ML_output/plot_parallel_coordinate.png')
 
         fig = optuna.visualization.plot_contour(study)
-        fig.write_image('../ML_output/plot_contour.ong')
+        fig.write_image(f'{output_dir}/ML_output/plot_contour.png')
 
         HyperParams = study.best_trial
 
+    else:   HyperParams = ModelParams
 
-
+    
 
 
 
@@ -469,19 +527,19 @@ def regression(TrainTestData, ModelParams, HyperParamsRange, optimization=True, 
     if model_choice=='xgboost':
 
         print('Global model...')
-        model_reg = xgb.XGBRegressor(HyperParams)
+        model_reg = xgb.XGBRegressor()
         #pipeline = Pipeline(steps=[('preprocessor', preprocessor), ('model', model)])
         pipeline = Pipeline(steps=[('model', model_reg)])
 
         with alive_bar(title='Training all') as bar:
-            if beta_flat:       pipeline.fit(X_train, y_train, sample_weight=X_train['beta_weights'])
-            else:               pipeline.fit(X_train, y_train)
+            if beta_flat:       pipeline.fit(X_train[RegressionColumns], y_train, sample_weight=X_train['beta_weights'])
+            else:               pipeline.fit(X_train[RegressionColumns], y_train)
         
         plot_specifics = [1000, 0, 1.3, 10000, -0.5, 4]
-        plot_score_train(TrainTestData, RegressionColumns, pipeline, x_label='#beta', plot_specifics=plot_specifics, logy=True)
+        plot_score_train(TrainTestData, RegressionColumns, pipeline, x_label='#beta', plot_specifics=plot_specifics, output_dir=output_dir, logy=True)
 
         for name in names:
-            print(f'Modeling {name}...')
+            print(f'\nModeling {name}...')
 
             train = pd.concat([X_train, y_train])
             X_train_name = train.query(f"label == '{name}'")
@@ -497,33 +555,19 @@ def regression(TrainTestData, ModelParams, HyperParamsRange, optimization=True, 
 
             TestTrainData_name = X_train_name, y_train_name, X_test_name, y_test_name
 
-            plot_score_train(TestTrainData_name, pipeline, x_label='#beta', plot_specifics=plot_specifics, filename=f'_{name}', logy=True)
+            plot_score_train(TestTrainData_name, pipeline, x_label='#beta', plot_specifics=plot_specifics, filename=f'{output_dir}/ML_output/{name}', logy=True)
 
     
     # Save model in pickle
     #_______________________________
 
-    print('Saving regressor model...')
+    print('\nSaving regressor model...')
     with open(f'RegressorModel_{model_choice}.pickle', 'wb') as output_file:
         pickle.dump(model_reg, output_file)
-    print('Model saved.')
+    print('Model saved.\n')
 
 
     return model_reg
-
-
-def augmentation(data_augm=''):
-
-    # Data Augmentation
-    #__________________________________
-    if data_augm == 'option1':
-        pass
-
-    elif data_augm == 'option2':
-        pass 
-
-    elif data_augm == 'option3':
-        pass
 
 
 
@@ -540,13 +584,13 @@ def main():
 
     # Data Preparation
     #__________________________________
-    TrainTestData = data_prep(data_path=data_path, test_frac=0.2, do_plots=False)
+    TrainTestData = data_prep(data_path=data_path, test_frac=0.2, do_plots=True)
 
     # Training
     #__________________________________
     ModelParams = {'n_jobs': 2, 'max_depth':5, 'learning_rate':0.023, 'n_estimators':500}
     HyperParamsRange = {'max_depth': (1, 20), 'learning_rate': (0.01, 0.1)}
-    regression(TrainTestData, ModelParams, HyperParamsRange)
+    regression(TrainTestData, ModelParams, HyperParamsRange, optimization=False)
 
 
 

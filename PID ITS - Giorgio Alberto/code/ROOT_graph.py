@@ -3,8 +3,8 @@ from ROOT import TH2F, TCanvas, TH1F, gStyle, kBird, gPad, gROOT, TLegend
 
 def set_obj_style(obj, **kwargs):
 
-    if 'set_opt_stat' in kwargs:                obj.SetOptStat(kwargs['set_opt_stat'])
-    else:                                       obj.SetOptStat(1110000)
+    if 'set_opt_stat' in kwargs:                gStyle.SetOptStat(kwargs['set_opt_stat'])
+    else:                                       gStyle.SetOptStat(1110000)
 
     if 'title' in kwargs:                       obj.SetTitle(kwargs['title'])
     if 'x_label' in kwargs:                     obj.GetXaxis().SetTitle(kwargs['x_label'])
@@ -28,7 +28,9 @@ def set_obj_style(obj, **kwargs):
 
 def fill_hist(hist, x, y=None):
 
-    if y == None:
+    if type(y) == pd.Series and y.empty:
+        for element in x:                           hist.Fill(element)
+    elif type(y) != pd.Series and y == None:    
         for element in x:                           hist.Fill(element)
     else:
         for (element_x, element_y) in zip(x, y):    hist.Fill(element_x, element_y)
