@@ -725,3 +725,32 @@ def ComputeWeightedAverage(values, weights, uncValues, uncWeights=None):
     unc = np.sqrt(sumOfDerToVal + sumOfDerToWeight)
 
     return average, unc
+
+def MCProcess(procId):
+    '''
+    Method to get MC process from https://root.cern/doc/v610/TMCProcess_8h.html
+    '''
+    if procId == 0:
+        return 'Primary'
+    elif procId == 4:
+        return 'Decay'
+    elif procId == 9:
+        return 'd-rays'
+    elif procId == 23:
+        return 'HInhelastic'
+    elif procId == 31:
+        return 'Null'
+    elif procId == 20:
+        return 'HElastic'
+    elif procId == 13:
+        return 'Hadronic'
+    elif procId == 27:
+        return 'PositronNuclear'
+    elif procId == 45:
+        return 'CoulombScattering'
+    elif procId == 26:
+        return 'ElectronNuclear'
+    elif procId == 5:
+        return 'Pair'
+    else: # unrecognized process
+        return 'Unknown'

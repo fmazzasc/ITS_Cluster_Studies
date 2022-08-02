@@ -10,7 +10,7 @@ import uproot
 from alive_progress import alive_bar
 import matplotlib.pyplot as plt
 sys.path.append('..')
-from utils.AnalysisUtils import ComputeRatioDiffBins
+from utils.AnalysisUtils import ComputeRatioDiffBins, MCProcess
 
 colors = [kBlack, kAzure+2, kRed+1, kOrange+1]
 markers = [kOpenCircle, kFullSquare]
@@ -39,50 +39,51 @@ def SetHistStyle(histo, color, marker, xtitle='', ytitle='', style=1):
     histo.GetYaxis().SetLabelSize(0.04)
     histo.GetYaxis().SetTitle(f'{ytitle}')
 
-def MCProcess(procId):
-    '''
-    Method to get MC process
-    '''
-    if procId == 0:
-        return 'Primary'
-    elif procId == 4:
-        return 'MultipleScattering'
-    elif procId == 2:
-        return 'Energyloss'
-    elif procId == 3:
-    kPPrimary = 0, kPMultipleScattering = 1, kPCoulombScattering = 45, kPEnergyLoss = 2,
-    kPMagneticFieldL = 3, kPDecay = 4, kPPair = 5, kPCompton = 6,
-    kPPhotoelectric = 7, kPBrem = 8, kPDeltaRay = 9, kPAnnihilation = 10,
-    kPAnnihilationRest = 11, kPAnnihilationFlight = 12, kPHadronic = 13, kPEvaporation = 14,
-    kPNuclearFission = 15, kPNuclearAbsorption = 16, kPPbarAnnihilation = 17, kPNbarAnnihilation = 18,
-    kPNCapture = 19, kPHElastic = 20, kPHIElastic = 21, kPHCElastic = 22,
-    kPHInhelastic = 23, kPPhotonInhelastic = 24, kPMuonNuclear = 25, kPElectronNuclear = 26,
-    kPPositronNuclear = 27, kPPhotoNuclear = 46, kPTOFlimit = 28, kPPhotoFission = 29,
-    kPRayleigh = 30, kPNull = 31, kPStop = 32, kPLightAbsorption = 33,
-    kPLightDetection = 34, kPLightScattering = 35, kPLightWLShifting = 48, kStepMax = 36,
-    kPCerenkov = 37, kPFeedBackPhoton = 38, kPLightReflection = 39, kPLightRefraction = 40,
-    kPSynchrotron = 41, kPScintillation = 42, kPTransitionRadiation = 49, kPTransportation = 43,
-    kPUserDefined = 47, kPNoProcess = 44 
-
-
 def main():
     #----------------------------------------------------------------
-    data = '/home/spolitan/Analyses/ITS_Cluster_Studies/macros/outFileMCid_thr0_1107_MCtree_nigthly.root'
-    outlabel = 'PROVAMCORIGIN'
+    data = '/home/spolitan/Analyses/ITS_Cluster_Studies/macros/outFileMCid_thr0_1207_MCtree_morning.root'
+    outlabel = '0208_EkinFix'
     query = ''
     outFile = TFile(f'MCOriginStudy{outlabel}.root', 'recreate')
     Vars = [] # if left empty consider all the vars
+    enabledProcesses = ['d-rays']
+    doLayerStudy = False # if true, study L0 and L6 clusters
+    doEkinStudy = True # if true, study Ekin distribution of d-rays and close
     #----------------------------------------------------------------
 
     df = uproot.open(data)['MCtree'].arrays(library='pd')
     df_sel = df
-
+    df_sel['E_mev'] = df_sel['E'] * 1000
+ 
     if query != '':
         df_sel = df_sel.query(query, inplace=False)
-    df_sel_proc = []
 
-    for idProcess in df_sel['ProcessID'].unique():
+    df_sel_proc = []
+    labels = []
+    for i, idProcess in enumerate(df_sel['ProcessID'].unique()):
+        label = MCProcess(idProcess)
+        if label not in enabledProcesses:
+            continue
+        labels.append(label)
         df_sel_proc.append(df_sel.query(f'ProcessID == {idProcess}'))
+
+    if doEkinStudy:
+        if enabledProcesses == ['d-rays']:
+            hEkin = TH1F('hEkin', 'hEkin', 1000, 0, 1)
+            hEtotal = TH1F('hEtotal', 'hEtotal', 1000, 0, 1)
+            for i, E_mev in enumerate(df_sel_proc[0]['E_mev']):
+                hEtotal.Fill(E_mev)
+                hEkin.Fill(E_mev - 0.5)
+            SetHistStyle(hEtotal, kBlack, kOpenCircle, 'E_{tot} [MeV]', 'Events')
+            SetHistStyle(hEkin, kRed, kOpenCircle, 'E_{tot} [MeV]', 'Events')
+            hEtotal.Write() 
+            hEkin.Write()
+            outFile.Write()
+            input('Press enter to exit')
+            sys.exit()
+        else:
+            print('Ekin study not implemented for this process')
+            sys.exit()
 
     if not Vars:
         Vars = df.keys()
