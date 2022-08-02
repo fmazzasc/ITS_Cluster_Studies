@@ -1,4 +1,5 @@
 import pickle
+import yaml
 import pandas as pd
 import numpy as np
 from math import floor, ceil
@@ -21,7 +22,6 @@ from ROOT import TH2F, TCanvas, TH1F, gStyle, kBird, gPad, gROOT, TLegend
 from ROOT_graph import set_obj_style, fill_hist
 
 gROOT.SetBatch()
-PATH_TO_PID_ITS = '/Users/giogi/Desktop/Stage INFN/PID ITS'
 
 # Tags
 #_____________________________________
@@ -45,6 +45,9 @@ mass_dict = dict(zip(names, [mass_Deu, mass_P, mass_K, mass_Pi]))
 
 # Functions
 #_______________________________________
+
+
+# Filtering
 #_______________________________________
 
 def filtering(df_full, part_name='all', label=True, beta=True):
@@ -122,9 +125,7 @@ def multiple_hist(dfs, columns, plot_specifics, filename, logx=False, logy=True,
 
         for i, df in enumerate(dfs):
             if type(df) == pd.DataFrame:    
-                if 'label' in df.columns:   
-                    hist_name = f'{df.label[0]}'
-                    print('check')
+                if 'label' in df.columns:   hist_name = f'{df.label[0]}'
             if hist_names != None:          hist_name = hist_names[i]
             else:                           hist_name = f'{i}'
 
@@ -300,7 +301,7 @@ def plot_score(X, y, model, x_label, plot_specifics, x=None, filename='', logy=F
 
     del canvas
 
-def plot_score_train(TrainTestData, RegressionColumns, model, x_label, plot_specifics, x_train=None, x_test=None, filename='', output_dir='', logx=False, logy=False, absolute=True):
+def plot_score_train(TrainTestData, RegressionColumns, model, x_label, plot_specifics, x_train=None, x_test=None, filename='', logx=False, logy=False, absolute=True):
     """
     Plot a prediction scoring variable (defined as (true-predicted)/true) vs a chosen variable from X columns.
 
@@ -325,7 +326,8 @@ def plot_score_train(TrainTestData, RegressionColumns, model, x_label, plot_spec
     if x_test == None:      density_scatter(y_test, delta_test, f'{filename}_score_scatter_test', canvas, plot_spec, logy=logy)
     else:                   density_scatter(x_test, delta_test, f'{filename}_score_scatter_test', canvas, plot_spec, logy=logy)
 
-    multiple_hist([delta_train, delta_test], [filename], plot_specifics[:3], f'{filename}_score_hist', logx=logx, hist_names=['Train', 'Test'], x_label='#Delta')
+    # no column will be used, since delta_train, delta_test are not dfs.
+    multiple_hist([delta_train, delta_test], [' '], plot_specifics[:3], f'{filename}_score_hist', logx=logx, hist_names=['Train', 'Test'], x_label='#Delta')
 
     del canvas
 
@@ -334,7 +336,7 @@ def plot_score_train(TrainTestData, RegressionColumns, model, x_label, plot_spec
 
 
 
-def data_prep(data_path, test_frac, do_plots=False, data_augm=True):
+def data_prep(config):
     """"
     Data preparation function. The full data will be uploaded and dataframes for single particle species will be created according to the tag rules. 
     Histograms for some of the column variables will be created. A data augmentation process will be added.
@@ -350,9 +352,21 @@ def data_prep(data_path, test_frac, do_plots=False, data_augm=True):
     - TrainTestData: list [X_train, y_train, X_test, y_test] that will be used for training and test (Xs still have the column passed to the ys)
     """
 
-    # Upload data
-    df_full = pd.read_parquet(data_path)
-    output_dir = PATH_TO_PID_ITS
+    # Upload from data file and config file
+    df_full = pd.read_parquet(config['input']['data'])
+
+    do_plots = config['data_prep']['do_plots']
+    output_dir = config['output']['data_visual_dir']
+
+    test_frac = config['data_prep']['test_frac']
+    seed_split = config['data_prep']['seed_split']
+
+    do_augm = config['data_prep']['do_augm']
+
+
+
+
+
 
     # define some new columns
     df_full.eval('meanPattID = (PattIDL0+PattIDL1+PattIDL2+PattIDL3+PattIDL4+PattIDL5+PattIDL6)/7', inplace=True)
@@ -384,22 +398,22 @@ def data_prep(data_path, test_frac, do_plots=False, data_augm=True):
         hist_variables = ['meanClsize', 'meanPattID', 'ClSizeL0', 'ClSizeL1', 'ClSizeL2', 'ClSizeL3', 'ClSizeL4', 'ClSizeL5', 'ClSizeL6', 'L6_L0']
         angular_hist_variables = ['SnPhiL0', 'SnPhiL1', 'SnPhiL2', 'SnPhiL3', 'SnPhiL4', 'SnPhiL5', 'SnPhiL6', 'meanSnPhi']
         hist_specifics = [100, 0, 100]
-        multiple_hist(filt_dfs, hist_variables, hist_specifics, f'{output_dir}/data_visual/')
-        multiple_hist(filt_dfs, angular_hist_variables, [100, -1, 1], f'{output_dir}/data_visual/')
-        multiple_hist(filt_dfs, ['L6_L0'], [100, 0, 10], f'{output_dir}/data_visual/')
-        multiple_hist(filt_dfs, ['p'], [100, 0, 2], f'{output_dir}/data_visual/')
-        multiple_hist(filt_dfs, ['tgL'], [100, -10, 10], f'{output_dir}/data_visual/')
+        multiple_hist(filt_dfs, hist_variables, hist_specifics, f'{output_dir}/')
+        multiple_hist(filt_dfs, angular_hist_variables, [100, -1, 1], f'{output_dir}/')
+        multiple_hist(filt_dfs, ['L6_L0'], [100, 0, 10], f'{output_dir}/')
+        multiple_hist(filt_dfs, ['p'], [100, 0, 2], f'{output_dir}/')
+        multiple_hist(filt_dfs, ['tgL'], [100, -10, 10], f'{output_dir}/')
 
 
         canvas = TCanvas('canvas', 'canvas', 700, 700)
 
-        dedx_scatter_specifics = ['p', '#frac{dE}{dx}', 10000, 0, 1.3, 10000, 0, 600]
-        beta_scatter_specifics = ['p', '#beta', 10000, 0, 1.3, 10000, 0, 1]
+        dedx_scatter_specifics = ['p', '#frac{dE}{dx}', 1200, 0, 1.2, 600, 0, 600]
+        beta_scatter_specifics = ['p', '#beta', 1200, 0, 1.2, 1000, 0, 1]
         for df in filt_dfs:
-            density_scatter(df['p'], df['dedx'], f'{output_dir}/data_visual/dEdx_{df.label[0]}', canvas, dedx_scatter_specifics)
-            density_scatter(df['p'], df['beta'], f'{output_dir}/data_visual/beta_{df.label[0]}', canvas, beta_scatter_specifics)
-        density_scatter(df_full['p'], df_full['dedx'], f'{output_dir}/data_visual/dEdx_all', canvas, dedx_scatter_specifics)
-        density_scatter(total_df['p'], total_df['beta'], f'{output_dir}/data_visual/beta_all', canvas, beta_scatter_specifics)
+            density_scatter(df['p'], df['dedx'], f'{output_dir}/dEdx_{df.label[0]}', canvas, dedx_scatter_specifics)
+            density_scatter(df['p'], df['beta'], f'{output_dir}/beta_{df.label[0]}', canvas, beta_scatter_specifics)
+        density_scatter(df_full['p'], df_full['dedx'], f'{output_dir}/dEdx_all', canvas, dedx_scatter_specifics)
+        density_scatter(total_df['p'], total_df['beta'], f'{output_dir}/beta_all', canvas, beta_scatter_specifics)
         
         del canvas
 
@@ -412,22 +426,22 @@ def data_prep(data_path, test_frac, do_plots=False, data_augm=True):
     for i in range(7):
         total_df[f'ClSizeL{i}'] = np.where(total_df[f'ClSizeL{i}'] < 0, 0, total_df[f'ClSizeL{i}'])
 
-    TrainSet, TestSet, yTrain, yTest = train_test_split(total_df, total_df.beta, test_size=test_frac ,random_state=0)
+    TrainSet, TestSet, yTrain, yTest = train_test_split(total_df, total_df.beta, test_size=test_frac ,random_state=seed_split)
 
 
     # Data augmentation
     #_________________________________
 
-    if data_augm:
+    if do_augm:
         print('Data augmentation...\n')
         TrainSet['copy'] = 0
 
-        to_augm = ['K']
-        mothers = ['Pi']
-        p_ranges = [(0., 1.2)]
+        to_augm = config['data_prep']['to_augm']
+        mothers = config['data_prep']['mothers']
+        p_ranges = [(0, 1.2)]
 
         augm = []
-        for (daughter, mother, (pmin, pmax)) in zip(to_augm, mothers, p_ranges):  
+        for daughter, mother, (pmin, pmax) in zip(to_augm, mothers, p_ranges):  
             augm_df = augmentation_fine(TrainSet, mother, daughter, pmin, pmax)
             if type(augm_df) != int:  augm.append(augm_df)
         augm.append(TrainSet)
@@ -442,8 +456,8 @@ def data_prep(data_path, test_frac, do_plots=False, data_augm=True):
     # Beta flat weights
     #_________________________________
 
-    betamins = [0., 0.2, 0.4, 0.6, 0.8]
-    betamaxs = [0.2, 0.4, 0.6, 0.8, 1.0]
+    betamins = config['data_prep']['betamins']
+    betamaxs = config['data_prep']['betamaxs']
     weights = []
 
     for betamin, betamax in zip(betamins, betamaxs):
@@ -468,20 +482,28 @@ def data_prep(data_path, test_frac, do_plots=False, data_augm=True):
 
 
 
-def regression(TrainTestData, ModelParams, HyperParamsRange, optimization=True, model_choice='xgboost', beta_flat=False):
+def regression(TrainTestData, config):
     """
     Parameters:
     ----------------------
     - TrainTestData: list [X_train, y_train, X_test, y_test] that will be used for training and test
-    - ModelParams: dict of hyperparameters
-    - HyperParamsRange: dict of hyperparameters range - {hyper_par: (hp_min, hp_max)}
-    - model_choice: select a model for the regression (options: 'xgboost')
+    - config: .yml configuration file
     """
 
     X_train, y_train, X_test, y_test = TrainTestData
-    unwanted = 'beta', 'label', 'beta_weight', 'copy' 
-    RegressionColumns = [col for col in X_train.columns if col not in unwanted]
-    output_dir = PATH_TO_PID_ITS
+
+    RegressionColumns = config['training']['RegressionColumns']
+    model_choice = config['training']['model']
+    ModelParams = config['training']['ModelParams']
+
+    do_opt = config['training']['do_opt']
+    HyperParamsRange = config['training']['HyperParamsRange']
+
+    beta_flat = config['training']['beta_flat']
+
+    output_dir = config['output']['ml_dir']
+    save_model = config['training']['save_model']
+    
     
 
     # Model definition
@@ -491,7 +513,7 @@ def regression(TrainTestData, ModelParams, HyperParamsRange, optimization=True, 
     # Optuna optimization
     #__________________________________
     
-    if optimization:
+    if do_opt:
         model_handler = ModelHandler(model, RegressionColumns)
         model_handler.set_model_params(ModelParams)
 
@@ -503,16 +525,16 @@ def regression(TrainTestData, ModelParams, HyperParamsRange, optimization=True, 
         print('Best trial:', study.best_trial.params)
 
         fig = optuna.visualization.plot_optimization_history(study)
-        fig.write_image(f'{output_dir}/ML_output/plot_optimization_history.png')
+        fig.write_image(f'{output_dir}/plot_optimization_history.png')
 
         fig = optuna.visualization.plot_param_importances(study)
-        fig.write_image(f'{output_dir}/ML_output/plot_param_importances.png')
+        fig.write_image(f'{output_dir}/plot_param_importances.png')
 
         fig = optuna.visualization.plot_parallel_coordinate(study)
-        fig.write_image(f'{output_dir}/ML_output/plot_parallel_coordinate.png')
+        fig.write_image(f'{output_dir}/plot_parallel_coordinate.png')
 
         fig = optuna.visualization.plot_contour(study)
-        fig.write_image(f'{output_dir}/ML_output/plot_contour.png')
+        fig.write_image(f'{output_dir}/plot_contour.png')
 
         HyperParams = study.best_trial
 
@@ -527,16 +549,16 @@ def regression(TrainTestData, ModelParams, HyperParamsRange, optimization=True, 
     if model_choice=='xgboost':
 
         print('Global model...')
-        model_reg = xgb.XGBRegressor()
+        model_reg = xgb.XGBRegressor(**HyperParams)
         #pipeline = Pipeline(steps=[('preprocessor', preprocessor), ('model', model)])
         pipeline = Pipeline(steps=[('model', model_reg)])
 
         with alive_bar(title='Training all') as bar:
-            if beta_flat:       pipeline.fit(X_train[RegressionColumns], y_train, sample_weight=X_train['beta_weights'])
+            if beta_flat:       pipeline.fit(X_train[RegressionColumns], y_train, model__sample_weight=X_train['beta_weight'])
             else:               pipeline.fit(X_train[RegressionColumns], y_train)
         
-        plot_specifics = [1000, 0, 1.3, 10000, -0.5, 4]
-        plot_score_train(TrainTestData, RegressionColumns, pipeline, x_label='#beta', plot_specifics=plot_specifics, output_dir=output_dir, logy=True)
+        plot_specifics = [1200, 0, 1.2, 400, 0, 4]
+        plot_score_train(TrainTestData, RegressionColumns, pipeline, x_label='#beta', plot_specifics=plot_specifics, logy=True)
 
         for name in names:
             print(f'\nModeling {name}...')
@@ -550,21 +572,22 @@ def regression(TrainTestData, ModelParams, HyperParamsRange, optimization=True, 
             y_test_name = X_test_name['beta']
             
             with alive_bar(title=f'Training {name}') as bar:
-                if beta_flat:   pipeline.fit(X_train_name[RegressionColumns], y_train_name, sample_weight=X_train_name['beta_weights'])
+                if beta_flat:   pipeline.fit(X_train_name[RegressionColumns], y_train_name, model__sample_weight=X_train_name['beta_weight'])
                 else:           pipeline.fit(X_train_name[RegressionColumns], y_train_name)
 
             TestTrainData_name = X_train_name, y_train_name, X_test_name, y_test_name
 
-            plot_score_train(TestTrainData_name, pipeline, x_label='#beta', plot_specifics=plot_specifics, filename=f'{output_dir}/ML_output/{name}', logy=True)
+            plot_score_train(TestTrainData_name, RegressionColumns, pipeline, x_label='#beta', plot_specifics=plot_specifics, filename=f'{output_dir}/{name}', logy=True)
 
     
     # Save model in pickle
     #_______________________________
 
-    print('\nSaving regressor model...')
-    with open(f'RegressorModel_{model_choice}.pickle', 'wb') as output_file:
-        pickle.dump(model_reg, output_file)
-    print('Model saved.\n')
+    if save_model:
+        print('\nSaving regressor model...')
+        with open(f'RegressorModel_{model_choice}.pickle', 'wb') as output_file:
+            pickle.dump(model_reg, output_file)
+        print('Model saved.\n')
 
 
     return model_reg
@@ -578,19 +601,18 @@ def regression(TrainTestData, ModelParams, HyperParamsRange, optimization=True, 
 
 def main():
 
+    with open('/Users/giogi/Desktop/Stage INFN/PID ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/configs/config.yml') as f:
+        config = yaml.load(f, Loader=yaml.FullLoader)
+
     # Input file
     #__________________________________
-    data_path = '/Users/giogi/Desktop/Stage INFN/PID ITS/data/Df_filtered_ITS2Cluster505673.parquet.gzip'
-
     # Data Preparation
     #__________________________________
-    TrainTestData = data_prep(data_path=data_path, test_frac=0.2, do_plots=True)
+    TrainTestData = data_prep(config)
 
     # Training
     #__________________________________
-    ModelParams = {'n_jobs': 2, 'max_depth':5, 'learning_rate':0.023, 'n_estimators':500}
-    HyperParamsRange = {'max_depth': (1, 20), 'learning_rate': (0.01, 0.1)}
-    regression(TrainTestData, ModelParams, HyperParamsRange, optimization=False)
+    regression(TrainTestData, config)
 
 
 

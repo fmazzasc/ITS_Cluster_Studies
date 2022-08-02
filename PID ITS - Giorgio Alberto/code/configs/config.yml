@@ -1,0 +1,73 @@
+# Configuration file for the particle identification with the ML algorithm in PID_ITS - Giorgio Alberto
+
+input:
+
+    data: /Users/giogi/Desktop/Stage INFN/PID ITS/data/Df_filtered_ITS2Cluster505673.parquet.gzip
+
+
+
+output:
+    data_visual_dir: /Users/giogi/Desktop/Stage INFN/PID ITS/data_visual
+    ml_dir: /Users/giogi/Desktop/Stage INFN/PID ITS/ML_output
+
+
+
+data_prep:
+    skip_data_prep: False
+    prep_data: []
+
+    test_frac: 0.2
+    seed_split: 0   # random_state for train_test_split
+
+    do_plots: False
+ 
+
+    # Data Augmentation
+    #____________________________________
+    do_augm: True
+    to_augm: ["K"]
+    mothers: ["Pi"]
+    p_ranges: [(0., 1.2)]
+
+    # Beta Flat
+    #____________________________________
+    betamins: [0., 0.2, 0.4, 0.6, 0.8]
+    betamaxs: [0.2, 0.4, 0.6, 0.8, 1.0]
+
+training:
+
+    RegressionColumns: ["p", "pt", "tgL", "meanClsize", "meanSnPhi", "meanPattID", "dedx", "nSigmaDeu", "nSigmaP",
+       "nSigmaK", "nSigmaPi", "tpcITSchi2", "ClSizeL0", "SnPhiL0", "TanLamL0",
+       "PattIDL0", "ClSizeL1", "SnPhiL1", "TanLamL1", "PattIDL1", "ClSizeL2",
+       "SnPhiL2", "TanLamL2", "PattIDL2", "ClSizeL3", "SnPhiL3", "TanLamL3",
+       "PattIDL3", "ClSizeL4", "SnPhiL4", "TanLamL4", "PattIDL4", "ClSizeL5",
+       "SnPhiL5", "TanLamL5", "PattIDL5", "ClSizeL6", "SnPhiL6", "TanLamL6",
+       "PattIDL6", "L6_L0"]
+    ModelParams:    {"n_jobs": 100,
+                    "time_budget": 100,
+                    "metric": "r2",
+                    "task": "regression",
+                    "log_file_name": "bdt.log",
+                    "tree_method": "hist", # not available in FLAML
+                    "estimator_list" : ["xgboost"], # not available in FLAML
+                    "colsample_bylevel": 0.6337942873486531, # not available in FLAML 
+                    "colsample_bytree": 0.7, # not available in FLAML
+                    "subsample": 0.710841077866278, # not available in FLAML
+                    "learning_rate": 0.04952863262192068, # not available in FLAML
+                    "n_estimators": 400, # not available in FLAML
+                    "max_depth": 13, # not available in FLAML
+                    "min_child_weight": 10, # not available in FLAML
+                    "eval_metric": "rmse", # not available in FLAML
+                    "reg_alpha": 0.349923237394973, # not available in FLAML
+                    "reg_lambda": 0.5031161568154017, # not available in FLAML
+                    "verbosity": 1,
+                    } # dict of hyperparameters (XGB and AUTOML USE DIFFERENT HYPER-PARS!)
+    HyperParamsRange:   {"max_depth": (1, 20), "learning_rate": (0.01, 0.1)}    # dict of ranges for the hyperparameters evaluated by optuna
+
+    model: "xgboost"
+    do_opt: False
+    beta_flat: True
+    save_model: True
+
+    
+    
