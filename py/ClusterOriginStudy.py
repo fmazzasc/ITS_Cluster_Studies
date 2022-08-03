@@ -2,7 +2,7 @@
 python script to produce training variables distributions
 run: python PlotTrainingVars.py
 '''
-from ROOT import TFile, TH1F, TCanvas, TMath, TLegend, kRainBow, kBlack, kRed, kAzure, kOrange, kSpring, kOpenCircle, kFullCross, kFullSquare, TLatex # pylint: disable=import-error,no-name-in-module
+from ROOT import TFile, TH1F, TH2F, TCanvas, TMath, TLegend, kRainBow, kBlack, kRed, kAzure, kOrange, kSpring, kOpenCircle, kFullCross, kFullSquare, TLatex # pylint: disable=import-error,no-name-in-module
 import sys
 import numpy as np
 import pandas as pd
@@ -71,13 +71,33 @@ def main():
         if enabledProcesses == ['d-rays']:
             hEkin = TH1F('hEkin', 'hEkin', 1000, 0, 1)
             hEtotal = TH1F('hEtotal', 'hEtotal', 1000, 0, 1)
-            for i, E_mev in enumerate(df_sel_proc[0]['E_mev']):
+            hCL0 = TH1F('hCL0', 'hCL0', 100, 0, 100)
+            hCL6 = TH1F('hCL6', 'hCL6', 100, 0, 100)
+            hEkin_Clsize_corr_L0 = TH2F('hEkin_Clsize_corr_L0', 'hEkin_Clsize_corr_L0; Ekin (MeV); Cluster size L0', 1000, 0, 1, 100, 0, 100)
+            hEkin_Clsize_corr_L6 = TH2F('hEkin_Clsize_corr_L6', 'hEkin_Clsize_corr_L6; Ekin (MeV); Cluster size L6', 1000, 0, 1, 100, 0, 100)
+
+            for i, (E_mev, clsize, layer) in enumerate(zip(df_sel_proc[0]['E_mev'], df_sel_proc[0]['CLsize'], df_sel_proc[0]['Layer'])):
                 hEtotal.Fill(E_mev)
-                hEkin.Fill(E_mev - 0.5)
+                Ekin = E_mev - 0.5
+                hEkin.Fill(Ekin)
+                if layer == 0:
+                    hCL0.Fill(clsize)
+                    hEkin_Clsize_corr_L0.Fill(Ekin, clsize)
+                if layer == 6:
+                    hCL6.Fill(clsize)
+                    hEkin_Clsize_corr_L6.Fill(Ekin, clsize)
+
             SetHistStyle(hEtotal, kBlack, kOpenCircle, 'E_{tot} [MeV]', 'Events')
             SetHistStyle(hEkin, kRed, kOpenCircle, 'E_{tot} [MeV]', 'Events')
-            hEtotal.Write() 
+            SetHistStyle(hCL0, kAzure+2, kOpenCircle, 'E_{tot} [MeV]', 'Events')
+            SetHistStyle(hCL6, kOrange+1, kOpenCircle, 'E_{tot} [MeV]', 'Events')
+            hEtotal.Write()
             hEkin.Write()
+            hCL0.Write()
+            hCL6.Write()
+            hEkin_Clsize_corr_L0.Write()
+            hEkin_Clsize_corr_L6.Write()
+
             outFile.Write()
             input('Press enter to exit')
             sys.exit()
