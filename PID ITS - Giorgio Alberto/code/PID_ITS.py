@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 from hipe4ml.model_handler import ModelHandler
 import optuna
 
-from ROOT import TH2F, TCanvas, TH1F, gStyle, kBird, gPad, gROOT, TLegend
+from ROOT import TH2F, TCanvas, TH1F, gStyle, kBird, gPad, gROOT, TFile
 from ROOT_graph import set_obj_style, fill_hist
 
 gROOT.SetBatch()
@@ -97,9 +97,9 @@ def hist(x, filename, canvas, plot_specifics, pad=None, normalized=True, save=Tr
     
     if save:        canvas.SaveAs(f'{filename}.root')
 
-def multiple_hist(dfs, columns, plot_specifics, filename, logx=False, logy=True, normalized=True, hist_names=None, x_label=None):
+def multiple_hist(dfs, column, plot_specifics, filename, hist_names=None, x_label=None):
     """
-    Draw multiple histigrams (different particle species, same variable) on the same canvas. You can reiterate for different variables as well.
+    Saves multiple histigrams (different particle species, same variable) on the same file. You can reiterate for different variables as well.
     
     Parameters
     --------------------------------------------
@@ -115,41 +115,32 @@ def multiple_hist(dfs, columns, plot_specifics, filename, logx=False, logy=True,
     """
     
     [nbinsx, xlow, xup] = plot_specifics
+    file = TFile(f'{filename}{column}.root', 'recreate')
 
-    for column in columns:
+    for i, df in enumerate(dfs):
+        if type(df) == pd.DataFrame:    
+            if 'label' in df.columns:   hist_name = f'{df.label[0]}'
+        if hist_names != None:          hist_name = hist_names[i]
+        else:                           hist_name = f'{i}'
+
+        hist = TH1F(hist_name, hist_name, nbinsx, xlow, xup)
+        if type(df) == pd.DataFrame:    
+            fill_hist(hist, df[column])
+            #if normalized:  set_obj_style(hist, x_label=f'{column}', y_label='Normalized counts', line_color=(i+1), y_title_offset=1.7)
+            #else:           set_obj_style(hist, x_label=f'{column}', y_label='Counts', line_color=(i+1), y_title_offset=1.7)
+        else:                           
+            fill_hist(hist, df)
+            #if normalized:  set_obj_style(hist, x_label=x_label, y_label='Normalized counts', line_color=(i+1), y_title_offset=1.7)  
+            #else:           set_obj_style(hist, x_label=x_label, y_label='Counts', line_color=(i+1), y_title_offset=1.7)
         
-        canvas = TCanvas('canvas', 'canvas', 700, 700)
-        legend = TLegend(0.8,0.63,0.97,0.8)
-        if logy:    canvas.SetLogy()
-        if logx:    canvas.SetLogx()
-
-        for i, df in enumerate(dfs):
-            if type(df) == pd.DataFrame:    
-                if 'label' in df.columns:   hist_name = f'{df.label[0]}'
-            if hist_names != None:          hist_name = hist_names[i]
-            else:                           hist_name = f'{i}'
-
-            hist = TH1F(hist_name, hist_name, nbinsx, xlow, xup)
-
-            if type(df) == pd.DataFrame:    
-                fill_hist(hist, df[column])
-                if normalized:  set_obj_style(hist, x_label=f'{column}', y_label='Normalized counts', line_color=(i+1), y_title_offset=1.7)
-                else:           set_obj_style(hist, x_label=f'{column}', y_label='Counts', line_color=(i+1), y_title_offset=1.7)
-            else:                           
-                fill_hist(hist, df)
-                if normalized:  set_obj_style(hist, x_label=x_label, y_label='Normalized counts', line_color=(i+1), y_title_offset=1.7)  
-                else:           set_obj_style(hist, x_label=x_label, y_label='Counts', line_color=(i+1), y_title_offset=1.7)
-            
-            legend.AddEntry(hist_name, hist_name, 'l')
-
-            if normalized:      hist.DrawNormalized('hist same')
-            else:               hist.Draw('hist same')
-
-            del hist
-
-        legend.Draw('same')
-        canvas.SaveAs(f'{filename}{column}.root')
-        del canvas, legend
+        file.cd()
+        hist.Write()
+        del hist
+    
+    print(f"ROOT file {filename}{column}.root has been created")
+    file.Write()
+    file.Close()
+    del file
 
 def density_scatter(x, y, filename, canvas, plot_specifics, pad=None, logz=True, logy=False, normalized=True, save=True): 
     """
@@ -325,11 +316,11 @@ def plot_score_train(TrainTestData, RegressionColumns, model, x_label, plot_spec
 
     if x_test == None:      density_scatter(y_test, delta_test, f'{filename}_score_scatter_test', canvas, plot_spec, logy=logy)
     else:                   density_scatter(x_test, delta_test, f'{filename}_score_scatter_test', canvas, plot_spec, logy=logy)
+    del canvas
 
     # no column will be used, since delta_train, delta_test are not dfs.
-    multiple_hist([delta_train, delta_test], [' '], plot_specifics[:3], f'{filename}_score_hist', logx=logx, hist_names=['Train', 'Test'], x_label='#Delta')
+    multiple_hist([delta_train, delta_test], ' ', plot_specifics[:3], f'{filename}_score_hist', hist_names=['Train', 'Test'], x_label='#Delta')
 
-    del canvas
 
 
 
@@ -355,7 +346,9 @@ def data_prep(config):
     # Upload from data file and config file
     df_full = pd.read_parquet(config['input']['data'])
 
-    do_plots = config['data_prep']['do_plots']
+    do_plots = config['plots']['do_plots']
+    hist_spec = config['plots']['plot_spec_hist']
+    scat_spec = config['plots']['plot_spec_scat']
     output_dir = config['output']['data_visual_dir']
 
     test_frac = config['data_prep']['test_frac']
@@ -393,34 +386,41 @@ def data_prep(config):
     # Data Visualization
     #_________________________________
     if do_plots:
-        print('Data Visualization...')
+        print('\nData Visualization...')
 
-        hist_variables = ['meanClsize', 'meanPattID', 'ClSizeL0', 'ClSizeL1', 'ClSizeL2', 'ClSizeL3', 'ClSizeL4', 'ClSizeL5', 'ClSizeL6', 'L6_L0']
-        angular_hist_variables = ['SnPhiL0', 'SnPhiL1', 'SnPhiL2', 'SnPhiL3', 'SnPhiL4', 'SnPhiL5', 'SnPhiL6', 'meanSnPhi']
-        hist_specifics = [100, 0, 100]
-        multiple_hist(filt_dfs, hist_variables, hist_specifics, f'{output_dir}/')
-        multiple_hist(filt_dfs, angular_hist_variables, [100, -1, 1], f'{output_dir}/')
-        multiple_hist(filt_dfs, ['L6_L0'], [100, 0, 10], f'{output_dir}/')
-        multiple_hist(filt_dfs, ['p'], [100, 0, 2], f'{output_dir}/')
-        multiple_hist(filt_dfs, ['tgL'], [100, -10, 10], f'{output_dir}/')
+        #hist_variables = ['meanClsize', 'meanPattID', 'ClSizeL0', 'ClSizeL1', 'ClSizeL2', 'ClSizeL3', 'ClSizeL4', 'ClSizeL5', 'ClSizeL6', 'L6_L0']
+        #angular_hist_variables = ['SnPhiL0', 'SnPhiL1', 'SnPhiL2', 'SnPhiL3', 'SnPhiL4', 'SnPhiL5', 'SnPhiL6', 'meanSnPhi']
+        #hist_specifics = [100, 0, 100]
+        #multiple_hist(filt_dfs, hist_variables, hist_specifics, f'{output_dir}/')
+        #multiple_hist(filt_dfs, angular_hist_variables, [100, -1, 1], f'{output_dir}/')
+        #multiple_hist(filt_dfs, ['L6_L0'], [100, 0, 10], f'{output_dir}/')
+        #multiple_hist(filt_dfs, ['p'], [100, 0, 2], f'{output_dir}/')
+        #multiple_hist(filt_dfs, ['tgL'], [100, -10, 10], f'{output_dir}/')
+
+        for var in hist_spec:   multiple_hist(filt_dfs, var, hist_spec[var], f'{output_dir}/')
 
 
         canvas = TCanvas('canvas', 'canvas', 700, 700)
 
-        dedx_scatter_specifics = ['p', '#frac{dE}{dx}', 1200, 0, 1.2, 600, 0, 600]
-        beta_scatter_specifics = ['p', '#beta', 1200, 0, 1.2, 1000, 0, 1]
-        for df in filt_dfs:
-            density_scatter(df['p'], df['dedx'], f'{output_dir}/dEdx_{df.label[0]}', canvas, dedx_scatter_specifics)
-            density_scatter(df['p'], df['beta'], f'{output_dir}/beta_{df.label[0]}', canvas, beta_scatter_specifics)
-        density_scatter(df_full['p'], df_full['dedx'], f'{output_dir}/dEdx_all', canvas, dedx_scatter_specifics)
-        density_scatter(total_df['p'], total_df['beta'], f'{output_dir}/beta_all', canvas, beta_scatter_specifics)
+        for var in scat_spec:
+            for df in filt_dfs: density_scatter(df['p'], df[var], f'{output_dir}/{var}_{df.label[0]}', canvas, scat_spec[var])
+        density_scatter(df_full['p'], df_full['dedx'], f'{output_dir}/dedx_all', canvas, scat_spec['dedx'])
+        density_scatter(total_df['p'], total_df['beta'], f'{output_dir}/beta_all', canvas, scat_spec['beta'])
+
+        #dedx_scatter_specifics = ['p', '#frac{dE}{dx}', 1200, 0, 1.2, 600, 0, 600]
+        #beta_scatter_specifics = ['p', '#beta', 1200, 0, 1.2, 1000, 0,'beta'
+        #for df in filt_dfs:
+        #    density_scatter(df['p'], df['dedx'], f'{output_dir}/dEdx_{df.label[0]}', canvas, dedx_scatter_specifics)
+        #    density_scatter(df['p'], df['beta'], f'{output_dir}/beta_{df.label[0]}', canvas, beta_scatter_specifics)
+        #
+        #density_scatter(total_df['p'], total_df['beta'], f'{output_dir}/beta_all', canvas, beta_scatter_specifics)
         
         del canvas
 
     
     # Data Preprocessing (eliminate negative cl.sizes, apply beta flat, apply data augmentation, split dataframes)
     #_________________________________
-    print('Data Preprocessing...')
+    print('\nData Preprocessing...')
     
     # negative values are intended to be nans
     for i in range(7):
@@ -433,7 +433,7 @@ def data_prep(config):
     #_________________________________
 
     if do_augm:
-        print('Data augmentation...\n')
+        print('\nData Augmentation...')
         TrainSet['copy'] = 0
 
         to_augm = config['data_prep']['to_augm']
@@ -448,9 +448,27 @@ def data_prep(config):
         TrainSet = pd.concat(augm)
         yTrain = TrainSet['beta']
 
-        for name in to_augm:    
-            len_name = len(TrainSet.query(f"label == '{name}' and copy == 1"))
-            print(f'Augmented {name}: {len_name} \n')
+        for daughter, mother in zip(to_augm, mothers):    
+            len_daughter = len(TrainSet.query(f"label == '{daughter}' and copy == 1"))
+            print(f'Augmented {daughter} with {mother}: {len_daughter}')
+
+        augmented_dfs = []
+        for name in names:
+            augmented_df = TrainSet.query(f"label == '{name}'")  
+            augmented_dfs.append(augmented_df)
+
+        print(TrainSet['copy'].unique())
+        print(augmented_dfs[3].columns)
+
+
+        # Plots after augmentation
+
+        canvas = TCanvas('canvas', 'canvas', 700, 700)
+
+        for var in scat_spec:
+            for df in augmented_dfs: density_scatter(df['p'], df[var], f'{output_dir}/{var}_{df.label[0]}_augm', canvas, scat_spec[var])
+            density_scatter(TrainSet['p'], TrainSet[var], f'{output_dir}/{var}_all_augm', canvas, scat_spec[var])
+        del canvas
 
 
     # Beta flat weights
@@ -497,7 +515,9 @@ def regression(TrainTestData, config):
     ModelParams = config['training']['ModelParams']
 
     do_opt = config['training']['do_opt']
-    HyperParamsRange = config['training']['HyperParamsRange']
+    #HyperParamsRange = config['training']['HyperParamsRange']
+    HyperParamsRange = {"max_depth": (1, 20), "learning_rate": (0.01, 0.1)} 
+    early_stop = config['training']['early_stop']
 
     beta_flat = config['training']['beta_flat']
 
@@ -519,7 +539,8 @@ def regression(TrainTestData, config):
 
         print('Initialize Optuna hyper-parameters optimization...')
         with alive_bar(title='Hyper-Parameters optimization') as bar:
-            study = model_handler.optimize_params_optuna(TrainTestData, HyperParamsRange, Delta_score, direction='minimize', callbacks=[callback], timeout=600)
+            if early_stop:  study = model_handler.optimize_params_optuna(TrainTestData, HyperParamsRange, Delta_score, direction='minimize', callbacks=[callback], timeout=600)
+            else:           study = model_handler.optimize_params_optuna(TrainTestData, HyperParamsRange, Delta_score, direction='minimize')
 
         print('Number of finished trials:', len(study.trials))
         print('Best trial:', study.best_trial.params)
@@ -536,7 +557,7 @@ def regression(TrainTestData, config):
         fig = optuna.visualization.plot_contour(study)
         fig.write_image(f'{output_dir}/plot_contour.png')
 
-        HyperParams = study.best_trial
+        HyperParams = study.best_trial.params
 
     else:   HyperParams = ModelParams
 
@@ -557,8 +578,8 @@ def regression(TrainTestData, config):
             if beta_flat:       pipeline.fit(X_train[RegressionColumns], y_train, model__sample_weight=X_train['beta_weight'])
             else:               pipeline.fit(X_train[RegressionColumns], y_train)
         
-        plot_specifics = [1200, 0, 1.2, 400, 0, 4]
-        plot_score_train(TrainTestData, RegressionColumns, pipeline, x_label='#beta', plot_specifics=plot_specifics, logy=True)
+        plot_specifics = [2400, 0, 1.2, 2000, -0.5, 1.5]
+        plot_score_train(TrainTestData, RegressionColumns, pipeline, x_label='#beta', plot_specifics=plot_specifics, filename=f'{output_dir}/')
 
         for name in names:
             print(f'\nModeling {name}...')
@@ -577,7 +598,7 @@ def regression(TrainTestData, config):
 
             TestTrainData_name = X_train_name, y_train_name, X_test_name, y_test_name
 
-            plot_score_train(TestTrainData_name, RegressionColumns, pipeline, x_label='#beta', plot_specifics=plot_specifics, filename=f'{output_dir}/{name}', logy=True)
+            plot_score_train(TestTrainData_name, RegressionColumns, pipeline, x_label='#beta', plot_specifics=plot_specifics, filename=f'{output_dir}/{name}')
 
     
     # Save model in pickle
@@ -594,25 +615,34 @@ def regression(TrainTestData, config):
 
 
 
+
+def application(TrainTestData, model):
+
     
+    preds = model.predict(X_test)
 
 
 
 
 def main():
 
-    with open('/Users/giogi/Desktop/Stage INFN/PID ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/configs/config.yml') as f:
+    # Configuration File
+    #_________________________________
+    with open('/Users/giogi/Desktop/Stage INFN/PID ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/configs/config.yml') as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
-    # Input file
-    #__________________________________
     # Data Preparation
     #__________________________________
     TrainTestData = data_prep(config)
 
     # Training
     #__________________________________
-    regression(TrainTestData, config)
+    Model = regression(TrainTestData, config)
+
+    # Application
+    #__________________________________
+
+    del TrainTestData, Model
 
 
 

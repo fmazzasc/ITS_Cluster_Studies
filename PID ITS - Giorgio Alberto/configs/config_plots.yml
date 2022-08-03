@@ -1,0 +1,65 @@
+inputs:
+    dirname: null # leave null if not common for all input files
+    filenames: [/Users/giogi/Desktop/Stage INFN/PID ITS/data_visual/meanClsize.root
+                ]
+    objectnames: ['canvas/1', 'canvas/3', 'canvas/4', 'canvas/5'] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
+
+output: 
+    filename: meanClsize # with path and w/o extension
+    extensions: [png, root] # possibilities: pdf, eps, png, root
+
+options:
+    ROOTobject: [TH1, TH1, TH1, TH1] # TH1 or TGraph: no need to specify TH1F, TH1D or TGraphErrors, TGraphAsymmErrors
+    scale: [1., 1, 1., 1]
+    rebin: [1, 1, 1, 1, 1]
+    normalize: [true, true, true, true] # divide histogram by its area
+    colors: [1, 2, 3, 4]
+    markers: [kFullCircle, kFullTriangleUp]
+    markersize: 1.5
+    linewidth: 2
+    fillstyle: [0,0,0,0]
+    fillalpha: [1,1,1,1]
+    drawopt: [hist, hist, hist, hist]
+    
+    ratio: 
+        enable: true
+        uncertainties:
+            enable: false
+            corr: false
+        displayRMS: false
+
+    errcomp: # comparison of uncertainties
+        enable: false
+        relative: true
+    
+    KS: true
+    dottedLine: ''
+
+    legend:
+        avoid: false #set true to avoid the legend in the final plot
+        xlimits: [0.6, 0.8]
+        ylimits: [0.7, 0.95]
+        header: 'PB data'
+        titles: [Mean Cluster Size]
+        options: [l, l, l, l]
+        textsize: 0.045
+        ncolumns: 1
+
+    canvas:
+        width: 1800
+        heigth: 1000
+        xaxistitle: 'Mean cluster size'
+        yaxistitle: 'Norm. counts'
+        yaxistitleratio: 'June/Oct'
+        xlimits: [0., 100]
+        ylimits: [0., 1]
+        ylimitsratio: [-0.1, 1.5]
+        ylimitserr: [0., 0.35]
+        logy: false
+        logx: false
+        ratio:
+            logy: false
+            logx: false
+        errcomp:
+            logy: false
+            logx: false
