@@ -1,28 +1,32 @@
 inputs:
     dirname: null # leave null if not common for all input files
-    filenames: [/Users/giogi/Desktop/Stage INFN/PID ITS/data_visual/meanClsize.root
+    filenames: [/Users/giogi/Desktop/Stage INFN/PID ITS/data_visual_root/p.root,
+                /Users/giogi/Desktop/Stage INFN/PID ITS/data_visual_root/p.root,
+                /Users/giogi/Desktop/Stage INFN/PID ITS/data_visual_root/p.root,
+                /Users/giogi/Desktop/Stage INFN/PID ITS/data_visual_root/p.root
                 ]
-    objectnames: ['canvas/1', 'canvas/3', 'canvas/4', 'canvas/5'] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
+    objectnames: ['Deu', 'P', 'K', 'Pi'] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
 
 output: 
-    filename: meanClsize # with path and w/o extension
+    filename: /Users/giogi/Desktop/Stage INFN/PID ITS/data_visual_png/p # with path and w/o extension
     extensions: [png, root] # possibilities: pdf, eps, png, root
 
 options:
     ROOTobject: [TH1, TH1, TH1, TH1] # TH1 or TGraph: no need to specify TH1F, TH1D or TGraphErrors, TGraphAsymmErrors
-    scale: [1., 1, 1., 1]
-    rebin: [1, 1, 1, 1, 1]
+    scale: [1, 1, 1, 1]
+    rebin: [1, 1, 1, 1]
     normalize: [true, true, true, true] # divide histogram by its area
-    colors: [1, 2, 3, 4]
-    markers: [kFullCircle, kFullTriangleUp]
+    colors: [kCyan, kGreen, kRed, kMagenta]
+    markers: [kFullCircle, kFullCircle, kFullCircle, kFullCircle]
     markersize: 1.5
     linewidth: 2
     fillstyle: [0,0,0,0]
     fillalpha: [1,1,1,1]
     drawopt: [hist, hist, hist, hist]
+    palette: ['kBlue']
     
     ratio: 
-        enable: true
+        enable: false
         uncertainties:
             enable: false
             corr: false
@@ -37,10 +41,10 @@ options:
 
     legend:
         avoid: false #set true to avoid the legend in the final plot
-        xlimits: [0.6, 0.8]
-        ylimits: [0.7, 0.95]
-        header: 'PB data'
-        titles: [Mean Cluster Size]
+        xlimits: [0.85, 0.95]
+        ylimits: [0.75, 0.95]
+        header: ''
+        titles: [d, p, K, '#pi']
         options: [l, l, l, l]
         textsize: 0.045
         ncolumns: 1
@@ -48,14 +52,14 @@ options:
     canvas:
         width: 1800
         heigth: 1000
-        xaxistitle: 'Mean cluster size'
+        xaxistitle: 'p'
         yaxistitle: 'Norm. counts'
         yaxistitleratio: 'June/Oct'
-        xlimits: [0., 100]
-        ylimits: [0., 1]
+        xlimits: [0, 1.2]
+        ylimits: [1.e-5, 1]
         ylimitsratio: [-0.1, 1.5]
         ylimitserr: [0., 0.35]
-        logy: false
+        logy: true
         logx: false
         ratio:
             logy: false

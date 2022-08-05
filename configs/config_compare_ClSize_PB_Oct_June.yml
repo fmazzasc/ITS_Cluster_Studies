@@ -15,7 +15,7 @@ options:
     rebin: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     normalize: [true, true, true, true, true, true, true, true, true, true, false, false, false, false] # divide histogram by its area
     colors: [kRed+1, kAzure+4]
-    markers: [kFullCircle, kFullTriangleUp]
+    markers: [None, None, None, None]
     markersize: 1.5
     linewidth: 2
     fillstyle: [0,0,0,0,0,0,0,0,0,0]

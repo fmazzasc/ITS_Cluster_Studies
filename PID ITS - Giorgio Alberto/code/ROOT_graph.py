@@ -14,23 +14,12 @@ def set_obj_style(obj, **kwargs):
     if 'linecolor' in kwargs:                   obj.SetLineColor(kwargs['linecolor'])
     else:                                       obj.SetLineColor(1)
 
-    if 'top_margin' in kwargs:                  gPad.SetTopMargin(kwargs['top_margin'])
-    else:                                       gPad.SetTopMargin(0.15)
+    #if 'top_margin' in kwargs:                  gPad.SetTopMargin(kwargs['top_margin'])
+    #else:                                       gPad.SetTopMargin(0.15)
+#
+    #if 'left_margin' in kwargs:                 gPad.SetLeftMargin(kwargs['left_margin'])
+    #else:                                       gPad.SetLeftMargin(0.15)
+#
+    #if 'right_margin' in kwargs:                gPad.SetRightMargin(kwargs['right_margin'])
+    #else:                                       gPad.SetRightMargin(0.15)
 
-    if 'left_margin' in kwargs:                 gPad.SetLeftMargin(kwargs['left_margin'])
-    else:                                       gPad.SetLeftMargin(0.15)
-
-    if 'right_margin' in kwargs:                gPad.SetRightMargin(kwargs['right_margin'])
-    else:                                       gPad.SetRightMargin(0.15)
-
-
-
-
-def fill_hist(hist, x, y=None):
-
-    if type(y) == pd.Series and y.empty:
-        for element in x:                           hist.Fill(element)
-    elif type(y) != pd.Series and y == None:    
-        for element in x:                           hist.Fill(element)
-    else:
-        for (element_x, element_y) in zip(x, y):    hist.Fill(element_x, element_y)

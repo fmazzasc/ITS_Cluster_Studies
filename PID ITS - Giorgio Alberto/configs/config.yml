@@ -7,14 +7,21 @@ input:
 
 
 output:
-    data_visual_dir: /Users/giogi/Desktop/Stage INFN/PID ITS/data_visual
+    data_visual_dir: /Users/giogi/Desktop/Stage INFN/PID ITS/data_visual_root
     ml_dir: /Users/giogi/Desktop/Stage INFN/PID ITS/ML_output
+    final_dir: /Users/giogi/Desktop/Stage INFN/PID ITS/final_plots
 
+    save_data_dir: /Users/giogi/Desktop/Stage INFN/PID ITS/data
 
 
 data_prep:
     skip_data_prep: False
-    prep_data: []
+    prep_data: [/Users/giogi/Desktop/Stage INFN/PID ITS/data/TrainSet.parquet.gzip,
+                /Users/giogi/Desktop/Stage INFN/PID ITS/data/yTrain.parquet.gzip,
+                /Users/giogi/Desktop/Stage INFN/PID ITS/data/TestSet.parquet.gzip,
+                /Users/giogi/Desktop/Stage INFN/PID ITS/data/yTest.parquet.gzip]
+    appl_data:  /Users/giogi/Desktop/Stage INFN/PID ITS/data/ApplicationDf.parquet.gzip
+    save_data: True
 
     test_frac: 0.2
     seed_split: 0   # random_state for train_test_split
@@ -22,10 +29,10 @@ data_prep:
 
     # Data Augmentation
     #____________________________________
-    do_augm: True
-    to_augm: ["K", "K", "Deu"]
-    mothers: ["Pi", "P", "P"]
-    p_ranges: [(0., 0.4), (0.4, 1.0), (0.4, 1.0)]
+    do_augm: False
+    to_augm: ["P", "K", "Deu"]
+    mothers: ["Pi", "Pi", "Pi"]
+    p_ranges: [[0.1, 0.2], [0.1, 0.2], [0.1, 0.2]]
 
     # Beta Flat
     #____________________________________
@@ -34,48 +41,61 @@ data_prep:
 
 training:
 
+    skip_training: False
+
     RegressionColumns: ["p", "pt", "tgL", "meanClsize", "meanSnPhi", "meanPattID", "dedx", "nSigmaDeu", "nSigmaP",
-       "nSigmaK", "nSigmaPi", "tpcITSchi2", "ClSizeL0", "SnPhiL0", "TanLamL0",
-       "PattIDL0", "ClSizeL1", "SnPhiL1", "TanLamL1", "PattIDL1", "ClSizeL2",
-       "SnPhiL2", "TanLamL2", "PattIDL2", "ClSizeL3", "SnPhiL3", "TanLamL3",
-       "PattIDL3", "ClSizeL4", "SnPhiL4", "TanLamL4", "PattIDL4", "ClSizeL5",
-       "SnPhiL5", "TanLamL5", "PattIDL5", "ClSizeL6", "SnPhiL6", "TanLamL6",
-       "PattIDL6", "L6_L0"]
-    ModelParams:    {"n_jobs": 100,
-                    "time_budget": 100,
-                    "metric": "r2",
-                    "task": "regression",
-                    "log_file_name": "bdt.log",
-                    "tree_method": "hist", # not available in FLAML
-                    "estimator_list" : ["xgboost"], # not available in FLAML
-                    "colsample_bylevel": 0.6337942873486531, # not available in FLAML 
-                    "colsample_bytree": 0.7, # not available in FLAML
-                    "subsample": 0.710841077866278, # not available in FLAML
-                    "learning_rate": 0.04952863262192068, # not available in FLAML
-                    "n_estimators": 400, # not available in FLAML
-                    "max_depth": 13, # not available in FLAML
-                    "min_child_weight": 10, # not available in FLAML
-                    "eval_metric": "rmse", # not available in FLAML
-                    "reg_alpha": 0.349923237394973, # not available in FLAML
-                    "reg_lambda": 0.5031161568154017, # not available in FLAML
-                    "verbosity": 1,
-                    } # dict of hyperparameters (XGB and AUTOML USE DIFFERENT HYPER-PARS!)
-    HyperParamsRange:   {"max_depth": (1, 20), "learning_rate": (0.01, 0.1)}    # dict of ranges for the hyperparameters evaluated by optuna
+                        "nSigmaK", "nSigmaPi", "tpcITSchi2", "ClSizeL0", "SnPhiL0", "TanLamL0",
+                        "PattIDL0", "ClSizeL1", "SnPhiL1", "TanLamL1", "PattIDL1", "ClSizeL2",
+                        "SnPhiL2", "TanLamL2", "PattIDL2", "ClSizeL3", "SnPhiL3", "TanLamL3",
+                        "PattIDL3", "ClSizeL4", "SnPhiL4", "TanLamL4", "PattIDL4", "ClSizeL5",
+                        "SnPhiL5", "TanLamL5", "PattIDL5", "ClSizeL6", "SnPhiL6", "TanLamL6",
+                        "PattIDL6", "L6_L0"]
+    ModelParams:        {"n_jobs": 100,
+                        "time_budget": 100,
+                        "metric": "r2",
+                        "task": "regression",
+                        "log_file_name": "bdt.log",
+                        "tree_method": "hist", # not available in FLAML
+                        "estimator_list" : ["xgboost"], # not available in FLAML
+                        "colsample_bylevel": 0.6337942873486531, # not available in FLAML 
+                        "colsample_bytree": 0.7, # not available in FLAML
+                        "subsample": 0.710841077866278, # not available in FLAML
+                        "learning_rate": 0.04952863262192068, # not available in FLAML
+                        "n_estimators": 400, # not available in FLAML
+                        "max_depth": 13, # not available in FLAML
+                        "min_child_weight": 10, # not available in FLAML
+                        "eval_metric": "rmse", # not available in FLAML
+                        "reg_alpha": 0.349923237394973, # not available in FLAML
+                        "reg_lambda": 0.5031161568154017, # not available in FLAML
+                        "verbosity": 1,
+                        } # dict of hyperparameters (XGB and AUTOML USE DIFFERENT HYPER-PARS!)
+    HyperParamsRange:   {"max_depth": !!python/tuple [3, 8], 
+                        "learning_rate": !!python/tuple [0.01, 0.1],
+                        "n_estimators": !!python/tuple [300, 1500], 
+                        "min_child_weight":!!python/tuple [1, 10],
+                        "subsample": !!python/tuple [0.8, 1.], 
+                        "colsample_bytree": !!python/tuple [0.8, 1]}    # dict of ranges for the hyperparameters evaluated by optuna
 
     model: "xgboost"
-    do_opt: False
-    early_stop: True
+    do_opt: True
+    early_stop: False
     beta_flat: True
-    save_model: False
+    save_model: True
+
+application:
+    model_loc: /Users/giogi/Desktop/Stage INFN/PID ITS/ML_output/RegressorModel_xgboost.pickle
 
 plots:
-    do_plots: True
-    plot_spec_hist: {"meanClsize": [100, 0, 100], "meanPattID": [100, 0, 100], "ClSizeL0": [100, 0, 100], "ClSizeL1": [100, 0, 100], "ClSizeL2": [100, 0, 100], 
-                    "ClSizeL3": [100, 0, 100], "ClSizeL4": [100, 0, 100], "ClSizeL5": [100, 0, 100], "ClSizeL6": [100, 0, 100],
+    do_plots: False
+    plot_spec_hist: {"meanClsize": [100, 0, 10], "meanPattID": [10, 0, 100], "ClSizeL0": [10, 0, 10], "ClSizeL1": [10, 0, 10], "ClSizeL2": [10, 0, 10], 
+                    "ClSizeL3": [10, 0, 10], "ClSizeL4": [10, 0, 10], "ClSizeL5": [10, 0, 10], "ClSizeL6": [10, 0, 10],
 
                     "SnPhiL0": [100, -1, 1], "SnPhiL1": [100, -1, 1], "SnPhiL2": [100, -1, 1], "SnPhiL3": [100, -1, 1], "SnPhiL4": [100, -1, 1], "SnPhiL5": [100, -1, 1], "SnPhiL6": [100, -1, 1], "meanSnPhi": [100, -1, 1],  
 
                     "L6_L0": [100, 0, 10], "p": [100, 0, 2], "tgL": [100, -10, 10]}     # dict (variable_to_plot, hist_settings) 
-    plot_spec_scat: {"dedx": ["p", "#frac{dE}{dx}", 1200, 0, 1.2, 600, 0, 600], "beta": ["p", "#beta", 1200, 0, 1.2, 1000, 0, 1]}  
+    
+    plot_x_scat:    ["p", "p", "p", "beta"]
+    plot_y_scat:    ["dedx", "beta", "meanClsize", "meanClsize"]
+    plot_spec_scat: [["p", "#frac{dE}{dx}", 1200, 0, 1.2, 600, 0, 600], ["p", "#beta", 1200, 0, 1.2, 1000, 0, 1], ["p", "meanClsize", 1200, 0, 1.2, 10, 0, 10], ["#beta", "meanClsize", 10, 0, 1, 10, 0, 10]]  
     
     

@@ -39,6 +39,7 @@ fillstyles = inputCfg['options']['fillstyle']
 fillalphas = inputCfg['options']['fillalpha']
 drawOptions = inputCfg['options']['drawopt']
 rebins = inputCfg['options']['rebin']
+palette = inputCfg['options']['palette']
 
 doRatio = inputCfg['options']['ratio']['enable']
 drawRatioUnc = inputCfg['options']['ratio']['uncertainties']['enable']
@@ -59,6 +60,7 @@ xTitle = inputCfg['options']['canvas']['xaxistitle']
 yTitle = inputCfg['options']['canvas']['yaxistitle']
 logX = inputCfg['options']['canvas']['logx']
 logY = inputCfg['options']['canvas']['logy']
+logZ = inputCfg['options']['canvas']['logz']
 ratioLogX = inputCfg['options']['canvas']['ratio']['logx']
 ratioLogY = inputCfg['options']['canvas']['ratio']['logy']
 uncCompLogX = inputCfg['options']['canvas']['errcomp']['logx']
@@ -108,6 +110,7 @@ for iFile, (inFileName, objName, objType, scale, normalize, color, marker, fills
                    linewidth=linewidth,
                    fillstyle=fillstyle,
                    fillalpha=fillalpha)
+    if 'TH2' in objType:    SetGlobalStyle(palette=palette)
     if 'TH' in objType:
         hToCompare[iFile].SetDirectory(0)
         hToCompare[iFile].SetStats(0)
@@ -216,12 +219,16 @@ if doRatio or doCompareUnc:
         cOut.cd(1).SetLogx()
     if logY:
         cOut.cd(1).SetLogy()
+    if logZ:
+        cOut.cd(1).SetLogZ()
 else:
     hFrame = cOut.cd().DrawFrame(xLimits[0], yLimits[0], xLimits[1], yLimits[1], f';{xTitle};{yTitle}')
     if logX:
         cOut.cd().SetLogx()
     if logY:
         cOut.cd().SetLogy()
+    if logZ:
+        cOut.cd().SetLogZ()
 hFrame.GetYaxis().SetDecimals()
 
 for histo, objType, drawOpt in zip(hToCompare, objTypes, drawOptions):
