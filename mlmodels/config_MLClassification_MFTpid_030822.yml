@@ -1,0 +1,70 @@
+input: # files to use, set FD to null for binary classification
+    traintest_data: /data/shared/ITS/TreeV0/V0TreePIDITS.root
+    appl_data: 
+
+output:
+    leg_labels: # legend labels, keep the right number of classes
+        MIP: mip
+        BKG: bkg
+    out_labels: # output labels, keep the right number of classes
+        MIP: mip
+        BKG: bkg
+    dir: '/home/spolitan/Analyses/ITS_Cluster_Studies/mlmodels/MFTpid' # output dir
+    outfile_label: ''
+
+data_prep:
+    presel: ''
+    seed_split: 42 # seed used for train_test_split(...)
+    test_fraction: 0.1 # fraction of data used for test set and efficiencies --> set to 1. if you want to apply the model to the full dataframes 
+    
+ml:
+    raw_output: True # use raw_output (True) or probability (False) as output of the model
+    roc_auc_average: 'macro' # 'macro' or 'weighted'
+    roc_auc_approach: 'ovo'  # 'ovo' or 'ovr'
+    training_columns: ['ClSizeL0','ClSizeL1','ClSizeL2','ClSizeL3','ClSizeL4','ClSizeL5','ClSizeL6',
+                       'PattIDL0', 'PattIDL1','PattIDL2','PattIDL3','PattIDL4','PattIDL5','PattIDL6', 'mean_patt_ID'
+                      ] # list of training variables
+
+    hyper_par: {'max_depth':5,
+                'learning_rate':0.023, 
+                'n_estimators':398,
+                'min_child_weight':8.89,
+                'subsample':0.84,
+                'colsample_bytree':0.8,
+                'n_jobs':10,
+                'max_bin':273,
+                'tree_method': hist} # list of dicts of hyperparameters (one for each pT bin)
+
+    hyper_par_opt:
+      do_hyp_opt: True  # whether to do the parameter optimization
+      early_stopping: 0.0001 # minimum improvement in objective function to continue hyperparameters optimization 
+      niter: 100 # maximum number of iterations to hyperparameters optimization 
+      timeout: 600 # time allowed to hyperparameters optimization 
+      nfolds: 5 # number of folds used in cross validation
+
+      optuna_opt_config: {'max_depth': !!python/tuple [2, 6], 
+                        'learning_rate': !!python/tuple [0.01, 0.1],
+                        'n_estimators': !!python/tuple [200, 1200],
+                        'min_child_weight': !!python/tuple [1, 10],
+                        'subsample': !!python/tuple [0.8, 1.], 
+                        'colsample_bytree': !!python/tuple [0.8, 1.],
+                        'max_bin': !!python/tuple [200, 400]
+                        }
+                        # configuration dictionary for optimize_params_bayes()
+
+plots:
+    plotting_columns: ['ClSizeL0','ClSizeL1','ClSizeL2','ClSizeL3','ClSizeL4','ClSizeL5','ClSizeL6',
+                       'PattIDL0', 'PattIDL1','PattIDL2','PattIDL3','PattIDL4','PattIDL5','PattIDL6', 'mean_patt_ID'] # list of variables to plot
+    train_test_log: True # use log scale for plots of train and test distributions
+
+appl:
+    standalone: False
+    inputs: []
+    output_names: []
+    column_to_save_list: ['ClSizeL0'] # list of variables saved in the dataframes with the applied models
+    saved_models: [] # list of saved ModelHandler (path+file), compatible with the pt bins
+
+standalone_appl:
+    inputs: [] # list of parquet files for the model application
+    output_names: [] # names for the outputs (one for each file)
+    output_dir: null # output directory
