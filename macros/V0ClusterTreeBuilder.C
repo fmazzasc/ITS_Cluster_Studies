@@ -24,6 +24,7 @@
 
 #include "ITStracking/IOUtils.h"
 #include "ReconstructionDataFormats/TrackTPCITS.h"
+#include "ReconstructionDataFormats/MatchInfoTOF.h"
 #include "DataFormatsParameters/GRPObject.h"
 
 #include <gsl/gsl>
@@ -89,22 +90,25 @@ float nSigma(const float &momentum, const float &TPCSignal, int pdgCode)
 bool propagateToClus(const ITSCluster &clus, o2::track::TrackParCov &track, o2::its::GeometryTGeo *gman);
 void getClusterPatterns(std::vector<o2::itsmft::ClusterPattern> &pattVec, std::vector<CompClusterExt> *ITSclus, std::vector<unsigned char> *ITSpatt, o2::itsmft::TopologyDictionary &mdict, o2::its::GeometryTGeo *gman);
 double calcV0alpha(const V0 &v0);
+double calcV0qt(const V0 &v0);
 double calcMass(const V0 &v0, PID v0PID);
 
 void V0ClusterTreeBuilder()
 {
 
-    TFile outFile = TFile("V0TreePIDITS.root", "recreate");
+    int runNumber = 520178;  //520147, 520150
+
+    TFile outFile = TFile(Form("../results/V0TreePIDITS_%i.root", runNumber), "recreate");
 
     TTree *DauTree = new TTree("DauTree", "DauTree");
     TTree *V0Tree = new TTree("V0Tree", "V0Tree");
     std::array<float, 7> clSizeArr, snPhiArr, tanLamArr, pattIDarr;
-    float p, pTPC, pt, ptTPC, tgL, clSizeCosLam, dedx, tpcITSchi2;
+    float p, pTPC, pt, ptTPC, pITS, ptITS, rofBC, tgL, clSizeCosLam, dedx, tpcITSchi2;
     float nsigmaDeu, nsigmaP, nsigmaK, nsigmaPi, nsigmaE;
-    int V0ind;
+    int V0ind = 0;
 
     // V0 tree elements
-    float V0radius, V0CosPA, V0ArmenterosAlpha, V0p;
+    float V0radius, V0CosPA, V0ArmenterosAlpha, V0ArmenterosQt, V0p;
     float photMassHyp, k0sMassHyp, lamMassHyp;
     float nSigmaPosDauP = -10, nSigmaNegDauP = -10, nSigmaPosDauPi = -10, nSigmaNegDauPi = -10, nSigmaPosDauE = -10, nSigmaNegDauE = -10;
     bool isPositive;
@@ -112,6 +116,7 @@ void V0ClusterTreeBuilder()
     V0Tree->Branch("V0radius", &V0radius);
     V0Tree->Branch("V0CosPA", &V0CosPA);
     V0Tree->Branch("V0ArmenterosAlpha", &V0ArmenterosAlpha);
+    V0Tree->Branch("V0ArmenterosQt", &V0ArmenterosQt);
     V0Tree->Branch("photMassHyp", &photMassHyp);
     V0Tree->Branch("k0sMassHyp", &k0sMassHyp);
     V0Tree->Branch("lamMassHyp", &lamMassHyp);
@@ -128,6 +133,9 @@ void V0ClusterTreeBuilder()
     DauTree->Branch("pt", &pt);
     DauTree->Branch("pTPC", &pTPC);
     DauTree->Branch("ptTPC", &ptTPC);
+    DauTree->Branch("pITS", &pITS);
+    DauTree->Branch("ptITS", &ptITS);
+    DauTree->Branch("rofBC", &rofBC);
     DauTree->Branch("tgL", &tgL);
     DauTree->Branch("clSizeCosLam", &clSizeCosLam);
     DauTree->Branch("dedx", &dedx);
@@ -162,21 +170,23 @@ void V0ClusterTreeBuilder()
     TFile *f = TFile::Open("/data/fmazzasc/its_data/sim/lambda/tf1/o2sim_grp.root");
     auto grp = reinterpret_cast<o2::parameters::GRPObject *>(f->Get("ccdb_object"));
     o2::base::Propagator::initFieldFromGRP(grp);
-    auto *lut = o2::base::MatLayerCylSet::loadFromFile("/data/fmazzasc/its_data/sim/lambda/matbud.root");
+    auto *lut = o2::base::MatLayerCylSet::loadFromFile("../utils/matbud.root");
     o2::base::Propagator::Instance()->setMatLUT(lut);
 
     if (lut)
         LOG(info) << "Loaded material LUT";
 
-    std::string path = "/data/fmazzasc/its_data/sim/lambda/";
+    std::string path = Form("/data/shared/ITS/JUL/pp13TeV/apass/LHC22f/%i/", runNumber);
     TSystemDirectory dir("MyDir", path.data());
     auto files = dir.GetListOfFiles();
     std::vector<std::string> dirs;
     for (auto fileObj : *files)
     {
         std::string file = ((TSystemFile *)fileObj)->GetName();
-        if (file.substr(0, 2) == "tf")
+        if (file.substr(0, 6) == "o2_ctf")
+        {
             dirs.push_back(file);
+        }
     }
 
     std::sort(dirs.begin(), dirs.end());
@@ -191,24 +201,29 @@ void V0ClusterTreeBuilder()
 
         LOG(info) << "Processing: " << counter << ", dir: " << dir;
 
-        std::string secondary_vertex_file = path + "/" + dir + "/" + "o2_secondary_vertex.root";
-        std::string o2match_itstpc_file = path + "/" + dir + "/" + "o2match_itstpc.root";
-        std::string o2trac_tpc_file = path + "/" + dir + "/" + "tpctracks.root";
-        std::string o2trac_its_file = path + "/" + dir + "/" + "o2trac_its.root";
-        std::string o2clus_its_file = path + "/" + dir + "/" + "o2clus_its.root";
+        std::string secondary_vertex_file = path + "/" + dir + "/" + "root_archive.zip#o2_secondary_vertex.root";
+        std::string o2match_itstpc_file = path + "/" + dir + "/" + "root_archive.zip#o2match_itstpc.root";
+        std::string o2match_tof_itstpc_file = path + "/" + dir + "/" + "root_archive.zip#o2match_tof_itstpc.root";
+
+        std::string o2trac_tpc_file = path + "/" + dir + "/" + "root_archive.zip#tpctracks.root";
+        std::string o2trac_its_file = path + "/" + dir + "/" + "root_archive.zip#o2trac_its.root";
+        std::string o2clus_its_file = path + "/" + dir + "/" + "root_archive.zip#o2clus_its.root";
 
         // Files
         auto fV0 = TFile::Open(secondary_vertex_file.data());
         auto fITSTPC = TFile::Open(o2match_itstpc_file.data());
+        auto fITSTPCTOF = TFile::Open(o2match_tof_itstpc_file.data());
+
         auto fTPC = TFile::Open(o2trac_tpc_file.data());
         auto fITS = TFile::Open(o2trac_its_file.data());
         auto fITSclus = TFile::Open(o2clus_its_file.data());
 
-        if (!fITS || !fITSTPC || !fITSclus || !fTPC || !fV0)
+        if (!fITS || !fITSTPC || !fITSclus || !fTPC || !fV0 || !fITSTPCTOF)
             continue;
 
         auto treeV0 = (TTree *)(fV0->Get("o2sim"));
         auto treeITSTPC = (TTree *)fITSTPC->Get("matchTPCITS");
+        auto treeITSTPCTOF = (TTree *)fITSTPCTOF->Get("matchTOF");
         auto treeTPC = (TTree *)fTPC->Get("tpcrec");
         auto treeITS = (TTree *)fITS->Get("o2sim");
         auto treeITSclus = (TTree *)fITSclus->Get("o2sim");
@@ -218,8 +233,11 @@ void V0ClusterTreeBuilder()
         std::vector<o2::dataformats::TrackTPCITS> *TPCITStracks = nullptr;
         std::vector<o2::its::TrackITS> *ITStracks = nullptr;
         std::vector<o2::tpc::TrackTPC> *TPCtracks = nullptr;
+        std::vector<o2::dataformats::MatchInfoTOF> *TOFtracks = nullptr;
 
         std::vector<int> *ITSTrackClusIdx = nullptr;
+        std::vector<o2::itsmft::ROFRecord> *ROFits = nullptr;
+
 
         // Clusters
         std::vector<CompClusterExt> *ITSclus = nullptr;
@@ -227,24 +245,30 @@ void V0ClusterTreeBuilder()
 
         // Setting branches
         treeV0->SetBranchAddress("V0s", &V0tracks);
-        treeITS->SetBranchAddress("ITSTrack", &ITStracks);
+
         treeTPC->SetBranchAddress("TPCTracks", &TPCtracks);
         treeITSTPC->SetBranchAddress("TPCITS", &TPCITStracks);
+
+        treeITS->SetBranchAddress("ITSTrack", &ITStracks);
         treeITS->SetBranchAddress("ITSTrackClusIdx", &ITSTrackClusIdx);
+        treeITS->SetBranchAddress("ITSTracksROF", &ROFits);
+
         treeITSclus->SetBranchAddress("ITSClusterComp", &ITSclus);
         treeITSclus->SetBranchAddress("ITSClusterPatt", &ITSpatt);
+        treeITSTPCTOF->SetBranchAddress("TOFMatchInfo", &TOFtracks);
 
         for (int frame = 0; frame < treeITSTPC->GetEntriesFast(); frame++)
         {
-
             if (!treeITSTPC->GetEvent(frame) || !treeITSclus->GetEvent(frame) || !treeITS->GetEvent(frame) ||
-                !treeTPC->GetEvent(frame) || !treeV0->GetEvent(frame))
+                !treeTPC->GetEvent(frame) || !treeV0->GetEvent(frame) || !treeITSTPCTOF->GetEvent(frame))
                 continue;
+            // LOG(info) << "Processing frame: " << frame;
 
             std::vector<ITSCluster> ITSClusXYZ;
             ITSClusXYZ.reserve((*ITSclus).size());
             gsl::span<const unsigned char> spanPatt{*ITSpatt};
             auto pattIt = spanPatt.begin();
+
             o2::its::ioutils::convertCompactClusters(*ITSclus, pattIt, ITSClusXYZ, &mdict);
 
             std::vector<o2::itsmft::ClusterPattern> pattVec;
@@ -254,11 +278,12 @@ void V0ClusterTreeBuilder()
             {
 
                 auto &v0 = V0tracks->at(iV0);
+                V0ind++;
                 V0CosPA = v0.getCosPA();
                 V0radius = v0.calcR2();
                 V0ArmenterosAlpha = calcV0alpha(v0);
+                V0ArmenterosQt = calcV0qt(v0);
                 V0p = v0.getP();
-                V0ind = iV0;
                 photMassHyp = v0.calcMass2(PID::Electron, PID::Electron);
                 k0sMassHyp = calcMass(v0, PID::K0);
                 lamMassHyp = calcMass(v0, PID::Lambda);
@@ -266,12 +291,31 @@ void V0ClusterTreeBuilder()
                 for (int v0Dau{0}; v0Dau < 2; v0Dau++)
                 {
                     auto v0DauID = v0.getProngID(v0Dau);
-                    if (v0DauID.getSourceName() != "ITS-TPC")
+                    auto trackIndex = v0DauID.getIndex();
+                    if (v0DauID.getSourceName() != "ITS-TPC" && v0DauID.getSourceName() != "ITS-TPC-TOF")
                         continue;
 
-                    auto &ITSTPCtrack = TPCITStracks->at(v0DauID.getIndex());
+                    if (v0DauID.getSourceName() == "ITS-TPC-TOF")
+                    {
+                        auto &tofInfo = TOFtracks->at(trackIndex);
+                        auto trackRef = tofInfo.getTrackRef();
+                        if (trackRef.getSourceName() != "ITS-TPC")
+                            continue;
+                        trackIndex = tofInfo.getTrackIndex();
+                    }
+
+                    auto &ITSTPCtrack = TPCITStracks->at(trackIndex);
                     auto &ITStrack = ITStracks->at(ITSTPCtrack.getRefITS());
                     auto &TPCtrack = TPCtracks->at(ITSTPCtrack.getRefTPC());
+
+                    for (auto &rof : *ROFits)
+                    {
+                        if (int(ITSTPCtrack.getRefITS().getIndex()) <= rof.getFirstEntry())
+                        {
+                            rofBC = rof.getBCData().bc;
+                            break;
+                        }
+                    }
 
                     std::array<CompClusterExt, 7> TrackClus;
                     std::array<ITSCluster, 7> TrackClusXYZ;
@@ -305,79 +349,80 @@ void V0ClusterTreeBuilder()
                             clSizeArr[layer] = -10;
                     }
 
-                    if (ITSTPCtrack.getChi2Match() < 10)
+                    if (ITSTPCtrack.getChi2Match() > 10)
+                        continue;
+
+                    float mean = 0, norm = 0;
+                    for (unsigned int i{0}; i < clSizeArr.size(); i++)
                     {
-
-                        float mean = 0, norm = 0;
-                        for (unsigned int i{0}; i < clSizeArr.size(); i++)
+                        if (clSizeArr[i] > 0)
                         {
-                            if (clSizeArr[i] > 0)
-                            {
-                                mean += clSizeArr[i];
-                                norm += 1;
-                            }
+                            mean += clSizeArr[i];
+                            norm += 1;
                         }
-                        mean /= norm;
-                        mean *= std::sqrt(1. / (1 + ITSTPCtrack.getTgl() * ITSTPCtrack.getTgl()));
+                    }
+                    mean /= norm;
+                    mean *= std::sqrt(1. / (1 + ITSTPCtrack.getTgl() * ITSTPCtrack.getTgl()));
 
-                        p = ITSTPCtrack.getP();
-                        pt = ITSTPCtrack.getPt();
-                        p = TPCtrack.getP();
-                        pt = TPCtrack.getPt();
-                        isPositive = ITSTPCtrack.getSign() == 1;
-                        tgL = ITSTPCtrack.getTgl();
-                        clSizeCosLam = mean;
-                        dedx = TPCtrack.getdEdx().dEdxTotTPC;
-                        tpcITSchi2 = ITSTPCtrack.getChi2Match();
+                    p = ITSTPCtrack.getP();
+                    pt = ITSTPCtrack.getPt();
+                    pTPC = TPCtrack.getP();
+                    ptTPC = TPCtrack.getPt();
+                    pITS = ITStrack.getP();
+                    ptITS = ITStrack.getPt();
+                    isPositive = ITSTPCtrack.getSign() == 1;
+                    tgL = ITSTPCtrack.getTgl();
+                    clSizeCosLam = mean;
+                    dedx = TPCtrack.getdEdx().dEdxTotTPC;
+                    tpcITSchi2 = ITSTPCtrack.getChi2Match();
 
-                        nsigmaDeu = nSigmaDeu(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
-                        nsigmaP = nSigma(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC, 2212);
-                        nsigmaK = nSigma(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC, 321);
-                        nsigmaPi = nSigma(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC, 211);
-                        nsigmaE = nSigma(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC, 11);
+                    nsigmaDeu = nSigmaDeu(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
+                    nsigmaP = nSigma(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC, 2212);
+                    nsigmaK = nSigma(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC, 321);
+                    nsigmaPi = nSigma(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC, 211);
+                    nsigmaE = nSigma(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC, 11);
 
-                        if (isPositive)
+                    if (isPositive)
+                    {
+                        nSigmaPosDauP = nsigmaP;
+                        nSigmaPosDauPi = nsigmaPi;
+                        nSigmaPosDauE = nsigmaE;
+                    }
+                    else
+                    {
+                        nSigmaNegDauP = nsigmaP;
+                        nSigmaNegDauPi = nsigmaPi;
+                        nSigmaNegDauE = nsigmaE;
+                    }
+
+                    for (unsigned int layer{0}; layer < clSizeArr.size(); layer++)
+                    {
+                        if (ITStrack.hasHitOnLayer(layer))
                         {
-                            nSigmaPosDauP = nsigmaP;
-                            nSigmaPosDauPi = nsigmaPi;
-                            nSigmaPosDauE = nsigmaE;
+                            auto &clusXYZ = TrackClusXYZ[layer];
+                            pattIDarr[layer] = TrackPattID[layer];
+                            if (propagateToClus(clusXYZ, ITSTPCtrack, gman))
+                            {
+                                snPhiArr[layer] = ITSTPCtrack.getSnp();
+                                tanLamArr[layer] = ITSTPCtrack.getTgl();
+                            }
+
+                            else
+                            {
+                            snPhiArr[layer] = -10;
+                            tanLamArr[layer] = -10;
+                            }
                         }
                         else
                         {
-                            nSigmaNegDauP = nsigmaP;
-                            nSigmaNegDauPi = nsigmaPi;
-                            nSigmaNegDauE = nsigmaE;
+                            pattIDarr[layer] = -10;
+                            snPhiArr[layer] = -10;
+                            tanLamArr[layer] = -10;
                         }
-
-                        for (unsigned int layer{0}; layer < clSizeArr.size(); layer++)
-                        {
-                            if (ITStrack.hasHitOnLayer(layer))
-                            {
-                                auto &clusXYZ = TrackClusXYZ[layer];
-                                pattIDarr[layer] = TrackPattID[layer];
-                                if (propagateToClus(clusXYZ, ITSTPCtrack, gman))
-                                {
-                                    snPhiArr[layer] = ITSTPCtrack.getSnp();
-                                    tanLamArr[layer] = ITSTPCtrack.getTgl();
-                                }
-
-                                else
-                                {
-                                    snPhiArr[layer] = -10;
-                                    tanLamArr[layer] = -10;
-                                }
-                            }
-                            else
-                            {
-                                pattIDarr[layer] = -10;
-                                snPhiArr[layer] = -10;
-                                tanLamArr[layer] = -10;
-                            }
-                        }
-                        DauTree->Fill();
-                        V0Tree->Fill();
                     }
+                    DauTree->Fill();
                 }
+                V0Tree->Fill();
             }
         }
         treeV0->ResetBranchAddresses();
@@ -417,7 +462,7 @@ void getClusterPatterns(std::vector<o2::itsmft::ClusterPattern> &pattVec, std::v
     auto pattIt = ITSpatt->cbegin();
     for (unsigned int iClus{0}; iClus < ITSclus->size(); ++iClus)
     {
-        auto &clus = (*ITSclus)[iClus];
+        auto &clus = ITSclus->at(iClus);
         auto layer = gman->getLayer(clus.getSensorID());
 
         auto pattID = clus.getPatternID();
@@ -426,8 +471,7 @@ void getClusterPatterns(std::vector<o2::itsmft::ClusterPattern> &pattVec, std::v
 
         if (pattID == o2::itsmft::CompCluster::InvalidPatternID || mdict.isGroup(pattID))
         {
-            // LOG(info) << "is invalid pattern: "<< (pattID == o2::itsmft::CompCluster::InvalidPatternID);
-            // LOG(info) << "is group: "<< mdict.isGroup(pattID);
+
             patt.acquirePattern(pattIt);
             npix = patt.getNPixels();
         }
@@ -456,6 +500,20 @@ double calcV0alpha(const V0 &v0)
     Double_t lQlPos = momPos.Dot(momTot) / momTot.Mag();
 
     return (lQlPos - lQlNeg) / (lQlPos + lQlNeg);
+}
+
+double calcV0qt(const V0 &v0)
+{
+    std::array<float, 3> fV0mom, fPmom, fNmom = {0, 0, 0};
+    v0.getProng(0).getPxPyPzGlo(fPmom);
+    v0.getProng(1).getPxPyPzGlo(fNmom);
+    v0.getPxPyPzGlo(fV0mom);
+
+    TVector3 momNeg(fNmom[0], fNmom[1], fNmom[2]);
+    TVector3 momTot(fV0mom[0], fV0mom[1], fV0mom[2]);
+    Double_t dp = momNeg.Dot(momTot);
+
+    return std::sqrt(momNeg.Mag2() - dp * dp / momTot.Mag2());
 }
 
 double calcMass(const V0 &v0, PID v0PID)
