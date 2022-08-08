@@ -75,26 +75,13 @@ float BetheBlochParam(const float &momentum, const float &mass)
 float nSigmaDeu(const float &momentum, const float &TPCSignal)
 {
     float dedx = BetheBlochParam(momentum, 1.87561);
-    return std::abs(TPCSignal - dedx) / (0.07 * dedx);
+    return (TPCSignal - dedx) / (0.07 * dedx);
 }
 
-float nSigmaP(const float &momentum, const float &TPCSignal)
+float nSigma(const float &momentum, const float &TPCSignal, int pdgCode)
 {
-    float dedx = BetheBlochParam(momentum, TDatabasePDG::Instance()->GetParticle(2212)->Mass());
-    return std::abs(TPCSignal - dedx) / (0.07 * dedx);
-}
-
-float nSigmaPi(const float &momentum, const float &TPCSignal)
-{
-    float dedx = BetheBlochParam(momentum, TDatabasePDG::Instance()->GetParticle(211)->Mass());
-
-    return std::abs(TPCSignal - dedx) / (0.07 * dedx);
-}
-
-float nSigmaK(const float &momentum, const float &TPCSignal)
-{
-    float dedx = BetheBlochParam(momentum, TDatabasePDG::Instance()->GetParticle(321)->Mass());
-    return std::abs(TPCSignal - dedx) / (0.07 * dedx);
+    float dedx = BetheBlochParam(momentum, TDatabasePDG::Instance()->GetParticle(pdgCode)->Mass());
+    return (TPCSignal - dedx) / (0.08 * dedx);
 }
 
 bool propagateToClus(const ITSCluster &clus, o2::track::TrackParCov &track, o2::its::GeometryTGeo *gman);
@@ -150,11 +137,12 @@ void ITSTPCClusterTreeBuilder()
     TFile outFile = TFile(Form("../results/ITSTPCClusterTree%i.root", runNumber), "recreate");
     TTree *MLtree = new TTree("ITStreeML", "ITStreeML");
     std::array<float, 7> clSizeArr, snPhiArr, tanLamArr, pattIDarr;
-    float p, pTPC, pt, ptTPC, pITS, ptITS, tgL, meanClsize, dedx, nsigmaDeu, nsigmaP, nsigmaK, nsigmaPi, tpcITSchi2, itsChi2, tpcChi2;
+    float p, pTPC, pt, ptTPC, pITS, ptITS, tgL, clSizeCosLam, dedx, nsigmaDeu, nsigmaP, nsigmaK, nsigmaPi, nsigmaE,tpcITSchi2, itsChi2, tpcChi2;
     bool isPositive;
     int nClusITS;
     int nClusTPC;
-    int rofITS;
+    int rofBC;
+
 
     MLtree->Branch("p", &p);
     MLtree->Branch("pt", &pt);
@@ -162,21 +150,17 @@ void ITSTPCClusterTreeBuilder()
     MLtree->Branch("ptTPC", &ptTPC);
     MLtree->Branch("pITS", &pITS);
     MLtree->Branch("ptITS", &ptITS);
-    MLtree->Branch("itsChi2", &itsChi2);
-    MLtree->Branch("tpcChi2", &tpcChi2);
-    MLtree->Branch("rofITS", &rofITS);
-
+    MLtree->Branch("rofBC", &rofBC);
     MLtree->Branch("tgL", &tgL);
-    MLtree->Branch("meanClsize", &meanClsize);
+    MLtree->Branch("clSizeCosLam", &clSizeCosLam);
     MLtree->Branch("dedx", &dedx);
     MLtree->Branch("nSigmaDeu", &nsigmaDeu);
     MLtree->Branch("nSigmaP", &nsigmaP);
     MLtree->Branch("nSigmaK", &nsigmaK);
     MLtree->Branch("nSigmaPi", &nsigmaPi);
+    MLtree->Branch("nSigmaE", &nsigmaE);
     MLtree->Branch("tpcITSchi2", &tpcITSchi2);
     MLtree->Branch("isPositive", &isPositive);
-    MLtree->Branch("nClusITS", &nClusITS);
-    MLtree->Branch("nClusTPC", &nClusTPC);
 
     for (int i{0}; i < 7; i++)
     {
@@ -293,8 +277,8 @@ void ITSTPCClusterTreeBuilder()
 
                 for (auto& rof : *ROFits) {
                     if (ITSTPCtrack.getRefITS().getIndex() <= rof.getFirstEntry()) {
-                        rofITS = rof.getBCData().bc;
-                        // LOG(info) << "rofITS: " << rofITS;
+                        rofBC = rof.getBCData().bc;
+                        // LOG(info) << "rofBC: " << rofBC;
                         break;
                     }
                 }
@@ -357,7 +341,7 @@ void ITSTPCClusterTreeBuilder()
                     ptITS = ITStrack.getPt();
                     isPositive = ITSTPCtrack.getSign() == 1;
                     tgL = ITSTPCtrack.getTgl();
-                    meanClsize = mean;
+                    clSizeCosLam = mean;
                     dedx = TPCtrack.getdEdx().dEdxTotTPC;
                     nClusTPC = TPCtrack.getNClusters();
 
@@ -365,9 +349,11 @@ void ITSTPCClusterTreeBuilder()
                     tpcChi2 = TPCtrack.getChi2();
 
                     nsigmaDeu = nSigmaDeu(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
-                    nsigmaP = nSigmaP(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
-                    nsigmaPi = nSigmaPi(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
-                    nsigmaK = nSigmaK(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC);
+                    nsigmaP = nSigma(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC, 2212);
+                    nsigmaK = nSigma(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC, 321);
+                    nsigmaPi = nSigma(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC, 211);
+                    nsigmaE = nSigma(TPCtrack.getP(), TPCtrack.getdEdx().dEdxTotTPC, 11);
+
 
                     tpcITSchi2 = ITSTPCtrack.getChi2Match();
 
