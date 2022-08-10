@@ -4,6 +4,7 @@
 !o2_geometry.root
 .vscode
 *.pdf
+*.png
 
 !LHCCplots/*
 !utils/*
