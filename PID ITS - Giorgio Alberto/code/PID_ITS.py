@@ -1,9 +1,9 @@
 import pickle
-from prompt_toolkit import Application
 import yaml
 import pandas as pd
 import numpy as np
 from math import floor, ceil
+import matplotlib.pyplot as plt
 
 from alive_progress import alive_bar
 from time import time
@@ -13,10 +13,11 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OrdinalEncoder, StandardScaler
 from sklearn.pipeline import Pipeline
 import xgboost as xgb
+from flaml import AutoML
 
-import matplotlib.pyplot as plt
 
 from hipe4ml.model_handler import ModelHandler
+from hipe4ml import plot_utils
 import optuna
 
 from ROOT import TH2F, TCanvas, TH1F, gStyle, kBird, gPad, gROOT, TFile
@@ -27,9 +28,10 @@ gROOT.SetBatch()
 # Tags
 #_____________________________________
 tag_Deu = 'nSigmaDeuAbs < 1 and nSigmaPAbs > 5 and nSigmaKAbs > 5 and nSigmaPiAbs > 5 and p <= 1.2'
-tag_P = 'nSigmaPAbs < 1 and nSigmaKAbs > 3 and nSigmaDeuAbs > 3 and p <= 1.1'
-tag_K = 'nSigmaKAbs < 1 and nSigmaPiAbs > 3 and nSigmaPAbs > 3 and p <= 0.5'
-tag_Pi = 'nSigmaPiAbs < 1 and nSigmaKAbs > 3 and p <= 0.4'
+tag_P = 'nSigmaPAbs < 1 and nSigmaKAbs > 3 and nSigmaDeuAbs > 3 and p <= 0.7'
+tag_K = 'nSigmaKAbs < 1 and nSigmaPiAbs > 3 and nSigmaPAbs > 3 and p <= 0.7'
+tag_Pi = 'nSigmaPiAbs < 1 and nSigmaKAbs > 3 and p <= 0.7'
+
 
 # Masses
 #_____________________________________
@@ -37,21 +39,21 @@ mass_Deu = 1.8756
 mass_P =  0.93827200
 mass_K = 0.4937
 mass_Pi = 0.13957000
+mass_e = 0.000511
 
-names = ['Deu', 'P', 'K', 'Pi']
+names = ['deu', 'p', 'K', 'pi', 'e']
 
 tag_dict = dict(zip(names, [tag_Deu, tag_P, tag_K, tag_Pi]))
-mass_dict = dict(zip(names, [mass_Deu, mass_P, mass_K, mass_Pi]))
+mass_dict = dict(zip(names, [mass_Deu, mass_P, mass_K, mass_Pi, mass_e]))
 
 
 # Functions
-#_______________________________________
 
 
 # Filtering
 #_______________________________________
 
-def filtering(ApplicationDf, part_name='all', label=True, beta=True):
+def filtering(ApplicationDf, part_name='all', tag=True, label=True, beta=True):
     """
     From the full datatframe, creates a new one saving only data relative to a chosen particle (filtering  with instructions in its tag).
     The new dataframe will have a label column where its particle species is specified and a beta column where beta is defined.
@@ -66,7 +68,8 @@ def filtering(ApplicationDf, part_name='all', label=True, beta=True):
     
     if part_name == 'all':  part_name = names
 
-    dfs = [ApplicationDf.query(tag_dict[part]).reset_index(drop=True) for part in part_name]
+    if tag: dfs = [ApplicationDf.query(tag_dict[part]).reset_index(drop=True) for part in part_name]
+    else:   dfs = [ApplicationDf.query(f"label == '{part}'").reset_index(drop=True) for part in part_name]
     for df, part in zip(dfs, part_name): 
         if label:   df['label'] = part
         if beta:    df.eval(f'beta = p / sqrt( {mass_dict[part]}**2 + p**2)', inplace=True)
@@ -98,7 +101,7 @@ def hist(x, filename, canvas, plot_specifics, pad=None, normalized=True, save=Tr
     
     if save:        canvas.SaveAs(f'{filename}.root')
 
-def multiple_hist(dfs, column, plot_specifics, filename, hist_names=None, x_label=None):
+def multiple_hist(dfs, column, plot_specifics, filename, hist_names=None):
     """
     Saves multiple histigrams (different particle species, same variable) on the same file. You can reiterate for different variables as well.
     
@@ -119,9 +122,9 @@ def multiple_hist(dfs, column, plot_specifics, filename, hist_names=None, x_labe
     file = TFile(f'{filename}{column}.root', 'recreate')
 
     for i, df in enumerate(dfs):
-        if type(df) == pd.DataFrame:    
-            if 'label' in df.columns:   hist_name = f'{df.label[0]}'
-        elif hist_names != None:        hist_name = hist_names[i]
+        if hist_names != None:        hist_name = hist_names[i]
+        elif type(df) == pd.DataFrame:    
+            if 'label' in df.columns:   hist_name = f'{df.label.iloc[:1]}'
         else:                           hist_name = f'{i}'
 
         hist = TH1F(hist_name, hist_name, nbinsx, xlow, xup)
@@ -202,8 +205,29 @@ def multiplots(xs, ys, n_pads, filename, plot, plot_specifics):
 # Data Augmentation Functions
 #_______________________________________
 
-def augmentation_raw():
-    return 0
+def equal(df, column):
+    """
+    From a given dataframe, finds the minimum number of elements having unique values in a column. Discards elements
+    having different unique values in that column until their size matches that minimum number.
+
+    Parameters
+    ----------------
+    df: dataframe
+    column: column where the unique values are stored
+
+    Returns
+    ----------------
+    "Filtered" dataframe
+    """
+    
+    sizes = []
+    for item in df[column].unique():  sizes.append(len(df.query(f"{column} == '{item}'")))
+    min_size = min(sizes)
+
+    new_df = pd.DataFrame()
+    for item in df[column].unique():  new_df = pd.concat([new_df, df.query(f"{column} == '{item}'").iloc[:min_size]], sort=False)
+
+    return new_df
 
 def augmentation_fine(df, mother, daughter, pmin, pmax):
     """
@@ -258,7 +282,7 @@ def Delta(model, X, y, absolute=False):
     pred = model.predict(X)
     if absolute:    return abs(y - pred)/y
     else:           return abs(y - pred)/y
-
+    
 #def Delta_score(model, X, y, weight:pd.Series):
 def Delta_score(model, X, y):
     """
@@ -286,8 +310,7 @@ def plot_score(X, y, model, x_label, plot_specifics, x=None, filename='', logy=F
     if x == None:   density_scatter(y, delta, f'{filename}_score', plot_spec)
     else:           density_scatter(x, delta, f'{filename}_score', plot_spec)
 
-
-def plot_score_train(TrainTestData, RegressionColumns, model, x_label, plot_specifics, x_train=None, x_test=None, filename='', logx=False, logy=False, absolute=True):
+def plot_score_train(TrainTestData, RegressionColumns, model, x_label, plot_specifics, x_train=None, x_test=None, filename='', absolute=True):
     """
     Plot a prediction scoring variable (defined as (true-predicted)/true) vs a chosen variable from X columns.
 
@@ -311,7 +334,7 @@ def plot_score_train(TrainTestData, RegressionColumns, model, x_label, plot_spec
     else:                   density_scatter(x_test, delta_test, f'{filename}_score_scatter_test', plot_spec, title='Score scatter test')
 
     # no column will be used, since delta_train, delta_test are not dfs.
-    multiple_hist([delta_train, delta_test], ' ', plot_specifics[:3], f'{filename}_score_hist', hist_names=['Train', 'Test'], x_label='#Delta')
+    multiple_hist([delta_train, delta_test], ' ', plot_specifics[:3], f'{filename}_score_hist', hist_names=['Train', 'Test'])
 
 
 
@@ -326,9 +349,7 @@ def data_prep(config):
 
     Parameters
     --------------------------------------------------
-    - data_path: path to the data storing file
-    - do_plots: choose if you want to create histograms
-    - data_augm: select a data augmantaion algorithm (options:)
+    - config: .yml configuration file
 
     Returns
     --------------------------------------------------
@@ -336,10 +357,17 @@ def data_prep(config):
     - ApplicationDf: dataframe that will be used for the application. This is the original dataframe, with some new columns added. Will be created at the beginning and then saved in a file and returned.
     """
 
+    isV0 = config['input']['isV0']
+    ext_appl = config['input']['ext_appl']
+
     # Upload from data file and config file
-    ApplicationDf = pd.read_parquet(config['input']['data'])
+    RegressionDf = pd.read_parquet(config['input']['data'])
+    if ext_appl:    ApplicationDf = pd.read_parquet(config['input']['appl_data'])
+
+    particle_dict = config['output']['particle'] 
 
     do_plots = config['plots']['do_plots']
+    vars_to_plot = config['plots']['vars_to_plot']
     hist_spec = config['plots']['plot_spec_hist']
     scat_spec = config['plots']['plot_spec_scat']
     output_dir = config['output']['data_visual_dir']
@@ -349,13 +377,27 @@ def data_prep(config):
 
     do_augm = config['data_prep']['do_augm']
     beta_flat = config['training']['beta_flat']
+    do_equal = config['data_prep']['do_equal']
     save_data = config['data_prep']['save_data']
     save_data_dir = config['output']['save_data_dir']
 
-    if do_augm and beta_flat:   sub_dir = '/augm_betaflat'
-    elif do_augm:               sub_dir = '/augm'
-    elif beta_flat:             sub_dir = '/betaflat'
-    else:                       sub_dir = '/no_options'
+    if isV0:                    
+        output_dir += '/V0'
+        save_data_dir += '/V0'
+    else:                       
+        output_dir += '/TPC'
+        save_data_dir += '/TPC'
+
+    if do_augm and beta_flat:   output_dir += '/augm_betaflat'
+    elif do_augm:               output_dir += '/augm'
+    elif beta_flat:             output_dir += '/betaflat'
+    elif do_equal:              output_dir += '/equal'
+    else:                       output_dir += '/no_options'
+
+    options = ''
+    if do_augm:     options += '_augm'
+    if beta_flat:   options += '_betaflat_'
+    if do_equal:    options += '_equal_'
 
 
 
@@ -363,27 +405,56 @@ def data_prep(config):
 
 
     # define some new columns
-    ApplicationDf.eval('meanPattID = (PattIDL0+PattIDL1+PattIDL2+PattIDL3+PattIDL4+PattIDL5+PattIDL6)/7', inplace=True)
-    ApplicationDf.eval('meanSnPhi = (SnPhiL0+SnPhiL1+SnPhiL2+SnPhiL3+SnPhiL4+SnPhiL5+SnPhiL6)/7', inplace=True)
-    ApplicationDf.eval('L6_L0 = ClSizeL6/ClSizeL0', inplace=True)
-
-    for part in names:
-        ApplicationDf[f'nSigma{part}Abs'] = abs(ApplicationDf[f'nSigma{part}'])
+    RegressionDf.eval('meanClsize = (ClSizeL0+ClSizeL1+ClSizeL2+ClSizeL3+ClSizeL4+ClSizeL5+ClSizeL6)/7', inplace=True)
+    RegressionDf.eval('meanPattID = (PattIDL0+PattIDL1+PattIDL2+PattIDL3+PattIDL4+PattIDL5+PattIDL6)/7', inplace=True)
+    RegressionDf.eval('meanSnPhi = (SnPhiL0+SnPhiL1+SnPhiL2+SnPhiL3+SnPhiL4+SnPhiL5+SnPhiL6)/7', inplace=True)
+    RegressionDf.eval('L6_L0 = ClSizeL6/ClSizeL0', inplace=True)
     
-    # Filtering (and evaluating beta)
+    if isV0:    RegressionDf.eval('delta_p = (p - pTPC)/pTPC', inplace=True)  
+
+    if ext_appl:
+        ApplicationDf.eval('meanClsize = (ClSizeL0+ClSizeL1+ClSizeL2+ClSizeL3+ClSizeL4+ClSizeL5+ClSizeL6)/7', inplace=True)
+        ApplicationDf.eval('meanPattID = (PattIDL0+PattIDL1+PattIDL2+PattIDL3+PattIDL4+PattIDL5+PattIDL6)/7', inplace=True)
+        ApplicationDf.eval('meanSnPhi = (SnPhiL0+SnPhiL1+SnPhiL2+SnPhiL3+SnPhiL4+SnPhiL5+SnPhiL6)/7', inplace=True)
+        ApplicationDf.eval('L6_L0 = ClSizeL6/ClSizeL0', inplace=True)  
+        ApplicationDf.eval('delta_p = (p - pTPC)/pTPC', inplace=True)
+        
+    if not isV0:
+        for part in names:  RegressionDf[f'nSigma{part}Abs'] = abs(RegressionDf[f'nSigma{part}'])
+    
+    # Splitting, filtering (and evaluating beta)
     #__________________________________
-    ApplicationDf.query('p <= 50', inplace=True)
-    df_Deu, df_P, df_K, df_Pi = filtering(ApplicationDf)
+    RegressionDf.query('p <= 50 and 20 < rofBC < 500 and tpcITSchi2 < 5 and nClusTPC > 100 and -0.2 < delta_p < 0.2', inplace=True)
+    if isV0:
+        RegressionDf.eval('label = particle', inplace=True)
+        for number, name in particle_dict.items():  RegressionDf['label'].replace({number: name}, inplace=True)
 
-    filt_dfs = [df_Deu, df_P, df_K, df_Pi]
-    total_df = pd.concat(filt_dfs)
-    pi_and_p_df = pd.concat([df_P, df_Pi])
+    #if ext_appl:    ApplicationDf.query('p <= 50 and 20 < rofBC < 500 and tpcITSchi2 < 5 and nClusTPC > 100 and -0.2 < delta_p < 0.2', inplace=True)
+
+    TrainSet, TestSet, yTrain, yTest = train_test_split(RegressionDf, RegressionDf.p, test_size=test_frac ,random_state=seed_split)
     
+    if not ext_appl:    ApplicationDf = TestSet
+
+    if isV0:
+        dfs_train = filtering(TrainSet, tag=False, label=False)
+        dfs_test = filtering(TestSet, tag=False, label=False)
+    else:
+        dfs_train = [None] * TrainSet['particle'].value_counts()
+        dfs_test = [None] * TestSet['particle'].value_counts()
+        dfs_train = filtering(TrainSet)
+        dfs_test = filtering(TestSet)
 
     # Data Visualization
     #_________________________________
     if do_plots:
         print('\nData Visualization...')
+
+        filt_dfs = [pd.concat([df_train, df_test], ignore_index=True) for df_train, df_test in zip(dfs_train, dfs_test)]
+        total_df = pd.concat(filt_dfs)
+
+        for df in filt_dfs: 
+            print(df.label[:1])
+
 
         for var in hist_spec:   multiple_hist(filt_dfs, var, hist_spec[var], f'{output_dir}/')
 
@@ -396,26 +467,41 @@ def data_prep(config):
                 density_scatter(df[x], df[y], f'{output_dir}/{y}_vs_{x}_{name}', scat_spec, title=f'{y}_{name}')
             density_scatter(total_df[x], total_df[y], f'{output_dir}/{y}_vs_{x}_total', scat_spec, title=f'{y}_total')
 
-        density_scatter(ApplicationDf['p'], ApplicationDf['dedx'], f'{output_dir}/dedx_all', plot_spec_scat[0], title='dedx_all')
-        density_scatter(ApplicationDf['p'], ApplicationDf['meanClsize'], f'{output_dir}/meanClsize_all', plot_spec_scat[2], title='meanClsize_all')
-        density_scatter(pi_and_p_df['p'], pi_and_p_df['meanClsize'], f'{output_dir}/meanClsize_P_and_Pi', plot_spec_scat[2], title='meanClsize_P_and_Pi')
-
+        density_scatter(RegressionDf['p'], RegressionDf['dedx'], f'{output_dir}/dedx_all', plot_spec_scat[0], title='dedx_all')
+        density_scatter(RegressionDf['p'], RegressionDf['meanClsize'], f'{output_dir}/meanClsize_all', plot_spec_scat[2], title='meanClsize_all')
+        
         # Check hypotesis 
         check_dfs = []
         for name in names:                          check_dfs.append( total_df.query(f"label == '{name}' and -0.1 <= SnPhiL0 <= 0.1 and -0.1 <= tgL <= 0.1") )
         for df, name in zip(check_dfs, names):      density_scatter(df['beta'], df['ClSizeL0'], f'{output_dir}/check_on_ClSizeL0_{name}', plot_spec_scat[3], title=f'check_on_ClSizeL0_{name}')
 
+        # Correlation between dataframe features
+        #___________________________________
+
+        CorrMatrixFig = plot_utils.plot_corr(filt_dfs, vars_to_plot, names)
+        for Fig, name in zip(CorrMatrixFig, names):
+            plt.figure(Fig.number)
+            plt.subplots_adjust(left=0.2, bottom=0.25, right=0.95, top=0.9)
+            Fig.savefig(f'{output_dir}/CorrMatrix_{name}{options}.png')
     
+
     # Data Preprocessing (eliminate negative cl.sizes, apply beta flat, apply data augmentation, split dataframes)
     #_________________________________
     print('\nData Preprocessing...')
-    
+
+    TrainSet = pd.concat(dfs_train)
+    TrainSet = TrainSet.sample(frac=1).reset_index(drop=True)
+    yTrain = TrainSet['beta']
+
+    TestSet = pd.concat(dfs_test)
+    TestSet = TestSet.sample(frac=1).reset_index(drop=True)
+    yTest = TestSet['beta']
+
     # negative values are intended to be nans
     for i in range(7):
-        total_df[f'ClSizeL{i}'] = np.where(total_df[f'ClSizeL{i}'] < 0, 0, total_df[f'ClSizeL{i}'])
-
-    TrainSet, TestSet, yTrain, yTest = train_test_split(total_df, total_df.beta, test_size=test_frac ,random_state=seed_split)
-
+        TrainSet[f'ClSizeL{i}'] = np.where(TrainSet[f'ClSizeL{i}'] < 0, 0, TrainSet[f'ClSizeL{i}'])
+        TestSet[f'ClSizeL{i}'] = np.where(TestSet[f'ClSizeL{i}'] < 0, 0, TestSet[f'ClSizeL{i}'])
+        ApplicationDf[f'ClSizeL{i}'] = np.where(ApplicationDf[f'ClSizeL{i}'] < 0, 0, ApplicationDf[f'ClSizeL{i}'])
 
     # Data augmentation
     #_________________________________
@@ -441,13 +527,7 @@ def data_prep(config):
             len_daughter = len(TrainSet.query(f"label == '{daughter}' and copy == 1"))
             print(f'Augmented {daughter}: {len_daughter}')
 
-        augmented_dfs = []
-        for name in names:
-            augmented_df = TrainSet.query(f"label == '{name}'")  
-            augmented_dfs.append(augmented_df)
-
-
-
+        augmented_dfs = [TrainSet.query(f"label == '{name}'") for name in names]
 
         # Plots after augmentation
         if do_plots:
@@ -457,25 +537,30 @@ def data_prep(config):
     
             for x, y, scat_spec in zip(plot_x_scat, plot_y_scat, plot_spec_scat):
                 for name, df in zip(names, augmented_dfs): 
-                    density_scatter(df[x], df[y], f'{output_dir}{sub_dir}/{y}_vs_{x}_{name}_augm', scat_spec, title=f'{y}_{name}_augm')
-                density_scatter(TrainSet[x], TrainSet[y], f'{output_dir}{sub_dir}/{y}_vs_{x}_all_augm', scat_spec, title=f'{y}_all_augm')
+                    density_scatter(df[x], df[y], f'{output_dir}/{y}_vs_{x}_{name}_augm', scat_spec, title=f'{y}_{name}_augm')
+                density_scatter(TrainSet[x], TrainSet[y], f'{output_dir}/{y}_vs_{x}_all_augm', scat_spec, title=f'{y}_all_augm')
 
+    # Equal number of candidates (without deuterons)
+    #_________________________________
 
+    if do_equal:
+        TrainSet = TrainSet.query("label != 'Deu'")
+        TrainSet = equal(TrainSet, 'label')
+        yTrain = TrainSet['beta']
 
     # Beta flat weights
     #_________________________________
 
     betamins = config['data_prep']['betamins']
     betamaxs = config['data_prep']['betamaxs']
-    weights = []
-
-    for betamin, betamax in zip(betamins, betamaxs):
-        weights.append( len(TrainSet.query(f'{betamin} <= beta < {betamax}'))/len(TrainSet) )
+    weights = [len(TrainSet.query(f'{betamin} <= beta < {betamax}'))/len(TrainSet) for betamin, betamax in zip(betamins, betamaxs)]
 
     conditions = [(TrainSet['beta'] >= betamin) & (TrainSet['beta'] < betamax) for betamin, betamax in zip(betamins, betamaxs)]
-    for weight in weights:  weight = 1./weight
-    TrainSet['beta_weight'] = np.select(conditions, weights)
+    n_weights = [1./weight for weight in weights]
+    TrainSet['beta_weight'] = np.select(conditions, n_weights)
 
+    
+    
 
     # Save prepared data
     #___________________________________
@@ -483,6 +568,7 @@ def data_prep(config):
     data_conf = ''
     if do_augm:     data_conf += '_augm'
     if beta_flat:   data_conf += '_betaflat'
+    if do_equal:    data_conf += '_equal'
 
     if save_data:
         dfTrainSet, dfyTrain, dfTestSet, dfyTest = pd.DataFrame(TrainSet), pd.DataFrame(yTrain), pd.DataFrame(TestSet), pd.DataFrame(yTest)
@@ -518,6 +604,9 @@ def regression(TrainTestData, config):
 
     X_train, y_train, X_test, y_test = TrainTestData
 
+    particle_dict = config['output']['particle']
+    isV0 = config['input']['isV0']
+
     RegressionColumns = config['training']['RegressionColumns']
     model_choice = config['training']['model']
     ModelParams = config['training']['ModelParams']
@@ -528,6 +617,7 @@ def regression(TrainTestData, config):
 
     do_augm = config['data_prep']['do_augm']
     beta_flat = config['training']['beta_flat']
+    do_equal = config['data_prep']['do_equal']
 
     output_dir = config['output']['ml_dir']
     save_model = config['training']['save_model']
@@ -535,16 +625,24 @@ def regression(TrainTestData, config):
     options = ''
     if do_augm:     options += '_augm'
     if beta_flat:   options += '_betaflat_'
-    
-    if do_augm and beta_flat:   sub_dir = '/augm_betaflat'
-    elif do_augm:               sub_dir = '/augm'
-    elif beta_flat:             sub_dir = '/betaflat'
-    else:                       sub_dir = '/no_options'
+    if do_equal:    options += '_equal'
+
+    if isV0:                    output_dir += '/V0'
+    else:                       output_dir += '/TPC'
+
+    if do_augm and beta_flat:   output_dir += '/augm_betaflat'
+    elif do_augm:               output_dir += '/augm'
+    elif beta_flat:             output_dir += '/betaflat'
+    elif do_equal:              output_dir += '/equal'
+    else:                       output_dir += '/no_options'
+
+    if do_equal:    names.remove('Deu')
     
 
     # Model definition
     #__________________________________
     if model_choice=='xgboost':     model = xgb.XGBRegressor()
+    if model_choice=='automl':      model = AutoML()
 
     # Optuna optimization
     #__________________________________
@@ -553,25 +651,25 @@ def regression(TrainTestData, config):
         model_handler = ModelHandler(model, RegressionColumns)
         model_handler.set_model_params(ModelParams)
 
-        print('Initialize Optuna hyper-parameters optimization...')
+        print('\nInitialize Optuna hyper-parameters optimization...')
         with alive_bar(title='Hyper-Parameters optimization') as bar:
-            if early_stop:  study = model_handler.optimize_params_optuna(TrainTestData, HyperParamsRange, Delta_score, direction='minimize', callbacks=[callback], timeout=600)
+            if early_stop:  study = model_handler.optimize_params_optuna(TrainTestData, HyperParamsRange, Delta_score, direction='minimize', callbacks=[callback])
             else:           study = model_handler.optimize_params_optuna(TrainTestData, HyperParamsRange, Delta_score, direction='minimize', timeout=600)
 
         print('Number of finished trials:', len(study.trials))
         print('Best trial:', study.best_trial.params)
 
-        fig = optuna.visualization.plot_optimization_history(study)
-        fig.write_image(f'{output_dir}{sub_dir}/plot_optimization_history{options}.png')
-
-        fig = optuna.visualization.plot_param_importances(study)
-        fig.write_image(f'{output_dir}{sub_dir}/plot_param_importances{options}.png')
-
-        fig = optuna.visualization.plot_parallel_coordinate(study)
-        fig.write_image(f'{output_dir}{sub_dir}/plot_parallel_coordinate{options}.png')
-
-        fig = optuna.visualization.plot_contour(study)
-        fig.write_image(f'{output_dir}{sub_dir}/plot_contour{options}.png')
+        #fig = optuna.visualization.plot_optimization_history(study)
+        #fig.write_image(f'{output_dir}{sub_dir}/plot_optimization_history{options}.png')
+#
+        #fig = optuna.visualization.plot_param_importances(study)
+        #fig.write_image(f'{output_dir}{sub_dir}/plot_param_importances{options}.png')
+#
+        #fig = optuna.visualization.plot_parallel_coordinate(study)
+        #fig.write_image(f'{output_dir}{sub_dir}/plot_parallel_coordinate{options}.png')
+#
+        #fig = optuna.visualization.plot_contour(study)
+        #fig.write_image(f'{output_dir}{sub_dir}/plot_contour{options}.png')
 
         HyperParams = study.best_trial.params
 
@@ -585,36 +683,45 @@ def regression(TrainTestData, config):
     #__________________________________
     if model_choice=='xgboost':
 
-        print('Global model...')
+        print('\nXGB model...')
         model_reg = xgb.XGBRegressor(**HyperParams)
-        #pipeline = Pipeline(steps=[('preprocessor', preprocessor), ('model', model)])
         pipeline = Pipeline(steps=[('model', model_reg)])
-
-        with alive_bar(title='Training all') as bar:
-            if beta_flat:       pipeline.fit(X_train[RegressionColumns], y_train, model__sample_weight=X_train['beta_weight'])
-            else:               pipeline.fit(X_train[RegressionColumns], y_train)
-        
         plot_specifics = [1000, 0, 1, 2000, -0.5, 1.5]
-        plot_score_train(TrainTestData, RegressionColumns, pipeline, x_label='#beta', plot_specifics=plot_specifics, filename=f'{output_dir}{sub_dir}/{options}')
+        with alive_bar(title='Training...') as bar:     model_reg.fit(X_train[RegressionColumns], y_train)
+        
+        plot_score_train(TrainTestData, RegressionColumns, pipeline, x_label='#beta', plot_specifics=plot_specifics, filename=f'{output_dir}/{options}')
+        for key, name in particle_dict.items():
 
-        for name in names:
-            print(f'\nModeling {name}...')
-
-            train = pd.concat([X_train, y_train])
-            X_train_name = train.query(f"label == '{name}'")
+            TrainSet, TestSet = pd.DataFrame(TrainTestData[0]), pd.DataFrame(TrainTestData[2])
+            X_train_name = TrainSet.query(f"label == '{name}'")
             y_train_name = X_train_name['beta']
-
-            test = pd.concat([X_test, y_test])
-            X_test_name = test.query(f"label == '{name}'")
+            X_test_name = TestSet.query(f"label == '{name}'")
             y_test_name = X_test_name['beta']
-            
-            with alive_bar(title=f'Training {name}') as bar:
-                if beta_flat:   pipeline.fit(X_train_name[RegressionColumns], y_train_name, model__sample_weight=X_train_name['beta_weight'])
-                else:           pipeline.fit(X_train_name[RegressionColumns], y_train_name)
 
             TestTrainData_name = X_train_name, y_train_name, X_test_name, y_test_name
+            plot_score_train(TestTrainData_name, RegressionColumns, pipeline, x_label='#beta', plot_specifics=plot_specifics, filename=f'{output_dir}/{name}{options}')
 
-            plot_score_train(TestTrainData_name, RegressionColumns, pipeline, x_label='#beta', plot_specifics=plot_specifics, filename=f'{output_dir}{sub_dir}/{name}{options}')
+
+    if model_choice=='automl':
+        
+        print('\nFLAML model...')
+        model_reg = AutoML(**HyperParams)
+        pipeline = Pipeline(steps=[('model', model_reg)])
+        plot_specifics = [1000, 0, 1, 2000, -0.5, 1.5]
+        with alive_bar(title='Training...') as bar:     model_reg.fit(X_train[RegressionColumns], y_train)
+
+        plot_score_train(TrainTestData, RegressionColumns, pipeline, x_label='#beta', plot_specifics=plot_specifics, filename=f'{output_dir}/{options}')
+        for name in names:
+
+            TrainSet, TestSet = pd.DataFrame(TrainTestData[0]), pd.DataFrame(TrainTestData[2])
+            X_train_name = TrainSet.query(f"label == '{name}'")
+            y_train_name = X_train_name['beta']
+            X_test_name = TestSet.query(f"label == '{name}'")
+            y_test_name = X_test_name['beta']
+
+            TestTrainData_name = X_train_name, y_train_name, X_test_name, y_test_name
+            plot_score_train(TestTrainData_name, RegressionColumns, pipeline, x_label='#beta', plot_specifics=plot_specifics, filename=f'{output_dir}/{name}{options}')
+
 
     
     # Save model in pickle
@@ -625,7 +732,15 @@ def regression(TrainTestData, config):
         print('\nSaving regressor model...')
         with open(f'{output_dir}/RegressorModel_{model_choice}{options}.pickle', 'wb') as output_file:
             pickle.dump(model_reg, output_file)
-        print('Model saved.\n')
+        print('Model saved.')
+
+    # Feature importance plot
+    #________________________________
+
+    if model_choice == 'xgboost':
+        FeatureImportance = xgb.plot_importance(model_reg)
+        plt.savefig(f'{output_dir}/FeatureImportance_{model_choice}{options}.png')
+        plt.close('all')
 
 
     return model_reg
@@ -635,20 +750,28 @@ def regression(TrainTestData, config):
 
 def application(ApplicationDf, config, model):
 
+    isV0 = config['input']['isV0']
+
     RegressionColumns = config['training']['RegressionColumns']
     output_dir = config['output']['final_dir']
 
     do_augm = config['data_prep']['do_augm']
     beta_flat = config['training']['beta_flat']
+    do_equal = config['data_prep']['do_equal']
 
+    print('\nApplication...')
     X_application = ApplicationDf[RegressionColumns]
     preds = model.predict(X_application)               # beta
 
+    if isV0:        output_dir += '/V0'
+    else:           output_dir += '/TPC'
     output_file = f'{output_dir}/beta_vs_p'
     if do_augm:     output_file += '_augm'
     if beta_flat:   output_file += '_betaflat'
+    if do_equal:       output_file += '_equal'
 
-    density_scatter(ApplicationDf['p'], preds, output_file, title='beta_vs_p_ final')
+    plot_specifics = ["p", "#beta", 1200, 0, 0.7, 1000, 0, 1]
+    density_scatter(ApplicationDf['p'], preds, output_file, plot_specifics, title='beta_vs_p_final')
 
 
 
@@ -679,7 +802,7 @@ def main():
     skip_training = config['training']['skip_training']
     
     if not skip_training:   Model = regression(TrainTestData, config)
-    
+
 
     # Application
     #__________________________________
@@ -688,9 +811,9 @@ def main():
         model_loc = config['application']['model_loc']            
         Model = pickle.load(open(f'{model_loc}', "rb"))
         Model.training_columns = config['training']['RegressionColumns']
-    application(ApplicationDf, config, Model)
+    application(ApplicationDf, config, Model)      # yTest
 
-    del TrainTestData
+    del TrainTestData, ApplicationDf
 
 
 
@@ -699,4 +822,4 @@ start_time = time()
 main()
 
 passed_time = time() - start_time
-print(f'Time: {passed_time/60} min')
+print(f'\nTime: {passed_time/60} min')

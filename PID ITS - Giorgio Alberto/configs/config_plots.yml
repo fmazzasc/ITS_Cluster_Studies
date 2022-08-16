@@ -1,18 +1,15 @@
 inputs:
     dirname: null # leave null if not common for all input files
-    filenames: [/Users/giogi/Desktop/Stage INFN/PID ITS/data_visual_root/p.root,
-                /Users/giogi/Desktop/Stage INFN/PID ITS/data_visual_root/p.root,
-                /Users/giogi/Desktop/Stage INFN/PID ITS/data_visual_root/p.root,
-                /Users/giogi/Desktop/Stage INFN/PID ITS/data_visual_root/p.root
+    filenames: [/Users/giogi/Desktop/Stage INFN/PID ITS/final_plots/beta_vs_p_betaflat.root
                 ]
-    objectnames: ['Deu', 'P', 'K', 'Pi'] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
+    objectnames: ['scatter_plot', 'P', 'K', 'Pi'] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
 
 output: 
-    filename: /Users/giogi/Desktop/Stage INFN/PID ITS/data_visual_png/p # with path and w/o extension
+    filename: /Users/giogi/Desktop/Stage INFN/PID ITS/final_plots/beta_vs_p_betaflat_final # with path and w/o extension
     extensions: [png, root] # possibilities: pdf, eps, png, root
 
 options:
-    ROOTobject: [TH1, TH1, TH1, TH1] # TH1 or TGraph: no need to specify TH1F, TH1D or TGraphErrors, TGraphAsymmErrors
+    ROOTobject: [TH2] # TH1 or TGraph: no need to specify TH1F, TH1D or TGraphErrors, TGraphAsymmErrors
     scale: [1, 1, 1, 1]
     rebin: [1, 1, 1, 1]
     normalize: [true, true, true, true] # divide histogram by its area
@@ -22,7 +19,7 @@ options:
     linewidth: 2
     fillstyle: [0,0,0,0]
     fillalpha: [1,1,1,1]
-    drawopt: [hist, hist, hist, hist]
+    drawopt: [colz1, hist, hist, hist]
     palette: ['kBlue']
     
     ratio: 
@@ -40,7 +37,7 @@ options:
     dottedLine: ''
 
     legend:
-        avoid: false #set true to avoid the legend in the final plot
+        avoid: true #set true to avoid the legend in the final plot
         xlimits: [0.85, 0.95]
         ylimits: [0.75, 0.95]
         header: ''
@@ -59,8 +56,9 @@ options:
         ylimits: [1.e-5, 1]
         ylimitsratio: [-0.1, 1.5]
         ylimitserr: [0., 0.35]
-        logy: true
         logx: false
+        logy: false
+        logz: true
         ratio:
             logy: false
             logx: false
