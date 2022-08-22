@@ -2,8 +2,8 @@
 
 input:
 
-    data: /Users/giogi/Desktop/Stage INFN/PID ITS/data/V0/particles_pid_520143.parquet
-    appl_data: /Users/giogi/Desktop/Stage INFN/PID ITS/data/V0/particles_pid_520147.parquet
+    data: /data/shared/ITS/ML/particles_pid_520143.parquet
+    appl_data: /data/shared/ITS/ML/particles_pid_520143_itstpc.parquet
     ext_appl: True
 
     isV0: True
@@ -40,10 +40,10 @@ data_prep:
 
     # Data Augmentation
     #____________________________________
-    do_augm: True
+    do_augm: False
     to_augm: ["K", "p"]
-    mothers: ["pi", "K"]
-    p_ranges: [[0.15, 0.7], [0.4, 0.6]]
+    mothers: ["pi", "pi"]
+    p_ranges: [[0.6, 1.2], [0.8, 1.2]]
 
     # Beta Flat
     #____________________________________
@@ -85,8 +85,9 @@ training:
     model: "xgboost"        # accepted models: xgboost, automl
     do_opt: True
     early_stop: False
-    beta_flat: False
     save_model: True
+
+    beta_flat: False
 
 application:
     model_loc: /Users/giogi/Desktop/Stage INFN/PID ITS/ML_output/RegressorModel_xgboost_betaflat_.pickle
@@ -108,6 +109,6 @@ plots:
     
     plot_x_scat:    ["p", "p", "p", "beta"]
     plot_y_scat:    ["dedx", "beta", "meanClsize", "meanClsize"]
-    plot_spec_scat: [["p", "#frac{dE}{dx}", 1200, 0, 1.2, 600, 0, 600], ["p", "#beta", 1200, 0, 1.2, 1000, 0, 1], ["p", "meanClsize", 1200, 0, 1.2, 10, 0, 10], ["#beta", "meanClsize", 10, 0, 1, 10, 0, 20]]  
+    plot_spec_scat: [["p", "#frac{dE}{dx}", 4000, 0, 1.2, 600, 0, 600], ["p", "#beta", 4000, 0, 4, 1000, 0, 1.1], ["p", "meanClsize", 4000, 0, 4, 10, 0, 10], ["#beta", "meanClsize", 10, 0, 1, 10, 0, 20]]  
     
     

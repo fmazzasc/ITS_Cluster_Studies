@@ -2,7 +2,7 @@ import pickle
 import yaml
 import pandas as pd
 import numpy as np
-from math import floor, ceil
+from math import floor, ceil, sqrt
 import matplotlib.pyplot as plt
 
 from alive_progress import alive_bar
@@ -244,14 +244,14 @@ def augmentation_fine(df, mother, daughter, pmin, pmax):
     mass_mother = mass_dict[mother]
     mass_daughter = mass_dict[daughter]
 
-    betamin = pmin / mass_mother 
-    betamax = pmax / mass_mother 
+    betamin = pmin / sqrt(mass_mother**2 + pmin**2) 
+    betamax = pmax / sqrt(mass_mother**2 + pmax**2) 
     mother_to_augm = df.query(f'label == "{mother}" and {betamin} <= beta < {betamax}')
 
     n_mother = len(df.query(f'label == "{mother}" and {pmin} <= p < {pmax}'))
     n_daughter = len(df.query(f'label == "{daughter}" and {pmin} <= p < {pmax}'))
 
-    if n_mother < n_daughter:       return 0
+    if n_mother < n_daughter:   return 0
     else:
         n_sample = min(n_mother-n_daughter, len(mother_to_augm))
         augm_daughter = mother_to_augm.sample(n_sample)
@@ -310,7 +310,7 @@ def plot_score(X, y, model, x_label, plot_specifics, x=None, filename='', logy=F
     if x == None:   density_scatter(y, delta, f'{filename}_score', plot_spec)
     else:           density_scatter(x, delta, f'{filename}_score', plot_spec)
 
-def plot_score_train(TrainTestData, RegressionColumns, model, x_label, plot_specifics, x_train=None, x_test=None, filename='', absolute=True):
+def plot_score_train(TrainTestData, RegressionColumns, model, x_label, plot_specifics, x_train=pd.Series(), x_test=pd.Series(), filename='', absolute=True):
     """
     Plot a prediction scoring variable (defined as (true-predicted)/true) vs a chosen variable from X columns.
 
@@ -327,11 +327,13 @@ def plot_score_train(TrainTestData, RegressionColumns, model, x_label, plot_spec
     delta_test = Delta(model, X_test[RegressionColumns], y_test, absolute=absolute)
 
     plot_spec = [x_label, '#Delta'] + plot_specifics
-    if x_train == None:     density_scatter(y_train, delta_train, f'{filename}_score_scatter_train', plot_spec, title='Score scatter train')
-    else:                   density_scatter(x_train, delta_train, f'{filename}_score_scatter_train', plot_spec, title='Score scatter train')
+    if type(x_train) == pd.Series and x_train.empty:       
+        density_scatter(y_train, delta_train, f'{filename}_score_scatter_train', plot_spec, title='Score scatter train')
+    else:                   density_scatter(x_train, delta_train, f'{filename}_score_scatter_train_x', plot_spec, title='Score scatter train')
 
-    if x_test == None:      density_scatter(y_test, delta_test, f'{filename}_score_scatter_test', plot_spec, title='Score scatter test')
-    else:                   density_scatter(x_test, delta_test, f'{filename}_score_scatter_test', plot_spec, title='Score scatter test')
+    if type(x_test) == pd.Series and x_test.empty:        
+        density_scatter(y_test, delta_test, f'{filename}_score_scatter_test', plot_spec, title='Score scatter test')
+    else:                   density_scatter(x_test, delta_test, f'{filename}_score_scatter_test_p', plot_spec, title='Score scatter test')
 
     # no column will be used, since delta_train, delta_test are not dfs.
     multiple_hist([delta_train, delta_test], ' ', plot_specifics[:3], f'{filename}_score_hist', hist_names=['Train', 'Test'])
@@ -425,11 +427,12 @@ def data_prep(config):
     # Splitting, filtering (and evaluating beta)
     #__________________________________
     RegressionDf.query('p <= 50 and 20 < rofBC < 500 and tpcITSchi2 < 5 and nClusTPC > 100 and -0.2 < delta_p < 0.2', inplace=True)
+    if ext_appl:    ApplicationDf.query('p <= 50 and 20 < rofBC < 500 and tpcITSchi2 < 5 and nClusTPC > 100 and -0.2 < delta_p < 0.2', inplace=True)
     if isV0:
         RegressionDf.eval('label = particle', inplace=True)
         for number, name in particle_dict.items():  RegressionDf['label'].replace({number: name}, inplace=True)
 
-    #if ext_appl:    ApplicationDf.query('p <= 50 and 20 < rofBC < 500 and tpcITSchi2 < 5 and nClusTPC > 100 and -0.2 < delta_p < 0.2', inplace=True)
+    
 
     TrainSet, TestSet, yTrain, yTest = train_test_split(RegressionDf, RegressionDf.p, test_size=test_frac ,random_state=seed_split)
     
@@ -451,10 +454,6 @@ def data_prep(config):
 
         filt_dfs = [pd.concat([df_train, df_test], ignore_index=True) for df_train, df_test in zip(dfs_train, dfs_test)]
         total_df = pd.concat(filt_dfs)
-
-        for df in filt_dfs: 
-            print(df.label[:1])
-
 
         for var in hist_spec:   multiple_hist(filt_dfs, var, hist_spec[var], f'{output_dir}/')
 
@@ -499,9 +498,9 @@ def data_prep(config):
 
     # negative values are intended to be nans
     for i in range(7):
-        TrainSet[f'ClSizeL{i}'] = np.where(TrainSet[f'ClSizeL{i}'] < 0, 0, TrainSet[f'ClSizeL{i}'])
-        TestSet[f'ClSizeL{i}'] = np.where(TestSet[f'ClSizeL{i}'] < 0, 0, TestSet[f'ClSizeL{i}'])
-        ApplicationDf[f'ClSizeL{i}'] = np.where(ApplicationDf[f'ClSizeL{i}'] < 0, 0, ApplicationDf[f'ClSizeL{i}'])
+        TrainSet[f'ClSizeL{i}'] = np.where(TrainSet[f'ClSizeL{i}'] < 0, np.nan, TrainSet[f'ClSizeL{i}'])
+        TestSet[f'ClSizeL{i}'] = np.where(TestSet[f'ClSizeL{i}'] < 0, np.nan, TestSet[f'ClSizeL{i}'])
+        ApplicationDf[f'ClSizeL{i}'] = np.where(ApplicationDf[f'ClSizeL{i}'] < 0, np.nan, ApplicationDf[f'ClSizeL{i}'])
 
     # Data augmentation
     #_________________________________
@@ -519,6 +518,7 @@ def data_prep(config):
             pmin, pmax = p_range[0], p_range[1]
             augm_df = augmentation_fine(TrainSet, mother, daughter, pmin, pmax)
             if type(augm_df) != int:  augm.append(augm_df)
+
         augm.append(TrainSet)
         TrainSet = pd.concat(augm)
         yTrain = TrainSet['beta']
@@ -589,10 +589,6 @@ def data_prep(config):
     
 
     
-
-
-
-
 
 def regression(TrainTestData, config):
     """
@@ -685,32 +681,35 @@ def regression(TrainTestData, config):
 
         print('\nXGB model...')
         model_reg = xgb.XGBRegressor(**HyperParams)
-        pipeline = Pipeline(steps=[('model', model_reg)])
         plot_specifics = [1000, 0, 1, 2000, -0.5, 1.5]
-        with alive_bar(title='Training...') as bar:     model_reg.fit(X_train[RegressionColumns], y_train)
+        with alive_bar(title='Training...') as bar:     
+            if beta_flat:   model_reg.fit(X_train[RegressionColumns], y_train, sample_weight=X_train['beta_weight'])
+            else:           model_reg.fit(X_train[RegressionColumns], y_train)
         
-        plot_score_train(TrainTestData, RegressionColumns, pipeline, x_label='#beta', plot_specifics=plot_specifics, filename=f'{output_dir}/{options}')
+        TrainSet, TestSet = pd.DataFrame(TrainTestData[0]), pd.DataFrame(TrainTestData[2])
+        
+        plot_score_train(TrainTestData, RegressionColumns, model_reg, x_label='p', plot_specifics=plot_specifics, filename=f'{output_dir}/{options}', x_test=TestSet['p'])
+        plot_score_train(TrainTestData, RegressionColumns, model_reg, x_label='#beta', plot_specifics=plot_specifics, filename=f'{output_dir}/{options}')
         for key, name in particle_dict.items():
 
-            TrainSet, TestSet = pd.DataFrame(TrainTestData[0]), pd.DataFrame(TrainTestData[2])
             X_train_name = TrainSet.query(f"label == '{name}'")
             y_train_name = X_train_name['beta']
             X_test_name = TestSet.query(f"label == '{name}'")
             y_test_name = X_test_name['beta']
 
             TestTrainData_name = X_train_name, y_train_name, X_test_name, y_test_name
-            plot_score_train(TestTrainData_name, RegressionColumns, pipeline, x_label='#beta', plot_specifics=plot_specifics, filename=f'{output_dir}/{name}{options}')
+            plot_score_train(TestTrainData_name, RegressionColumns, model_reg, x_label='p', plot_specifics=plot_specifics, filename=f'{output_dir}/{name}{options}', x_test=X_test_name['p'])
+            plot_score_train(TestTrainData_name, RegressionColumns, model_reg, x_label='#beta', plot_specifics=plot_specifics, filename=f'{output_dir}/{name}{options}')
 
 
     if model_choice=='automl':
         
         print('\nFLAML model...')
         model_reg = AutoML(**HyperParams)
-        pipeline = Pipeline(steps=[('model', model_reg)])
         plot_specifics = [1000, 0, 1, 2000, -0.5, 1.5]
         with alive_bar(title='Training...') as bar:     model_reg.fit(X_train[RegressionColumns], y_train)
 
-        plot_score_train(TrainTestData, RegressionColumns, pipeline, x_label='#beta', plot_specifics=plot_specifics, filename=f'{output_dir}/{options}')
+        plot_score_train(TrainTestData, RegressionColumns, model_reg, x_label='#beta', plot_specifics=plot_specifics, filename=f'{output_dir}/{options}')
         for name in names:
 
             TrainSet, TestSet = pd.DataFrame(TrainTestData[0]), pd.DataFrame(TrainTestData[2])
@@ -720,7 +719,7 @@ def regression(TrainTestData, config):
             y_test_name = X_test_name['beta']
 
             TestTrainData_name = X_train_name, y_train_name, X_test_name, y_test_name
-            plot_score_train(TestTrainData_name, RegressionColumns, pipeline, x_label='#beta', plot_specifics=plot_specifics, filename=f'{output_dir}/{name}{options}')
+            plot_score_train(TestTrainData_name, RegressionColumns, model_reg, x_label='#beta', plot_specifics=plot_specifics, filename=f'{output_dir}/{name}{options}')
 
 
     
@@ -770,7 +769,7 @@ def application(ApplicationDf, config, model):
     if beta_flat:   output_file += '_betaflat'
     if do_equal:       output_file += '_equal'
 
-    plot_specifics = ["p", "#beta", 1200, 0, 0.7, 1000, 0, 1]
+    plot_specifics = ["p", "#beta", 4000, 0, 4, 1000, 0, 1.1]
     density_scatter(ApplicationDf['p'], preds, output_file, plot_specifics, title='beta_vs_p_final')
 
 

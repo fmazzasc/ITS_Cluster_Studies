@@ -8,10 +8,21 @@ from os.path import join
 import argparse
 import numpy as np
 import yaml
-from ROOT import TCanvas, TFile, TLegend, TLine # pylint: disable=import-error,no-name-in-module
+from ROOT import TCanvas, TFile, TLegend, TLine, gPad, TPaveStats # pylint: disable=import-error,no-name-in-module
 sys.path.append('..')
 from utils.StyleFormatter import SetGlobalStyle, SetObjectStyle, GetROOTColor, GetROOTMarker #pylint: disable=wrong-import-position,import-error
 from utils.AnalysisUtils import ComputeRatioDiffBins, ScaleGraph, ComputeRatioGraph #pylint: disable=wrong-import-position,import-error
+
+def StatLegendPosition(xlow, xup, ylow, yup):
+    gPad.Modified()
+    gPad.Update()
+    st =TPaveStats(gPad.GetPrimitive('stats'))
+    st.SetX1NDC(xlow)
+    st.SetX2NDC(xup);
+    st.SetY1NDC(ylow);
+    st.SetY2NDC(yup);
+    gPad.Modified()
+    gPad.Update()
 
 # load inputs
 parser = argparse.ArgumentParser(description='Arguments')
@@ -27,6 +38,7 @@ objNames = inputCfg['inputs']['objectnames']
 
 outFileName = inputCfg['output']['filename']
 outExtensions = inputCfg['output']['extensions']
+outFileNames = inputCfg['output']['extensions']
 
 objTypes = inputCfg['options']['ROOTobject']
 scales = inputCfg['options']['scale']
@@ -73,8 +85,17 @@ header = inputCfg['options']['legend']['header']
 legTextSize = inputCfg['options']['legend']['textsize']
 ncolumns = inputCfg['options']['legend']['ncolumns']
 
+xlowStatLegend = inputCfg['options']['statlegend']['xlow']
+xupStatLegend = inputCfg['options']['statlegend']['xup']
+ylowStatLegend = inputCfg['options']['statlegend']['ylow']
+yupStatLegend = inputCfg['options']['statlegend']['yup']
+
+single = (len(objNames) == 1)
+if single:  doRatio, doCompareUnc = False, False        # auto-disable ratio and compare features if a single object is created
+
 # set global style
-SetGlobalStyle(padleftmargin=0.18, padbottommargin=0.14, titleoffsety=1.5)
+SetGlobalStyle(padleftmargin=0.18, padbottommargin=0.14, titleoffsety=1.5, optstat=1111)
+StatLegendPosition(xlowStatLegend, xupStatLegend, ylowStatLegend, yupStatLegend)
 
 leg = TLegend(xLegLimits[0], yLegLimits[0], xLegLimits[1], yLegLimits[1])
 leg.SetFillStyle(0)
@@ -83,8 +104,8 @@ leg.SetNColumns(ncolumns)
 leg.SetHeader(header)
 
 hToCompare, hRatioToCompare, hUncToCompare = [], [], []
-for iFile, (inFileName, objName, objType, scale, normalize, color, marker, fillstyle, fillalpha, rebin) in \
-    enumerate(zip(inFileNames, objNames, objTypes, scales, normalizes, colors, markers, fillstyles, fillalphas, rebins)):
+for iFile, (inFileName, outFileName, objName, objType, scale, normalize, color, marker, fillstyle, fillalpha, rebin) in \
+    enumerate(zip(inFileNames, outFileNames, objNames, objTypes, scales, normalizes, colors, markers, fillstyles, fillalphas, rebins)):
     if inDirName:
         inFileName = join(inDirName, inFileName)
     inFile = TFile.Open(inFileName)
@@ -96,8 +117,10 @@ for iFile, (inFileName, objName, objType, scale, normalize, color, marker, fills
         sys.exit()
     hToCompare.append(inFile.Get(objName))
     if 'TH' in objType:
-        hToCompare[iFile].SetName(f'h{iFile}')
-        hToCompare[iFile].SetStats(0)
+        if len(outFileNames) == len(inFileNames):   hToCompare[iFile].SetName(outFileName)
+        else:                                       hToCompare[iFile].SetName(f'h{iFile}')
+        if single:  hToCompare[iFile].SetStats(1)
+        else:       hToCompare[iFile].SetStats(0)
     else:
         hToCompare[iFile].SetName(f'g{iFile}')
     hToCompare[iFile].Rebin(rebin)
@@ -229,6 +252,7 @@ for histo, objType, drawOpt in zip(hToCompare, objTypes, drawOptions):
         histo.DrawCopy(f'{drawOpt}same')
     else:
         histo.Draw(drawOpt)
+if single:  avoidLeg = True
 if  not avoidLeg:
     leg.Draw()
 

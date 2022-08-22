@@ -1,11 +1,12 @@
 inputs:
     dirname: null # leave null if not common for all input files
-    filenames: [/Users/giogi/Desktop/Stage INFN/PID ITS/final_plots/beta_vs_p_betaflat.root
+    filenames: [/Users/giogi/Desktop/Stage INFN/PID ITS/ML_output/V0/no_options/e_score_scatter_test.root
                 ]
-    objectnames: ['scatter_plot', 'P', 'K', 'Pi'] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
+    objectnames: ['scatter_plot'] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
 
 output: 
-    filename: /Users/giogi/Desktop/Stage INFN/PID ITS/final_plots/beta_vs_p_betaflat_final # with path and w/o extension
+    filename: /Users/giogi/Desktop/Stage INFN/PID ITS/ML_output/V0/no_options/e_score_scatter_test_comp # with path and w/o extension
+    objectnames: ['e'] # new names for the created objects. Will be AUTOMATICALLY applied if the lenght of the list equals the lenght of the one in the input section
     extensions: [png, root] # possibilities: pdf, eps, png, root
 
 options:
@@ -46,14 +47,20 @@ options:
         textsize: 0.045
         ncolumns: 1
 
+    statlegend:
+        xlow:   0.85
+        xup:    0.95
+        ylow:   0.75
+        yup:    0.95
+
     canvas:
         width: 1800
         heigth: 1000
         xaxistitle: 'p'
         yaxistitle: 'Norm. counts'
         yaxistitleratio: 'June/Oct'
-        xlimits: [0, 1.2]
-        ylimits: [1.e-5, 1]
+        xlimits: [0.7, 1]
+        ylimits: [0.6, 1.8]
         ylimitsratio: [-0.1, 1.5]
         ylimitserr: [0., 0.35]
         logx: false
