@@ -336,7 +336,7 @@ def plot_score_train(TrainTestData, RegressionColumns, model, x_label, plot_spec
     else:                   density_scatter(x_test, delta_test, f'{filename}_score_scatter_test_p', plot_spec, title='Score scatter test')
 
     # no column will be used, since delta_train, delta_test are not dfs.
-    multiple_hist([delta_train, delta_test], ' ', plot_specifics[:3], f'{filename}_score_hist', hist_names=['Train', 'Test'])
+    multiple_hist([delta_train/y_train, delta_test/y_test], ' ', plot_specifics[:3], f'{filename}_score_hist', hist_names=['Train', 'Test'])
 
 
 
@@ -379,6 +379,7 @@ def data_prep(config):
 
     do_augm = config['data_prep']['do_augm']
     beta_flat = config['training']['beta_flat']
+    beta_p_flat = config['training']['beta_p_flat']
     do_equal = config['data_prep']['do_equal']
     save_data = config['data_prep']['save_data']
     save_data_dir = config['output']['save_data_dir']
@@ -393,12 +394,14 @@ def data_prep(config):
     if do_augm and beta_flat:   output_dir += '/augm_betaflat'
     elif do_augm:               output_dir += '/augm'
     elif beta_flat:             output_dir += '/betaflat'
+    elif beta_p_flat:           output_dir += '/beta_pflat'
     elif do_equal:              output_dir += '/equal'
     else:                       output_dir += '/no_options'
 
     options = ''
     if do_augm:     options += '_augm'
     if beta_flat:   options += '_betaflat_'
+    if beta_p_flat: options += '_beta_pflat_'
     if do_equal:    options += '_equal_'
 
 
@@ -551,14 +554,28 @@ def data_prep(config):
     # Beta flat weights
     #_________________________________
 
-    betamins = config['data_prep']['betamins']
-    betamaxs = config['data_prep']['betamaxs']
-    weights = [len(TrainSet.query(f'{betamin} <= beta < {betamax}'))/len(TrainSet) for betamin, betamax in zip(betamins, betamaxs)]
+    if beta_flat:
+        betamins = config['data_prep']['betamins']
+        betamaxs = config['data_prep']['betamaxs']
+        weights = [len(TrainSet.query(f'{betamin} <= beta < {betamax}'))/len(TrainSet) for betamin, betamax in zip(betamins, betamaxs)]
 
-    conditions = [(TrainSet['beta'] >= betamin) & (TrainSet['beta'] < betamax) for betamin, betamax in zip(betamins, betamaxs)]
-    n_weights = [1./weight for weight in weights]
-    TrainSet['beta_weight'] = np.select(conditions, n_weights)
+        conditions = [(TrainSet['beta'] >= betamin) & (TrainSet['beta'] < betamax) for betamin, betamax in zip(betamins, betamaxs)]
+        n_weights = [1./weight for weight in weights]
+        TrainSet['beta_weight'] = np.select(conditions, n_weights)
 
+    # Beta and momentum flat weights
+    if beta_p_flat:
+        pmins = config['data_prep']['pmins']
+        pmaxs = config['data_prep']['pmaxs']
+        weights_list = [[len(TrainSet.query(f'label == "{name}" and {pmin} <= p < {pmax}'/len(TrainSet.query(f'label == "{name}"')))) for pmin, pmax in zip(pmins, pmaxs)] for name in particle_dict.values()]
+        weights = []
+        for list in weights_list:   weights += list
+
+        conditions = [(TrainSet['label'] == name) & (TrainSet['p'] >= pmin) & (TrainSet['p'] < pmax) for name, pmin, pmax in zip(particle_dict.values(), pmins, pmaxs)]
+        n_weights = [1./weight for weight in weights]
+        TrainSet['beta_pweight'] = np.select(conditions, n_weights)
+
+        pass
     
     
 
@@ -613,6 +630,7 @@ def regression(TrainTestData, config):
 
     do_augm = config['data_prep']['do_augm']
     beta_flat = config['training']['beta_flat']
+    beta_p_flat = config['training']['beta_p_flat']
     do_equal = config['data_prep']['do_equal']
 
     output_dir = config['output']['ml_dir']
@@ -650,22 +668,22 @@ def regression(TrainTestData, config):
         print('\nInitialize Optuna hyper-parameters optimization...')
         with alive_bar(title='Hyper-Parameters optimization') as bar:
             if early_stop:  study = model_handler.optimize_params_optuna(TrainTestData, HyperParamsRange, Delta_score, direction='minimize', callbacks=[callback])
-            else:           study = model_handler.optimize_params_optuna(TrainTestData, HyperParamsRange, Delta_score, direction='minimize', timeout=600)
+            else:           study = model_handler.optimize_params_optuna(TrainTestData, HyperParamsRange, Delta_score, direction='minimize', timeout=300)
 
         print('Number of finished trials:', len(study.trials))
         print('Best trial:', study.best_trial.params)
 
-        #fig = optuna.visualization.plot_optimization_history(study)
-        #fig.write_image(f'{output_dir}{sub_dir}/plot_optimization_history{options}.png')
-#
-        #fig = optuna.visualization.plot_param_importances(study)
-        #fig.write_image(f'{output_dir}{sub_dir}/plot_param_importances{options}.png')
-#
-        #fig = optuna.visualization.plot_parallel_coordinate(study)
-        #fig.write_image(f'{output_dir}{sub_dir}/plot_parallel_coordinate{options}.png')
-#
-        #fig = optuna.visualization.plot_contour(study)
-        #fig.write_image(f'{output_dir}{sub_dir}/plot_contour{options}.png')
+        fig = optuna.visualization.plot_optimization_history(study)
+        fig.write_image(f'{output_dir}/plot_optimization_history{options}.png')
+
+        fig = optuna.visualization.plot_param_importances(study)
+        fig.write_image(f'{output_dir}/plot_param_importances{options}.png')
+
+        fig = optuna.visualization.plot_parallel_coordinate(study)
+        fig.write_image(f'{output_dir}/plot_parallel_coordinate{options}.png')
+
+        fig = optuna.visualization.plot_contour(study)
+        fig.write_image(f'{output_dir}/plot_contour{options}.png')
 
         HyperParams = study.best_trial.params
 
@@ -758,18 +776,19 @@ def application(ApplicationDf, config, model):
     beta_flat = config['training']['beta_flat']
     do_equal = config['data_prep']['do_equal']
 
-    print('\nApplication...')
-    X_application = ApplicationDf[RegressionColumns]
-    preds = model.predict(X_application)               # beta
+    with alive_bar(title='Application...') as bar:
+        X_application = ApplicationDf[RegressionColumns]
+        preds = model.predict(X_application)               # beta
 
     if isV0:        output_dir += '/V0'
     else:           output_dir += '/TPC'
+
     output_file = f'{output_dir}/beta_vs_p'
     if do_augm:     output_file += '_augm'
     if beta_flat:   output_file += '_betaflat'
     if do_equal:       output_file += '_equal'
 
-    plot_specifics = ["p", "#beta", 4000, 0, 4, 1000, 0, 1.1]
+    plot_specifics = ["p", "#beta", 1500, 0, 1.5, 1000, 0, 1.1]
     density_scatter(ApplicationDf['p'], preds, output_file, plot_specifics, title='beta_vs_p_final')
 
 
@@ -779,7 +798,7 @@ def main():
 
     # Configuration File
     #_________________________________
-    with open('/Users/giogi/Desktop/Stage INFN/PID ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/configs/config.yml') as f:
+    with open('../configs/config.yml') as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
     
