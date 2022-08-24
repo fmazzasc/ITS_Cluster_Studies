@@ -1,29 +1,90 @@
 from unittest import result
-from ROOT import TH1F, TFile
+from math import sqrt
+import pandas as pd
+from ROOT import TH1F, TCanvas, kCyan, kRed, TLegend
 
-results = {}
+results_hist = {}
+results_graph = {}
+factor = 1.
 
-for i in range(7):
-    f1 = TFile(f'/home/galucia/PID_ITS/data_visual_root/V0/no_options/ClSizeL{i}.root')
-    f2 = TFile(f'/home/galucia/PID_ITS/data_visual_root/TPC/no_options/ClSizeL{i} copy.root')
 
-    h1 = TH1F("h1", "V0", 50, 0.8, 0.85)
-    h1 = f1.Get("2")
+leg = TLegend(0.75, 0.95, 0.75, 0.95)
+leg.SetFillStyle(0)
+leg.SetTextSize(0.045)
+leg.SetNColumns(1)
 
-    h2 = TH1F("h2", "TPC", 50, 0.8, 0.85)
-    h2 = f2.Get("2")
+d1 = pd.read_parquet('/data/shared/ITS/ML/particles_pid_520143.parquet')
+d2 = pd.read_parquet('/home/galucia/PID_ITS/data/TPC/Df_filtered_ITS2Cluster505673.parquet.gzip')
 
-    results[f'ClSizeL{i}'] = h1.KolmogorovTest(h2)
+d1.eval('meanClsize = (ClSizeL0 + ClSizeL1 + ClSizeL2 + ClSizeL3 + ClSizeL4 + ClSizeL5 + ClSizeL6)/7', inplace=True)
+d2.eval('meanClsize = (ClSizeL0 + ClSizeL1 + ClSizeL2 + ClSizeL3 + ClSizeL4 + ClSizeL5 + ClSizeL6)/7', inplace=True)
 
-f1 = TFile(f'/home/galucia/PID_ITS/data_visual_root/V0/no_options/meanClsize.root')
-f2 = TFile(f'/home/galucia/PID_ITS/data_visual_root/TPC/no_options/meanClsize copy.root')
+d1.query('0.85 <= p < 0.9', inplace=True)
+d2.query('0.85 <= p < 0.9', inplace=True)
 
-h1 = TH1F("h1", "V0", 50, 0.8, 0.85)
-h1 = f1.Get("2")
+canvas = TCanvas('canvas', 'canvas', 900, 1200)
+canvas.SetTitle('Kolmogorov Test')
+canvas.Divide(2, 4)
 
-h2 = TH1F("h2", "TPC", 50, 0.8, 0.85)
-h2 = f2.Get("2")
 
-results[f'meanClSize'] = h1.KolmogorovTest(h2)
+h_1 = [TH1F(f"h{2*i+1}", "V0", 10, 0, 10) for i in range(7)]
+h_2 = [TH1F(f"h{2*i+2}", "TPC", 10, 0, 10) for i in range(7)]
 
-print(results)
+for i, (h1, h2) in enumerate(zip(h_1, h_2)):
+
+    leg.Clear()
+    
+    for n in d1[f'ClSizeL{i}']:     h1.Fill(n)
+    h1.Scale(factor/h1.Integral(), 'width') 
+    h1.SetLineColor(kCyan)
+    h1.SetMaximum(1)
+    leg.AddEntry(h1, 'V0', 'l')
+
+    for n in d2[f'ClSizeL{i}']:     h2.Fill(n)
+    h2.Scale(factor/h2.Integral(), 'width')
+    h2.SetLineColor(kRed)
+    h2.SetMaximum(1)
+    leg.AddEntry(h2, 'TPC', 'l')
+
+    results_hist[f'ClSizeL{i}'] = h1.KolmogorovTest(h2)
+    h1.SetTitle(f'ClSizeL{i}: {results_hist[f"ClSizeL{i}"]}')
+
+    canvas.cd(i+1)
+    h1.Draw('hist')
+    h2.Draw('hist same')
+    leg.Draw()
+
+
+
+
+leg.Clear()
+
+h1 = TH1F("h15", "V0", 100, 0, 10)
+for n in d1['meanClsize']:     h1.Fill(n)
+h1.Scale(factor/h1.Integral(), 'width')
+h1.SetLineColor(kCyan)
+h1.SetMaximum(1)
+leg.AddEntry(h1, 'V0', 'l')
+
+
+h2 = TH1F("h16", "TPC", 100, 0, 10)
+for n in d2['meanClsize']:     h2.Fill(n)
+h2.Scale(factor/h2.Integral(), 'width')
+h2.SetLineColor(kRed)
+h2.SetMaximum(1)
+leg.AddEntry(h2, 'TPC', 'l')
+
+results_hist[f'meanClsize'] = h1.KolmogorovTest(h2)
+h1.SetTitle(f'meanClsize: {results_hist["meanClsize"]}')
+
+canvas.cd(8)
+h1.Draw('hist')
+h2.Draw('hist same')
+leg.Draw()
+
+canvas.SaveAs('/home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/Kolmogorov1.root')
+
+
+del h1, h2, canvas
+
+print(results_hist)

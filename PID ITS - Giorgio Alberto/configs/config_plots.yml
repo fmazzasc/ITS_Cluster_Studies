@@ -8,7 +8,7 @@ inputs:
     objectnames: ['Test', 'Test', 'Test', 'Test'] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
 
 output: 
-    filename: /home/galucia/PID_ITS/ML_output/V0/no_options/READY_score_hist # with path and w/o extension
+    filename: /home/galucia/PID_ITS/ML_output/V0/beta_pflat/READY_score_hist # with path and w/o extension
     objectnames: ['e', 'K', 'p', 'pi'] # new names for the created objects. Will be AUTOMATICALLY applied if the lenght of the list equals the lenght of the one in the input section
     extensions: [png, root] # possibilities: pdf, eps, png, root
 

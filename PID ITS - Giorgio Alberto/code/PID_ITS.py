@@ -144,7 +144,7 @@ def multiple_hist(dfs, column, plot_specifics, filename, hist_names=None):
     file.Close()
     del file
 
-def density_scatter(x, y, filename, plot_specifics, title=''): 
+def density_scatter(x, y, filename, plot_specifics, title='', weights=pd.Series([])): 
     """
     
     Parameters:
@@ -155,7 +155,10 @@ def density_scatter(x, y, filename, plot_specifics, title=''):
     file = TFile(f'{filename}.root', 'recreate')
 
     scatter_plot = TH2F('scatter_plot', '', nbinsx, xlow, xup, nbinsy, ylow, yup)
-    for (xi, yi) in zip(x, y):  scatter_plot.Fill(xi, yi)
+    if not weights.empty:   
+        for (xi, yi, wi) in zip(x, y, weights):  scatter_plot.Fill(xi, yi, wi)
+    else:                   
+        for (xi, yi) in zip(x, y):  scatter_plot.Fill(xi, yi)
     set_obj_style(scatter_plot, title=title, x_label=x_label, y_label=y_label)
     gStyle.SetPalette(kBird)
     
@@ -416,12 +419,17 @@ def data_prep(config):
     
     if isV0:    RegressionDf.eval('delta_p = (p - pTPC)/pTPC', inplace=True)  
 
+
+    def get_mass(n): 
+        return mass_dict[particle_dict[n]]
+
     if ext_appl:
         ApplicationDf.eval('meanClsize = (ClSizeL0+ClSizeL1+ClSizeL2+ClSizeL3+ClSizeL4+ClSizeL5+ClSizeL6)/7', inplace=True)
         ApplicationDf.eval('meanPattID = (PattIDL0+PattIDL1+PattIDL2+PattIDL3+PattIDL4+PattIDL5+PattIDL6)/7', inplace=True)
         ApplicationDf.eval('meanSnPhi = (SnPhiL0+SnPhiL1+SnPhiL2+SnPhiL3+SnPhiL4+SnPhiL5+SnPhiL6)/7', inplace=True)
         ApplicationDf.eval('L6_L0 = ClSizeL6/ClSizeL0', inplace=True)  
         ApplicationDf.eval('delta_p = (p - pTPC)/pTPC', inplace=True)
+        #ApplicationDf.eval(f'beta = p / sqrt( p**2 + (@get_mass(particle))**2 )', engine='python', inplace=True)
         
     if not isV0:
         for part in names:  RegressionDf[f'nSigma{part}Abs'] = abs(RegressionDf[f'nSigma{part}'])
@@ -432,8 +440,10 @@ def data_prep(config):
     if ext_appl:    ApplicationDf.query('p <= 50 and 20 < rofBC < 500 and tpcITSchi2 < 5 and nClusTPC > 100 and -0.2 < delta_p < 0.2', inplace=True)
     if isV0:
         RegressionDf.eval('label = particle', inplace=True)
-        for number, name in particle_dict.items():  RegressionDf['label'].replace({number: name}, inplace=True)
-
+        ApplicationDf.eval('label = particle', inplace=True)
+        for number, name in particle_dict.items():  
+            RegressionDf['label'].replace({number: name}, inplace=True)
+            ApplicationDf['label'].replace({number: name}, inplace=True)
     
 
     TrainSet, TestSet, yTrain, yTest = train_test_split(RegressionDf, RegressionDf.p, test_size=test_frac ,random_state=seed_split)
@@ -443,6 +453,11 @@ def data_prep(config):
     if isV0:
         dfs_train = filtering(TrainSet, tag=False, label=False)
         dfs_test = filtering(TestSet, tag=False, label=False)
+
+        # evaluate beta in ApplicationDf
+        appl_list = filtering(ApplicationDf, tag=False, label=False)
+        ApplicationDf = pd.concat(appl_list)
+
     else:
         dfs_train = [None] * TrainSet['particle'].value_counts()
         dfs_test = [None] * TestSet['particle'].value_counts()
@@ -554,30 +569,40 @@ def data_prep(config):
     #_________________________________
 
     if beta_flat:
-        betamins = config['data_prep']['betamins']
-        betamaxs = config['data_prep']['betamaxs']
-        weights = [len(TrainSet.query(f'{betamin} <= beta < {betamax}'))/len(TrainSet) for betamin, betamax in zip(betamins, betamaxs)]
+        with alive_bar(title='Beta flat...') as bar:
+        
+            betamins = config['data_prep']['betamins']
+            betamaxs = config['data_prep']['betamaxs']
+            weights = [len(TrainSet.query(f'{betamin} <= beta < {betamax}'))/len(TrainSet) for betamin, betamax in zip(betamins, betamaxs)]
 
-        conditions = [(TrainSet['beta'] >= betamin) & (TrainSet['beta'] < betamax) for betamin, betamax in zip(betamins, betamaxs)]
-        n_weights = [1./weight for weight in weights]
-        TrainSet['beta_weight'] = np.select(conditions, n_weights)
+            conditions = [(TrainSet['beta'] >= betamin) & (TrainSet['beta'] < betamax) for betamin, betamax in zip(betamins, betamaxs)]
+            n_weights = [1./weight for weight in weights]
+            TrainSet['beta_weight'] = np.select(conditions, n_weights)
 
     # Beta and momentum flat weights
+    #_________________________________
+
     if beta_p_flat:
-        pmins = config['data_prep']['pmins']
-        pmaxs = config['data_prep']['pmaxs']
-        weights_list = [[len(TrainSet.query(f'label == "{name}" and {pmin} <= p < {pmax}'))/len(TrainSet.query(f'label == "{name}"')) for pmin, pmax in zip(pmins, pmaxs)] for name in particle_dict.values()]
-        weights = []
-        for list in weights_list:   weights += list
+        with alive_bar(title='Beta and momentum flat...') as bar:
 
-        conditions = [(TrainSet['label'] == name) & (TrainSet['p'] >= pmin) & (TrainSet['p'] < pmax) for name, pmin, pmax in zip(particle_dict.values(), pmins, pmaxs)]
-        n_weights = []
-        for weight in weights:
-            if weight == 0: weights.append(0)
-            else:           weights.append(1./weight)
-        TrainSet['beta_pweight'] = np.select(conditions, n_weights)
+            pmins = config['data_prep']['pmins']
+            pmaxs = config['data_prep']['pmaxs']
+            weights_list = [[len(TrainSet.query(f'label == "{name}" and {pmin} <= p < {pmax}'))/len(TrainSet.query(f'label == "{name}"')) for pmin, pmax in zip(pmins, pmaxs)] for name in particle_dict.values()]
+            weights = []
+            for list in weights_list:   weights += list
 
-        density_scatter(TrainSet['p'], TrainSet['particle'], ['p', 'Particle species', 15, 0, 1.5, 4, 0, 3])
+            conditions = []
+            for name in particle_dict.values(): conditions += [(TrainSet['label'] == name) & (TrainSet['p'] >= pmin) & (TrainSet['p'] < pmax) for pmin, pmax in zip(pmins, pmaxs)]
+            n_weights = []
+            for weight in weights:
+                if weight == 0: n_weights.append(0)
+                else:           n_weights.append(1./weight)
+            TrainSet['beta_pweight'] = np.select(conditions, n_weights)
+
+            density_scatter(TrainSet['p'], TrainSet['particle'], f'{output_dir}/beta_pflat_momentum', ['p', 'Particle species', 15, 0, 1.5, 4, 0., 4.5])
+            density_scatter(TrainSet['beta_pweight'], TrainSet['particle'], f'{output_dir}/beta_pflat_weights', ['weights', 'Particle species', 25, 0, 500, 4, 0., 4.5])
+            density_scatter(TrainSet['p'], TrainSet['particle'], f'{output_dir}/beta_pflat_weighted_momentum', ['p', 'Particle species', 15, 0, 1.5, 4, 0., 4.5], weights=TrainSet['beta_pweight'])
+
     
     
 
@@ -587,6 +612,7 @@ def data_prep(config):
     data_conf = ''
     if do_augm:     data_conf += '_augm'
     if beta_flat:   data_conf += '_betaflat'
+    if beta_p_flat: data_conf += '_beta_pflat'
     if do_equal:    data_conf += '_equal'
 
     if save_data:
@@ -650,6 +676,7 @@ def regression(TrainTestData, config):
     if do_augm and beta_flat:   output_dir += '/augm_betaflat'
     elif do_augm:               output_dir += '/augm'
     elif beta_flat:             output_dir += '/betaflat'
+    elif beta_p_flat:           output_dir += '/beta_pflat'
     elif do_equal:              output_dir += '/equal'
     else:                       output_dir += '/no_options'
 
@@ -728,7 +755,7 @@ def regression(TrainTestData, config):
         
         print('\nFLAML model...')
         model_reg = AutoML(**HyperParams)
-        plot_specifics = [1000, -1, 1, 2000, -0.5, 1.5]
+        plot_specifics = [1000, -1, 1, 1000, -0.5, 1.5]
         with alive_bar(title='Training...') as bar:     model_reg.fit(X_train[RegressionColumns], y_train)
 
         plot_score_train(TrainTestData, RegressionColumns, model_reg, x_label='#beta', plot_specifics=plot_specifics, filename=f'{output_dir}/{options}')
@@ -778,6 +805,7 @@ def application(ApplicationDf, config, model):
 
     do_augm = config['data_prep']['do_augm']
     beta_flat = config['training']['beta_flat']
+    beta_pflat = config['training']['beta_p_flat']
     do_equal = config['data_prep']['do_equal']
 
     with alive_bar(title='Application...') as bar:
@@ -790,10 +818,14 @@ def application(ApplicationDf, config, model):
     output_file = f'{output_dir}/beta_vs_p'
     if do_augm:     output_file += '_augm'
     if beta_flat:   output_file += '_betaflat'
+    if beta_pflat:  output_file += '_beta_pflat'
     if do_equal:       output_file += '_equal'
 
     plot_specifics = ["p", "#beta", 1500, 0, 1.5, 1000, 0, 1.1]
     density_scatter(ApplicationDf['p'], preds, output_file, plot_specifics, title='beta_vs_p_final')
+
+    plot_score_train([ApplicationDf, ApplicationDf['beta'], ApplicationDf, ApplicationDf['beta']], RegressionColumns, model, x_label='p', plot_specifics=plot_specifics, filename=f'{output_dir}/Appl_')
+    plot_score_train([ApplicationDf, ApplicationDf['beta'], ApplicationDf, ApplicationDf['beta']], RegressionColumns, model, x_label='#beta', plot_specifics=plot_specifics, filename=f'{output_dir}/Appl_')
 
 
 
@@ -833,7 +865,9 @@ def main():
         model_loc = config['application']['model_loc']            
         Model = pickle.load(open(f'{model_loc}', "rb"))
         Model.training_columns = config['training']['RegressionColumns']
-    application(ApplicationDf, config, Model)      # yTest
+    
+    skip_appl = config['application']['skip_appl']
+    if not skip_appl:   application(ApplicationDf, config, Model)      # yTest
 
     del TrainTestData, ApplicationDf
 

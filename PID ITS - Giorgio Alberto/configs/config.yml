@@ -40,10 +40,10 @@ data_prep:
 
     # Data Augmentation
     #____________________________________
-    do_augm: False
-    to_augm: ["K", "p"]
-    mothers: ["pi", "pi"]
-    p_ranges: [[0.6, 1.2], [0.8, 1.2]]
+    do_augm: True
+    to_augm: ["K"]
+    mothers: ["pi"]
+    p_ranges: [[0.7, 1.5]]
 
     # Beta Flat
     #____________________________________
@@ -52,11 +52,8 @@ data_prep:
 
     # Beta p Flat
     #____________________________________
-    #pmins: [0., 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4]
-    #pmaxs: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5]
-
-    pmins: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4]
-    pmaxs: [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5]
+    pmins: [0., 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4]
+    pmaxs: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5]
 
 training:
 
@@ -98,9 +95,10 @@ training:
     save_model: True
 
     beta_flat: False
-    beta_p_flat: True
+    beta_p_flat: False
 
 application:
+    skip_appl: False
     model_loc: ../../..//ML_output/RegressorModel_xgboost_betaflat_.pickle
 
 plots:
