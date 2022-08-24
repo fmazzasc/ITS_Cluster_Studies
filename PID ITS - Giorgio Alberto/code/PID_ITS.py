@@ -20,8 +20,9 @@ from hipe4ml.model_handler import ModelHandler
 from hipe4ml import plot_utils
 import optuna
 
-from ROOT import TH2F, TCanvas, TH1F, gStyle, kBird, gPad, gROOT, TFile
+from ROOT import TH2F, TCanvas, TH1F, gStyle, kBird, gROOT, TFile
 from ROOT_graph import set_obj_style
+
 
 gROOT.SetBatch()
 
@@ -47,7 +48,6 @@ tag_dict = dict(zip(names, [tag_Deu, tag_P, tag_K, tag_Pi]))
 mass_dict = dict(zip(names, [mass_Deu, mass_P, mass_K, mass_Pi, mass_e]))
 
 
-# Functions
 
 
 # Filtering
@@ -123,8 +123,8 @@ def multiple_hist(dfs, column, plot_specifics, filename, hist_names=None):
 
     for i, df in enumerate(dfs):
         if hist_names != None:        hist_name = hist_names[i]
-        elif type(df) == pd.DataFrame:    
-            if 'label' in df.columns:   hist_name = f'{df.label.iloc[:1]}'
+        #elif type(df) == pd.DataFrame:    
+        #    if 'particle' in df.columns:   hist_name = f'{df.particle.iloc[0]}'
         else:                           hist_name = f'{i}'
 
         hist = TH1F(hist_name, hist_name, nbinsx, xlow, xup)
@@ -149,7 +149,6 @@ def density_scatter(x, y, filename, plot_specifics, title=''):
     
     Parameters:
     - plot_specific: list with the following content -> [x_label, y_label, nbinsx, xlow, xup, nbinsy, ylow, yup]
-    - logz: if True, the z-axis will be in log scale
     """
     
     [x_label, y_label, nbinsx, xlow, xup, nbinsy, ylow, yup] = plot_specifics
@@ -281,7 +280,7 @@ def callback(study, trial):
 def Delta(model, X, y, absolute=False):
     pred = model.predict(X)
     if absolute:    return abs(y - pred)/y
-    else:           return abs(y - pred)/y
+    else:           return (y - pred)/y
     
 #def Delta_score(model, X, y, weight:pd.Series):
 def Delta_score(model, X, y):
@@ -295,7 +294,7 @@ def Delta_score(model, X, y):
     return Delta.sum()/len(y)
     #return Delta.sum()/weight.sum()
 
-def plot_score(X, y, model, x_label, plot_specifics, x=None, filename='', logy=False, absolute=True):
+def plot_score(X, y, model, x_label, plot_specifics, x=None, filename='', absolute=True):
     """
     Plot a prediction scoring variable (defined as (true-predicted)/true) vs a chosen variable from X columns.
 
@@ -310,7 +309,7 @@ def plot_score(X, y, model, x_label, plot_specifics, x=None, filename='', logy=F
     if x == None:   density_scatter(y, delta, f'{filename}_score', plot_spec)
     else:           density_scatter(x, delta, f'{filename}_score', plot_spec)
 
-def plot_score_train(TrainTestData, RegressionColumns, model, x_label, plot_specifics, x_train=pd.Series(), x_test=pd.Series(), filename='', absolute=True):
+def plot_score_train(TrainTestData, RegressionColumns, model, x_label, plot_specifics, x_train=pd.Series(), x_test=pd.Series(), filename='', absolute=False):
     """
     Plot a prediction scoring variable (defined as (true-predicted)/true) vs a chosen variable from X columns.
 
@@ -336,7 +335,7 @@ def plot_score_train(TrainTestData, RegressionColumns, model, x_label, plot_spec
     else:                   density_scatter(x_test, delta_test, f'{filename}_score_scatter_test_p', plot_spec, title='Score scatter test')
 
     # no column will be used, since delta_train, delta_test are not dfs.
-    multiple_hist([delta_train/y_train, delta_test/y_test], ' ', plot_specifics[:3], f'{filename}_score_hist', hist_names=['Train', 'Test'])
+    multiple_hist([delta_train/y_train, delta_test/y_test], '', plot_specifics[:3], f'{filename}_score_hist', hist_names=['Train', 'Test'])
 
 
 
@@ -567,15 +566,18 @@ def data_prep(config):
     if beta_p_flat:
         pmins = config['data_prep']['pmins']
         pmaxs = config['data_prep']['pmaxs']
-        weights_list = [[len(TrainSet.query(f'label == "{name}" and {pmin} <= p < {pmax}'/len(TrainSet.query(f'label == "{name}"')))) for pmin, pmax in zip(pmins, pmaxs)] for name in particle_dict.values()]
+        weights_list = [[len(TrainSet.query(f'label == "{name}" and {pmin} <= p < {pmax}'))/len(TrainSet.query(f'label == "{name}"')) for pmin, pmax in zip(pmins, pmaxs)] for name in particle_dict.values()]
         weights = []
         for list in weights_list:   weights += list
 
         conditions = [(TrainSet['label'] == name) & (TrainSet['p'] >= pmin) & (TrainSet['p'] < pmax) for name, pmin, pmax in zip(particle_dict.values(), pmins, pmaxs)]
-        n_weights = [1./weight for weight in weights]
+        n_weights = []
+        for weight in weights:
+            if weight == 0: weights.append(0)
+            else:           weights.append(1./weight)
         TrainSet['beta_pweight'] = np.select(conditions, n_weights)
 
-        pass
+        density_scatter(TrainSet['p'], TrainSet['particle'], ['p', 'Particle species', 15, 0, 1.5, 4, 0, 3])
     
     
 
@@ -588,14 +590,15 @@ def data_prep(config):
     if do_equal:    data_conf += '_equal'
 
     if save_data:
-        dfTrainSet, dfyTrain, dfTestSet, dfyTest = pd.DataFrame(TrainSet), pd.DataFrame(yTrain), pd.DataFrame(TestSet), pd.DataFrame(yTest)
-
-        dfTrainSet.to_parquet(f'{save_data_dir}/TrainSet{data_conf}.parquet.gzip')
-        dfyTrain.to_parquet(f'{save_data_dir}/yTrain{data_conf}.parquet.gzip')
-        dfTestSet.to_parquet(f'{save_data_dir}/TestSet{data_conf}.parquet.gzip')
-        dfyTest.to_parquet(f'{save_data_dir}/yTest{data_conf}.parquet.gzip')
-
-        ApplicationDf.to_parquet(f'{save_data_dir}/ApplicationDf{data_conf}.parquet.gzip')
+        with alive_bar(title="Saving data...") as bar:
+            dfTrainSet, dfyTrain, dfTestSet, dfyTest = pd.DataFrame(TrainSet), pd.DataFrame(yTrain), pd.DataFrame(TestSet), pd.DataFrame(yTest)
+    
+            dfTrainSet.to_parquet(f'{save_data_dir}/TrainSet{data_conf}.parquet.gzip')
+            dfyTrain.to_parquet(f'{save_data_dir}/yTrain{data_conf}.parquet.gzip')
+            dfTestSet.to_parquet(f'{save_data_dir}/TestSet{data_conf}.parquet.gzip')
+            dfyTest.to_parquet(f'{save_data_dir}/yTest{data_conf}.parquet.gzip')
+    
+            ApplicationDf.to_parquet(f'{save_data_dir}/ApplicationDf{data_conf}.parquet.gzip')
 
     
     # Return complete dataframe ready for ML 
@@ -698,11 +701,12 @@ def regression(TrainTestData, config):
     if model_choice=='xgboost':
 
         print('\nXGB model...')
-        model_reg = xgb.XGBRegressor(**HyperParams)
-        plot_specifics = [1000, 0, 1, 2000, -0.5, 1.5]
+        model_reg = xgb.XGBRegressor(**HyperParams, tree_method="gpu_hist")
+        plot_specifics = [2000, -1, 1, 2000, -0.5, 1.5]
         with alive_bar(title='Training...') as bar:     
-            if beta_flat:   model_reg.fit(X_train[RegressionColumns], y_train, sample_weight=X_train['beta_weight'])
-            else:           model_reg.fit(X_train[RegressionColumns], y_train)
+            if beta_flat:       model_reg.fit(X_train[RegressionColumns], y_train, sample_weight=X_train['beta_weight'])
+            elif beta_p_flat:   model_reg.fit(X_train[RegressionColumns], y_train, sample_weight=X_train['beta_pweight'])
+            else:               model_reg.fit(X_train[RegressionColumns], y_train)
         
         TrainSet, TestSet = pd.DataFrame(TrainTestData[0]), pd.DataFrame(TrainTestData[2])
         
@@ -724,7 +728,7 @@ def regression(TrainTestData, config):
         
         print('\nFLAML model...')
         model_reg = AutoML(**HyperParams)
-        plot_specifics = [1000, 0, 1, 2000, -0.5, 1.5]
+        plot_specifics = [1000, -1, 1, 2000, -0.5, 1.5]
         with alive_bar(title='Training...') as bar:     model_reg.fit(X_train[RegressionColumns], y_train)
 
         plot_score_train(TrainTestData, RegressionColumns, model_reg, x_label='#beta', plot_specifics=plot_specifics, filename=f'{output_dir}/{options}')

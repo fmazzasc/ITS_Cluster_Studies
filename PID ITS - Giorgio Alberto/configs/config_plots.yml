@@ -1,16 +1,19 @@
 inputs:
     dirname: null # leave null if not common for all input files
-    filenames: [/Users/giogi/Desktop/Stage INFN/PID ITS/ML_output/V0/no_options/e_score_scatter_test.root
+    filenames: [/home/galucia/PID_ITS/ML_output/V0/no_options/e_score_hist.root,
+                /home/galucia/PID_ITS/ML_output/V0/no_options/K_score_hist.root,
+                /home/galucia/PID_ITS/ML_output/V0/no_options/p_score_hist.root,
+                /home/galucia/PID_ITS/ML_output/V0/no_options/pi_score_hist.root
                 ]
-    objectnames: ['scatter_plot'] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
+    objectnames: ['Test', 'Test', 'Test', 'Test'] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
 
 output: 
-    filename: /Users/giogi/Desktop/Stage INFN/PID ITS/ML_output/V0/no_options/e_score_scatter_test_comp # with path and w/o extension
-    objectnames: ['e'] # new names for the created objects. Will be AUTOMATICALLY applied if the lenght of the list equals the lenght of the one in the input section
+    filename: /home/galucia/PID_ITS/ML_output/V0/no_options/READY_score_hist # with path and w/o extension
+    objectnames: ['e', 'K', 'p', 'pi'] # new names for the created objects. Will be AUTOMATICALLY applied if the lenght of the list equals the lenght of the one in the input section
     extensions: [png, root] # possibilities: pdf, eps, png, root
 
 options:
-    ROOTobject: [TH2] # TH1 or TGraph: no need to specify TH1F, TH1D or TGraphErrors, TGraphAsymmErrors
+    ROOTobject: [TH1, TH1, TH1, TH1] # TH1 or TGraph: no need to specify TH1F, TH1D or TGraphErrors, TGraphAsymmErrors
     scale: [1, 1, 1, 1]
     rebin: [1, 1, 1, 1]
     normalize: [true, true, true, true] # divide histogram by its area
@@ -20,8 +23,8 @@ options:
     linewidth: 2
     fillstyle: [0,0,0,0]
     fillalpha: [1,1,1,1]
-    drawopt: [colz1, hist, hist, hist]
-    palette: ['kBlue']
+    drawopt: [hist, hist, hist, hist]
+    palette: ['kBlue', 'kBlue', 'kBlue', 'kBlue']
     
     ratio: 
         enable: false
@@ -34,37 +37,35 @@ options:
         enable: false
         relative: true
     
-    KS: true
+    KS: false
     dottedLine: ''
 
     legend:
-        avoid: true #set true to avoid the legend in the final plot
+        avoid: false #set true to avoid the legend in the final plot
         xlimits: [0.85, 0.95]
         ylimits: [0.75, 0.95]
         header: ''
-        titles: [d, p, K, '#pi']
+        titles: [e, K, p, '#pi']
         options: [l, l, l, l]
         textsize: 0.045
         ncolumns: 1
 
     statlegend:
-        xlow:   0.85
-        xup:    0.95
-        ylow:   0.75
-        yup:    0.95
+        x:   0.85
+        y:   0.75
 
     canvas:
         width: 1800
         heigth: 1000
-        xaxistitle: 'p'
+        xaxistitle: '#frac{#Delta}{#beta}'
         yaxistitle: 'Norm. counts'
-        yaxistitleratio: 'June/Oct'
-        xlimits: [0.7, 1]
-        ylimits: [0.6, 1.8]
+        yaxistitleratio: ''
+        xlimits: [-1, 1]
+        ylimits: [0.0001, 1]
         ylimitsratio: [-0.1, 1.5]
         ylimitserr: [0., 0.35]
         logx: false
-        logy: false
+        logy: True
         logz: true
         ratio:
             logy: false

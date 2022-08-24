@@ -8,21 +8,15 @@ from os.path import join
 import argparse
 import numpy as np
 import yaml
-from ROOT import TCanvas, TFile, TLegend, TLine, gPad, TPaveStats # pylint: disable=import-error,no-name-in-module
+from ROOT import TCanvas, TFile, TLegend, TLine, gStyle # pylint: disable=import-error,no-name-in-module
 sys.path.append('..')
 from utils.StyleFormatter import SetGlobalStyle, SetObjectStyle, GetROOTColor, GetROOTMarker #pylint: disable=wrong-import-position,import-error
 from utils.AnalysisUtils import ComputeRatioDiffBins, ScaleGraph, ComputeRatioGraph #pylint: disable=wrong-import-position,import-error
 
-def StatLegendPosition(xlow, xup, ylow, yup):
-    gPad.Modified()
-    gPad.Update()
-    st =TPaveStats(gPad.GetPrimitive('stats'))
-    st.SetX1NDC(xlow)
-    st.SetX2NDC(xup);
-    st.SetY1NDC(ylow);
-    st.SetY2NDC(yup);
-    gPad.Modified()
-    gPad.Update()
+def StatLegendPosition(x, y):
+    gStyle.SetStatX(x)
+    gStyle.SetStatY(y)
+
 
 # load inputs
 parser = argparse.ArgumentParser(description='Arguments')
@@ -36,9 +30,9 @@ inDirName = inputCfg['inputs']['dirname']
 inFileNames = inputCfg['inputs']['filenames']
 objNames = inputCfg['inputs']['objectnames']
 
-outFileName = inputCfg['output']['filename']
+outputFileName = inputCfg['output']['filename']
 outExtensions = inputCfg['output']['extensions']
-outFileNames = inputCfg['output']['extensions']
+outFileNames = inputCfg['output']['objectnames']
 
 objTypes = inputCfg['options']['ROOTobject']
 scales = inputCfg['options']['scale']
@@ -85,17 +79,15 @@ header = inputCfg['options']['legend']['header']
 legTextSize = inputCfg['options']['legend']['textsize']
 ncolumns = inputCfg['options']['legend']['ncolumns']
 
-xlowStatLegend = inputCfg['options']['statlegend']['xlow']
-xupStatLegend = inputCfg['options']['statlegend']['xup']
-ylowStatLegend = inputCfg['options']['statlegend']['ylow']
-yupStatLegend = inputCfg['options']['statlegend']['yup']
+xStatLegend = inputCfg['options']['statlegend']['x']
+yStatLegend = inputCfg['options']['statlegend']['y']
 
 single = (len(objNames) == 1)
 if single:  doRatio, doCompareUnc = False, False        # auto-disable ratio and compare features if a single object is created
 
 # set global style
 SetGlobalStyle(padleftmargin=0.18, padbottommargin=0.14, titleoffsety=1.5, optstat=1111)
-StatLegendPosition(xlowStatLegend, xupStatLegend, ylowStatLegend, yupStatLegend)
+StatLegendPosition(xStatLegend, yStatLegend)
 
 leg = TLegend(xLegLimits[0], yLegLimits[0], xLegLimits[1], yLegLimits[1])
 leg.SetFillStyle(0)
@@ -293,7 +285,7 @@ if doCompareUnc:
 
 for ext in outExtensions:
     if 'root' in ext:
-        outFile = TFile(f'{outFileName}.root', 'recreate')
+        outFile = TFile(f'{outputFileName}.root', 'recreate')
         cOut.Write()
         for histo in hToCompare:
             histo.Write()
@@ -305,6 +297,6 @@ for ext in outExtensions:
                 histo.Write()
         outFile.Close()
     else:
-        cOut.SaveAs(f'{outFileName}.{ext}')
+        cOut.SaveAs(f'{outputFileName}.{ext}')
 
 input("Press enter to exit")
