@@ -11,7 +11,7 @@ import yaml
 from ROOT import TCanvas, TFile, TLegend, TLine # pylint: disable=import-error,no-name-in-module
 sys.path.append('..')
 from utils.StyleFormatter import SetGlobalStyle, SetObjectStyle, GetROOTColor, GetROOTMarker #pylint: disable=wrong-import-position,import-error
-from utils.AnalysisUtils import ComputeRatioDiffBins, ScaleGraph, ComputeRatioGraph #pylint: disable=wrong-import-position,import-error
+from utils.AnalysisUtils import DoubleComputeRatioDiffBins, ComputeRatioDiffBins, ScaleGraph, ComputeRatioGraph #pylint: disable=wrong-import-position,import-error
 
 # load inputs
 parser = argparse.ArgumentParser(description='Arguments')
@@ -125,11 +125,11 @@ for iFile, (inFileName, objName, objType, scale, normalize, color, marker, fills
         if 'TH' in objType:
             if drawRatioUnc:
                 if ratioUncCorr:
-                    hRatioToCompare.append(ComputeRatioDiffBins(hToCompare[iFile], hToCompare[0], 'B'))
+                    hRatioToCompare.append(DoubleComputeRatioDiffBins(hToCompare[iFile], hToCompare[0], 'B'))
                 else:
-                    hRatioToCompare.append(ComputeRatioDiffBins(hToCompare[iFile], hToCompare[0]))
+                    hRatioToCompare.append(DoubleComputeRatioDiffBins(hToCompare[iFile], hToCompare[0]))
             else:
-                hRatioToCompare.append(ComputeRatioDiffBins(hToCompare[iFile], hToCompare[0]))
+                hRatioToCompare.append(DoubleComputeRatioDiffBins(hToCompare[iFile], hToCompare[0]))
                 for iBin in range(1, hRatioToCompare[iFile].GetNbinsX()+1):
                     hRatioToCompare[iFile].SetBinError(iBin, 1.e-20)
             hRatioToCompare[iFile].SetDirectory(0)
@@ -233,7 +233,7 @@ hFrame.GetYaxis().SetDecimals()
 
 for histo, objType, drawOpt in zip(hToCompare, objTypes, drawOptions):
     if 'TH' in objType:
-        histo.DrawCopy(f'{drawOpt}same')
+        for h in histo: h.DrawCopy(f'{drawOpt}same')
     else:
         histo.Draw(drawOpt)
 if  not avoidLeg:

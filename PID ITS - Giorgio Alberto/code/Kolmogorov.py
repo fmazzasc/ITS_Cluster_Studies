@@ -1,7 +1,8 @@
 from unittest import result
-from math import sqrt
+from math import ceil, sqrt
 import pandas as pd
 from ROOT import TH1F, TCanvas, kCyan, kRed, TLegend
+import numpy as np
 
 results_hist = {}
 results_graph = {}
@@ -36,12 +37,14 @@ for i, (h1, h2) in enumerate(zip(h_1, h_2)):
     
     for n in d1[f'ClSizeL{i}']:     h1.Fill(n)
     h1.Scale(factor/h1.Integral(), 'width') 
+    h1.SetError( np.array([ sqrt(h1.GetEntries()) for i in range( int(h1.GetEntries()) )], dtype='float') )
     h1.SetLineColor(kCyan)
     h1.SetMaximum(1)
     leg.AddEntry(h1, 'V0', 'l')
 
     for n in d2[f'ClSizeL{i}']:     h2.Fill(n)
     h2.Scale(factor/h2.Integral(), 'width')
+    h2.SetError( np.array([ sqrt(h2.GetEntries()) for i in range( int(h2.GetEntries()) ) ], dtype='float') )
     h2.SetLineColor(kRed)
     h2.SetMaximum(1)
     leg.AddEntry(h2, 'TPC', 'l')
@@ -62,6 +65,7 @@ leg.Clear()
 h1 = TH1F("h15", "V0", 100, 0, 10)
 for n in d1['meanClsize']:     h1.Fill(n)
 h1.Scale(factor/h1.Integral(), 'width')
+h1.SetError( np.array([ sqrt(h1.GetEntries()) for i in range( int(h1.GetEntries()) )], dtype='float') )
 h1.SetLineColor(kCyan)
 h1.SetMaximum(1)
 leg.AddEntry(h1, 'V0', 'l')
@@ -70,6 +74,7 @@ leg.AddEntry(h1, 'V0', 'l')
 h2 = TH1F("h16", "TPC", 100, 0, 10)
 for n in d2['meanClsize']:     h2.Fill(n)
 h2.Scale(factor/h2.Integral(), 'width')
+h2.SetError( np.array([ sqrt(h2.GetEntries()) for i in range( int(h2.GetEntries()) ) ], dtype='float') )
 h2.SetLineColor(kRed)
 h2.SetMaximum(1)
 leg.AddEntry(h2, 'TPC', 'l')

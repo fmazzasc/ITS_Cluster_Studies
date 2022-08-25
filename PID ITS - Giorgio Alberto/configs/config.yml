@@ -11,11 +11,12 @@ input:
 
 
 output:
-    data_visual_dir: ../../../data_visual_root
-    ml_dir:  ../../../ML_output
-    final_dir:  ../../../final_plots
+    data_visual_dir:    ../../../data_visual_root
+    ml_dir:             ../../../ML_output
+    final_dir:          ../../../final_plots
 
-    save_data_dir: ../../../data
+    save_data_dir:      ../../../data
+    model_out:          ../../../ML_output
 
     particle:   { 1: "p", 2: "K", 3: "pi", 4: "e"}
 
@@ -42,8 +43,8 @@ data_prep:
     #____________________________________
     do_augm: True
     to_augm: ["K"]
-    mothers: ["pi"]
-    p_ranges: [[0.7, 1.5]]
+    mothers: ["p"]
+    p_ranges: [[0.8, 1.5]]
 
     # Beta Flat
     #____________________________________
@@ -57,7 +58,7 @@ data_prep:
 
 training:
 
-    skip_training: False
+    skip_training: True
 
     RegressionColumns: ["p", "tgL", "meanClsize", "meanSnPhi", "meanPattID", "clSizeCosLam",
                         "ClSizeL0", "ClSizeL1", "ClSizeL2", "ClSizeL3", "ClSizeL4", "ClSizeL5", "ClSizeL6"]
@@ -95,14 +96,14 @@ training:
     save_model: True
 
     beta_flat: False
-    beta_p_flat: False
+    beta_p_flat: True
 
 application:
     skip_appl: False
-    model_loc: ../../..//ML_output/RegressorModel_xgboost_betaflat_.pickle
+    model_loc: /home/galucia/PID_ITS/ML_output/V0/RegressorModel_xgboost_augm.pickle
 
 plots:
-    do_plots: True
+    do_plots: False
     vars_to_plot:   ["ClSizeL0", "ClSizeL1", "ClSizeL2", "ClSizeL3", "ClSizeL4", "ClSizeL5", "ClSizeL6", "meanClsize",
                     "meanSnPhi", "tgL", "meanPattID", "p", "clSizeCosLam"]
 
@@ -118,6 +119,11 @@ plots:
     
     plot_x_scat:    ["p", "p", "p", "beta"]
     plot_y_scat:    ["dedx", "beta", "meanClsize", "meanClsize"]
-    plot_spec_scat: [["p", "#frac{dE}{dx}", 1500, 0, 1.5, 600, 0, 600], ["p", "#beta", 1500, 0, 1.5, 1000, 0, 1.1], ["p", "meanClsize", 1500, 0, 1.5, 10, 0, 10], ["#beta", "meanClsize", 10, 0, 1, 10, 0, 20]]  
+    plot_spec_scat: [["p", "#frac{dE}{dx}", 1500, 0, 1.5, 600, 0, 600], ["p", "#beta", 1500, 0, 1.5, 1000, 0, 1.1], ["p", "meanClsize", 1500, 0, 1.5, 10, 0, 10], ["#beta", "meanClsize", 10, 0, 1, 10, 0, 20]] 
+    bp_flat_scat:   ["p": ["p", "Particle species", 15, 0, 1.5, 4, 0., 4.5], "weights": ["weights", "Particle species", 25, 0, 500, 4, 0., 4.5]]
+
+    model_train:    {"p": [1500, 0, 1.5, 3000, -1.5, 1.5], "beta": [1000, 0, 1, 3000, -1.5, 1.5]}
+    appl_plot_spec: {"b_vs_p_final": ["p", "#beta", 1500, 0, 1.5, 1050, 0, 1.05], "b_vs_p_true": ["p", "#beta", 1500, 0, 1.5, 1050, 0, 1.05],
+                    "beta": [1000, 0, 1, 3000, -1.5, 1.5], "p": [1500, 0, 1.5, 3000, -1.5, 1.5]} 
     
     

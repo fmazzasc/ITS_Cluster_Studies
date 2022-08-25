@@ -533,6 +533,130 @@ def ComputeRatioDiffBins(hNum, hDen, uncOpt=''):
 
     return hRatio
 
+def DoubleComputeRatioDiffBins(hNum, hDen, objTypeNum, objTypeDen, uncOpt=''):
+    '''
+    Method to compute ratio between TH1s or TH2s with different bins (but compatible)
+
+    Parameters
+    ----------
+    - hNum: histogram for numerator
+    - hDen: histogram for denominator
+    - uncOpt: uncertainty option as in ROOT.TH1.Divide
+
+    Returns
+    ----------
+    - [hRatio]: list of (2 max) ratio histograms
+    '''
+
+    if objTypeNum != objTypeDen:    raise ValueError('The object types are different')
+
+    ptMinNum = hNum.GetBinLowEdge(1)
+    ptMaxNumX = hNum.GetXaxis().GetBinUpEdge(hNum.GetNbinsX())
+    ptMinDen = hDen.GetBinLowEdge(1)
+    ptMaxDenX = hDen.GetXaxis().GetBinUpEdge(hDen.GetNbinsX())
+    if ptMinNum < ptMinDen:
+        ptMin = ptMinDen
+    else:
+        ptMin = ptMinNum
+    if ptMaxNumX > ptMaxDenX:
+        ptMax = ptMaxDenX
+    else:
+        ptMax = ptMaxNumX
+
+    if hNum.GetNbinsX() < hDen.GetNbinsX():
+        if np.array(hNum.GetXaxis().GetXbins(), 'd').any(): # variable binning
+            ptLimsRatioX = np.array(hNum.GetXaxis().GetXbins(), 'd')
+        else: # constant binning
+            binWidth = hNum.GetBinWidth(1)
+            ptLimsRatioX = np.array([ptMinDen + iBin * binWidth for iBin in range(hNum.GetNbinsX()+1)], 'd')
+    else:
+        if np.array(hDen.GetXaxis().GetXbins(), 'd').any(): # variable binning
+            ptLimsRatioX = np.array(hDen.GetXaxis().GetXbins(), 'd')
+        else: # constant binning
+            binWidth = hDen.GetBinWidth(1)
+            ptLimsRatioX = np.array([ptMinDen + iBin * binWidth for iBin in range(hDen.GetNbinsX()+1)], 'd')
+    ptLimsRatioX = ptLimsRatioX[(ptLimsRatioX >= ptMin) & (ptLimsRatioX <= ptMax)]
+    nPtBinsX = len(ptLimsRatioX)-1
+
+    hRatioX = TH1F('hRatio', f';{hNum.GetXaxis().GetTitle()};ratio', nPtBinsX, ptLimsRatioX)
+    hNumRebX = TH1F('hNumReb', '', nPtBinsX, ptLimsRatioX)
+    hDenRebX = TH1F('hDenReb', '', nPtBinsX, ptLimsRatioX)
+
+    for iPtRatio in range(1, hRatioX.GetNbinsX()+1):
+        deltaPt = ptLimsRatioX[iPtRatio]-ptLimsRatioX[iPtRatio-1]
+        num, numUnc, den, denUnc = (0 for _ in range(4))
+        for iPtNum in range(1, hNum.GetNbinsX()+1):
+            if hNum.GetBinLowEdge(iPtNum) >= ptLimsRatioX[iPtRatio-1] and \
+                hNum.GetXaxis().GetBinUpEdge(iPtNum) <= ptLimsRatioX[iPtRatio]:
+                num += hNum.GetBinContent(iPtNum) * hNum.GetBinWidth(iPtNum)
+                numUnc += hNum.GetBinError(iPtNum)**2 * hNum.GetBinWidth(iPtNum)**2 # considered uncorrelated
+        hNumRebX.SetBinContent(iPtRatio, num/deltaPt)
+        hNumRebX.SetBinError(iPtRatio, np.sqrt(numUnc)/deltaPt)
+        for iPtDen in range(1, hDen.GetNbinsX()+1):
+            if hDen.GetBinLowEdge(iPtDen) >= ptLimsRatioX[iPtRatio-1] and \
+                hDen.GetXaxis().GetBinUpEdge(iPtDen) <= ptLimsRatioX[iPtRatio]:
+                den += hDen.GetBinContent(iPtDen) * hDen.GetBinWidth(iPtDen)
+                denUnc += hDen.GetBinError(iPtDen)**2 * hDen.GetBinWidth(iPtDen)**2 # considered uncorrelated
+        hDenRebX.SetBinContent(iPtRatio, den/deltaPt)
+        hDenRebX.SetBinError(iPtRatio, np.sqrt(denUnc)/deltaPt)
+
+    hRatioX.Divide(hNumRebX, hDenRebX, 1., 1., uncOpt)
+
+    if 'TH1' in objTypeNum:     return [hRatioX]
+
+    ptMinNum = hNum.GetBinLowEdge(1)
+    ptMaxNumY = hNum.GetYaxis().GetBinUpEdge(hNum.GetNbinsY())
+    ptMinDen = hDen.GetBinLowEdge(1)
+    ptMaxDenY = hDen.GetYaxis().GetBinUpEdge(hDen.GetNbinsY())
+    if ptMinNum < ptMinDen:
+        ptMin = ptMinDen
+    else:
+        ptMin = ptMinNum
+    if ptMaxNumY > ptMaxDenY:
+        ptMax = ptMaxDenY
+    else:
+        ptMax = ptMaxNumY
+
+    if hNum.GetNbinsY() < hDen.GetNbinsY():
+        if np.array(hNum.GetYaxis().GetYbins(), 'd').any(): # variable binning
+            ptLimsRatioY = np.array(hNum.GetYaxis().GetYbins(), 'd')
+        else: # constant binning
+            binWidth = hNum.GetBinWidth(1)
+            ptLimsRatioY = np.array([ptMinDen + iBin * binWidth for iBin in range(hNum.GetNbinsY()+1)], 'd')
+    else:
+        if np.array(hDen.GetYaxis().GetYbins(), 'd').any(): # variable binning
+            ptLimsRatioY = np.array(hDen.GetYaxis().GetYbins(), 'd')
+        else: # constant binning
+            binWidth = hDen.GetBinWidth(1)
+            ptLimsRatioX = np.array([ptMinDen + iBin * binWidth for iBin in range(hDen.GetNbinsY()+1)], 'd')
+    ptLimsRatioY = ptLimsRatioY[(ptLimsRatioY >= ptMin) & (ptLimsRatioY <= ptMax)]
+    nPtBinsY = len(ptLimsRatioY)-1
+
+    hRatioY = TH1F('hRatio', f';{hNum.GetYaxis().GetTitle()};ratio', nPtBinsY, ptLimsRatioY)
+    hNumRebY = TH1F('hNumReb', '', nPtBinsY, ptLimsRatioY)
+    hDenRebY = TH1F('hDenReb', '', nPtBinsY, ptLimsRatioY)
+
+    for iPtRatio in range(1, hRatioY.GetNbinsY()+1):
+        deltaPt = ptLimsRatioY[iPtRatio]-ptLimsRatioY[iPtRatio-1]
+        num, numUnc, den, denUnc = (0 for _ in range(4))
+        for iPtNum in range(1, hNum.GetNbinsY()+1):
+            if hNum.GetBinLowEdge(iPtNum) >= ptLimsRatioX[iPtRatio-1] and \
+                hNum.GetYaxis().GetBinUpEdge(iPtNum) <= ptLimsRatioY[iPtRatio]:
+                num += hNum.GetBinContent(iPtNum) * hNum.GetBinWidth(iPtNum)
+                numUnc += hNum.GetBinError(iPtNum)**2 * hNum.GetBinWidth(iPtNum)**2 # considered uncorrelated
+        hNumRebY.SetBinContent(iPtRatio, num/deltaPt)
+        hNumRebY.SetBinError(iPtRatio, np.sqrt(numUnc)/deltaPt)
+        for iPtDen in range(1, hDen.GetNbinsY()+1):
+            if hDen.GetBinLowEdge(iPtDen) >= ptLimsRatioY[iPtRatio-1] and \
+                hDen.GetYaxis().GetBinUpEdge(iPtDen) <= ptLimsRatioY[iPtRatio]:
+                den += hDen.GetBinContent(iPtDen) * hDen.GetBinWidth(iPtDen)
+                denUnc += hDen.GetBinError(iPtDen)**2 * hDen.GetBinWidth(iPtDen)**2 # considered uncorrelated
+        hDenRebY.SetBinContent(iPtRatio, den/deltaPt)
+        hDenRebY.SetBinError(iPtRatio, np.sqrt(denUnc)/deltaPt)
+
+    hRatioY.Divide(hNumRebY, hDenRebY, 1., 1., uncOpt)
+
+    return [hRatioX, hRatioY]
 
 def ScaleGraph(graph, scaleFactor):
     '''
