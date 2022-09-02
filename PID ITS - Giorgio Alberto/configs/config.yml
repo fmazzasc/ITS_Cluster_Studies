@@ -1,12 +1,13 @@
+
 # Configuration file for the particle identification with the ML algorithm in PID_ITS - Giorgio Alberto
 
 input:
-
-    data:       /data/shared/ITS/ML/particles_pid_520143.parquet
+    data:       /home/galucia/PID_ITS/data/TPC/Df_filtered_ITS2Cluster505673.parquet.gzip
+    #data:       /data/shared/ITS/ML/particles_pid_520143.parquet
     appl_data:  /data/shared/ITS/ML/particles_pid_520147_itstpc.parquet
-    ext_appl: True
+    ext_appl: False
 
-    isV0: True
+    isV0: False
 
 
 
@@ -18,21 +19,26 @@ output:
     save_data_dir:      ../../../data
     model_out:          ../../../ML_output
 
-    particle:   { 1: "p", 2: "K", 3: "pi", 4: "e"}
+    particle:   { 0: "Deu", 1: "P", 2: "K", 3: "Pi"}
+    #particle:   { 1: "P", 2: "K", 3: "Pi", 4: "E"}
 
 
 data_prep:
 
     skip_data_prep: False
-    prep_data: [/Users/giogi/Desktop/Stage INFN/PID ITS/data/TrainSet_betaflat.parquet.gzip,
-                /Users/giogi/Desktop/Stage INFN/PID ITS/data/yTrain_betaflat.parquet.gzip,
-                /Users/giogi/Desktop/Stage INFN/PID ITS/data/TestSet_betaflat.parquet.gzip,
-                /Users/giogi/Desktop/Stage INFN/PID ITS/data/yTest_betaflat.parquet.gzip]
-    appl_data:  /Users/giogi/Desktop/Stage INFN/PID ITS/data/ApplicationDf_betaflat.parquet.gzip
+    prep_data: [/Users/giogi/Desktop/Stage INFN/PID ITS/data/TrainSet_augm.parquet.gzip,
+                /Users/giogi/Desktop/Stage INFN/PID ITS/data/yTrain_augm.parquet.gzip,
+                /Users/giogi/Desktop/Stage INFN/PID ITS/data/TestSet_augm.parquet.gzip,
+                /Users/giogi/Desktop/Stage INFN/PID ITS/data/yTest_betaflataugm.gzip]
+    appl_data:  /Users/giogi/Desktop/Stage INFN/PID ITS/data/ApplicationDf_augm.parquet.gzip
     save_data: True
 
     test_frac: 0.2
     seed_split: 0   # random_state for train_test_split
+
+    # Seven Hits (only consider candidates with hits on all the layeres)
+    #___________________________________
+    seven_hits: False
  
     # Equal
     #___________________________________
@@ -43,8 +49,11 @@ data_prep:
     #____________________________________
     do_augm: True
     to_augm: ["K"]
-    mothers: ["p"]
-    p_ranges: [[0.8, 1.5]]
+    mothers: ["Pi"]
+    p_ranges: [[0.01, 0.3]]
+    #to_augm: ["K"]
+    #mothers: ["P"]
+    #p_ranges: [[0.7, 1.5]]
 
     # Beta Flat
     #____________________________________
@@ -58,10 +67,13 @@ data_prep:
 
 training:
 
-    skip_training: True
+    skip_training: False
 
-    RegressionColumns: ["p", "tgL", "meanClsize", "meanSnPhi", "meanPattID", "clSizeCosLam",
+    random_state: 0
+    RegressionColumns: ["p", "tgL", "meanClsize", "meanSnPhi", "meanPattID",
                         "ClSizeL0", "ClSizeL1", "ClSizeL2", "ClSizeL3", "ClSizeL4", "ClSizeL5", "ClSizeL6"]
+    #RegressionColumns: ["p", "tgL", "meanClsize", "meanSnPhi", "meanPattID", "clSizeCosLam",
+    #                    "ClSizeL0", "ClSizeL1", "ClSizeL2", "ClSizeL3", "ClSizeL4", "ClSizeL5", "ClSizeL6"]
     ModelParams:        {"n_jobs": 40,
                         #"time_budget": 100,
                         #"metric": "r2",
@@ -95,17 +107,19 @@ training:
     early_stop: False
     save_model: True
 
-    beta_flat: False
-    beta_p_flat: True
+    beta_flat: True
+    beta_p_flat: False
 
 application:
     skip_appl: False
-    model_loc: /home/galucia/PID_ITS/ML_output/V0/RegressorModel_xgboost_augm.pickle
+    model_loc: 
 
 plots:
-    do_plots: False
+    do_plots: True
     vars_to_plot:   ["ClSizeL0", "ClSizeL1", "ClSizeL2", "ClSizeL3", "ClSizeL4", "ClSizeL5", "ClSizeL6", "meanClsize",
-                    "meanSnPhi", "tgL", "meanPattID", "p", "clSizeCosLam"]
+                    "meanSnPhi", "tgL", "meanPattID", "p"]
+    #vars_to_plot:   ["ClSizeL0", "ClSizeL1", "ClSizeL2", "ClSizeL3", "ClSizeL4", "ClSizeL5", "ClSizeL6", "meanClsize",
+    #                "meanSnPhi", "tgL", "meanPattID", "p", "clSizeCosLam"]
 
     plot_spec_hist: {"ClSizeL0": [10, 0, 10], "ClSizeL1": [10, 0, 10], "ClSizeL2": [10, 0, 10], "ClSizeL3": [10, 0, 10], 
                     "ClSizeL4": [10, 0, 10], "ClSizeL5": [10, 0, 10], "ClSizeL6": [10, 0, 10], "meanClsize": [100, 0, 10],
@@ -120,10 +134,8 @@ plots:
     plot_x_scat:    ["p", "p", "p", "beta"]
     plot_y_scat:    ["dedx", "beta", "meanClsize", "meanClsize"]
     plot_spec_scat: [["p", "#frac{dE}{dx}", 1500, 0, 1.5, 600, 0, 600], ["p", "#beta", 1500, 0, 1.5, 1000, 0, 1.1], ["p", "meanClsize", 1500, 0, 1.5, 10, 0, 10], ["#beta", "meanClsize", 10, 0, 1, 10, 0, 20]] 
-    bp_flat_scat:   ["p": ["p", "Particle species", 15, 0, 1.5, 4, 0., 4.5], "weights": ["weights", "Particle species", 25, 0, 500, 4, 0., 4.5]]
+    bp_flat_scat:   {"p": ["p", "Particle species", 15, 0, 1.5, 4, 0., 4.5], "weights": ["weights", "Particle species", 25, 0, 500, 4, 0., 4.5]}
 
     model_train:    {"p": [1500, 0, 1.5, 3000, -1.5, 1.5], "beta": [1000, 0, 1, 3000, -1.5, 1.5]}
     appl_plot_spec: {"b_vs_p_final": ["p", "#beta", 1500, 0, 1.5, 1050, 0, 1.05], "b_vs_p_true": ["p", "#beta", 1500, 0, 1.5, 1050, 0, 1.05],
                     "beta": [1000, 0, 1, 3000, -1.5, 1.5], "p": [1500, 0, 1.5, 3000, -1.5, 1.5]} 
-    
-    

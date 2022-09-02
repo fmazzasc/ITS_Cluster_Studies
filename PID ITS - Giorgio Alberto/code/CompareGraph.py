@@ -8,10 +8,20 @@ from os.path import join
 import argparse
 import numpy as np
 import yaml
-from ROOT import TCanvas, TFile, TLegend, TLine # pylint: disable=import-error,no-name-in-module
-sys.path.append('..')
+from ROOT import TCanvas, TFile, TLegend, TLine, gStyle, TList, TPaveText # pylint: disable=import-error,no-name-in-module
+sys.path.append('../..')
 from utils.StyleFormatter import SetGlobalStyle, SetObjectStyle, GetROOTColor, GetROOTMarker #pylint: disable=wrong-import-position,import-error
-from utils.AnalysisUtils import DoubleComputeRatioDiffBins, ComputeRatioDiffBins, ScaleGraph, ComputeRatioGraph #pylint: disable=wrong-import-position,import-error
+from utils.AnalysisUtils import ComputeRatioDiffBins, ScaleGraph, ComputeRatioGraph #pylint: disable=wrong-import-position,import-error
+
+def StatLegendPosition(x, y):
+    gStyle.SetStatX(x)
+    gStyle.SetStatY(y)
+
+def min_size(*args):
+    if not args:    return 0
+    list = [len(arg) for arg in args]
+    return min(list)
+
 
 # load inputs
 parser = argparse.ArgumentParser(description='Arguments')
@@ -25,8 +35,9 @@ inDirName = inputCfg['inputs']['dirname']
 inFileNames = inputCfg['inputs']['filenames']
 objNames = inputCfg['inputs']['objectnames']
 
-outFileName = inputCfg['output']['filename']
+outputFileName = inputCfg['output']['filename']
 outExtensions = inputCfg['output']['extensions']
+outFileNames = inputCfg['output']['objectnames']
 
 objTypes = inputCfg['options']['ROOTobject']
 scales = inputCfg['options']['scale']
@@ -39,7 +50,6 @@ fillstyles = inputCfg['options']['fillstyle']
 fillalphas = inputCfg['options']['fillalpha']
 drawOptions = inputCfg['options']['drawopt']
 rebins = inputCfg['options']['rebin']
-palette = inputCfg['options']['palette']
 
 doRatio = inputCfg['options']['ratio']['enable']
 drawRatioUnc = inputCfg['options']['ratio']['uncertainties']['enable']
@@ -60,11 +70,16 @@ xTitle = inputCfg['options']['canvas']['xaxistitle']
 yTitle = inputCfg['options']['canvas']['yaxistitle']
 logX = inputCfg['options']['canvas']['logx']
 logY = inputCfg['options']['canvas']['logy']
-logZ = inputCfg['options']['canvas']['logz']
 ratioLogX = inputCfg['options']['canvas']['ratio']['logx']
 ratioLogY = inputCfg['options']['canvas']['ratio']['logy']
 uncCompLogX = inputCfg['options']['canvas']['errcomp']['logx']
 uncCompLogY = inputCfg['options']['canvas']['errcomp']['logy']
+
+avoidStatBox = inputCfg['options']['statbox']['avoid']
+xStatLimits = inputCfg['options']['statbox']['xlimits']
+yStatLimits = inputCfg['options']['statbox']['ylimits']
+statheader = inputCfg['options']['statbox']['header']
+statTextSize = inputCfg['options']['statbox']['textsize']
 
 avoidLeg = inputCfg['options']['legend']['avoid']
 xLegLimits = inputCfg['options']['legend']['xlimits']
@@ -75,8 +90,20 @@ header = inputCfg['options']['legend']['header']
 legTextSize = inputCfg['options']['legend']['textsize']
 ncolumns = inputCfg['options']['legend']['ncolumns']
 
+xStatLegend = inputCfg['options']['statlegend']['x']
+yStatLegend = inputCfg['options']['statlegend']['y']
+
+single = (min_size(inFileNames, outFileNames, objNames, objTypes, scales, normalizes, colors, markers, fillstyles, fillalphas, rebins) == 1)
+if single:  doRatio, doCompareUnc = False, False        # auto-disable ratio and compare features if a single object is created
+
+
 # set global style
-SetGlobalStyle(padleftmargin=0.18, padbottommargin=0.14, titleoffsety=1.5)
+SetGlobalStyle(padleftmargin=0.18, padbottommargin=0.14, titleoffsety=1.5, optstat=1111)
+StatLegendPosition(xStatLegend, yStatLegend)
+
+pave = TPaveText(xStatLimits[0], yStatLimits[0], xStatLimits[1], yStatLimits[1])
+pave.SetFillStyle(0)
+pave.SetTextSize(statTextSize)
 
 leg = TLegend(xLegLimits[0], yLegLimits[0], xLegLimits[1], yLegLimits[1])
 leg.SetFillStyle(0)
@@ -85,8 +112,9 @@ leg.SetNColumns(ncolumns)
 leg.SetHeader(header)
 
 hToCompare, hRatioToCompare, hUncToCompare = [], [], []
-for iFile, (inFileName, objName, objType, scale, normalize, color, marker, fillstyle, fillalpha, rebin) in \
-    enumerate(zip(inFileNames, objNames, objTypes, scales, normalizes, colors, markers, fillstyles, fillalphas, rebins)):
+for iFile, (inFileName, outFileName, objName, objType, scale, normalize, color, marker, fillstyle, fillalpha, rebin) in \
+    enumerate(zip(inFileNames, outFileNames, objNames, objTypes, scales, normalizes, colors, markers, fillstyles, fillalphas, rebins)):
+    
     if inDirName:
         inFileName = join(inDirName, inFileName)
     inFile = TFile.Open(inFileName)
@@ -98,8 +126,8 @@ for iFile, (inFileName, objName, objType, scale, normalize, color, marker, fills
         sys.exit()
     hToCompare.append(inFile.Get(objName))
     if 'TH' in objType:
-        hToCompare[iFile].SetName(f'h{iFile}')
-        hToCompare[iFile].SetStats(0)
+        if len(outFileNames) == len(inFileNames):   hToCompare[iFile].SetName(outFileName)
+        else:                                       hToCompare[iFile].SetName(f'h{iFile}')
     else:
         hToCompare[iFile].SetName(f'g{iFile}')
     hToCompare[iFile].Rebin(rebin)
@@ -110,10 +138,9 @@ for iFile, (inFileName, objName, objType, scale, normalize, color, marker, fills
                    linewidth=linewidth,
                    fillstyle=fillstyle,
                    fillalpha=fillalpha)
-    if 'TH2' in objType:    SetGlobalStyle(palette=palette)
     if 'TH' in objType:
         hToCompare[iFile].SetDirectory(0)
-        hToCompare[iFile].SetStats(0)
+        if not single:  hToCompare[iFile].SetStats(0)
         if normalize:
             if scale != 1.:
                 print('WARNING: you are both scaling and normalizing the histogram, check if it makes sense!')
@@ -125,11 +152,11 @@ for iFile, (inFileName, objName, objType, scale, normalize, color, marker, fills
         if 'TH' in objType:
             if drawRatioUnc:
                 if ratioUncCorr:
-                    hRatioToCompare.append(DoubleComputeRatioDiffBins(hToCompare[iFile], hToCompare[0], 'B'))
+                    hRatioToCompare.append(ComputeRatioDiffBins(hToCompare[iFile], hToCompare[0], 'B'))
                 else:
-                    hRatioToCompare.append(DoubleComputeRatioDiffBins(hToCompare[iFile], hToCompare[0]))
+                    hRatioToCompare.append(ComputeRatioDiffBins(hToCompare[iFile], hToCompare[0]))
             else:
-                hRatioToCompare.append(DoubleComputeRatioDiffBins(hToCompare[iFile], hToCompare[0]))
+                hRatioToCompare.append(ComputeRatioDiffBins(hToCompare[iFile], hToCompare[0]))
                 for iBin in range(1, hRatioToCompare[iFile].GetNbinsX()+1):
                     hRatioToCompare[iFile].SetBinError(iBin, 1.e-20)
             hRatioToCompare[iFile].SetDirectory(0)
@@ -219,25 +246,41 @@ if doRatio or doCompareUnc:
         cOut.cd(1).SetLogx()
     if logY:
         cOut.cd(1).SetLogy()
-    if logZ:
-        cOut.cd(1).SetLogZ()
 else:
     hFrame = cOut.cd().DrawFrame(xLimits[0], yLimits[0], xLimits[1], yLimits[1], f';{xTitle};{yTitle}')
     if logX:
         cOut.cd().SetLogx()
     if logY:
         cOut.cd().SetLogy()
-    if logZ:
-        cOut.cd().SetLogZ()
 hFrame.GetYaxis().SetDecimals()
 
+
+list = TList()
+
+# Draw main histograms
 for histo, objType, drawOpt in zip(hToCompare, objTypes, drawOptions):
     if 'TH' in objType:
-        for h in histo: h.DrawCopy(f'{drawOpt}same')
+        list.Add(histo)
+        histo.DrawCopy(f'{drawOpt}same')
     else:
         histo.Draw(drawOpt)
-if  not avoidLeg:
-    leg.Draw()
+
+# Create stat box (entries, mean and stddev of all histograms drawn)
+if not avoidStatBox:
+    h = hToCompare[0].Clone('h')
+    h.Reset()
+    h.Merge(list)
+
+    if all('TH' in objType for objType in objTypes):
+            pave.AddText(0., 0.7, f'Entries: {h.GetEntries()}')
+            pave.AddText(0., 0.4, f'Mean: {h.GetMean()}')
+            pave.AddText(0., 0.1, f'Std Dev: {h.GetStdDev()}')
+            print('ok')
+    pave.Draw()
+
+# Draw legend
+if single:  avoidLeg = True
+if  not avoidLeg:   leg.Draw()
 
 if doRatio:
     hFrameRatio = cOut.cd(ratioPad).DrawFrame(xLimits[0], yLimitsRatio[0], xLimits[1], yLimitsRatio[1],
@@ -276,7 +319,7 @@ if doCompareUnc:
 
 for ext in outExtensions:
     if 'root' in ext:
-        outFile = TFile(f'{outFileName}.root', 'recreate')
+        outFile = TFile(f'{outputFileName}.root', 'recreate')
         cOut.Write()
         for histo in hToCompare:
             histo.Write()
@@ -288,6 +331,6 @@ for ext in outExtensions:
                 histo.Write()
         outFile.Close()
     else:
-        cOut.SaveAs(f'{outFileName}.{ext}')
+        cOut.SaveAs(f'{outputFileName}.{ext}')
 
 input("Press enter to exit")

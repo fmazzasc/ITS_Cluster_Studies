@@ -32,6 +32,7 @@ tag_Deu = 'nSigmaDeuAbs < 1 and nSigmaPAbs > 5 and nSigmaKAbs > 5 and nSigmaPiAb
 tag_P = 'nSigmaPAbs < 1 and nSigmaKAbs > 3 and nSigmaDeuAbs > 3 and p <= 0.7'
 tag_K = 'nSigmaKAbs < 1 and nSigmaPiAbs > 3 and nSigmaPAbs > 3 and p <= 0.7'
 tag_Pi = 'nSigmaPiAbs < 1 and nSigmaKAbs > 3 and p <= 0.7'
+tag_E = 'nSigmaPi > 5'
 
 
 # Masses
@@ -42,9 +43,9 @@ mass_K = 0.4937
 mass_Pi = 0.13957000
 mass_e = 0.000511
 
-names = ['deu', 'p', 'K', 'pi', 'e']
+names = ['Deu', 'P', 'K', 'Pi']
 
-tag_dict = dict(zip(names, [tag_Deu, tag_P, tag_K, tag_Pi]))
+tag_dict = dict(zip(names, [tag_Deu, tag_P, tag_K, tag_Pi, tag_E]))
 mass_dict = dict(zip(names, [mass_Deu, mass_P, mass_K, mass_Pi, mass_e]))
 
 
@@ -53,27 +54,34 @@ mass_dict = dict(zip(names, [mass_Deu, mass_P, mass_K, mass_Pi, mass_e]))
 # Filtering
 #_______________________________________
 
-def filtering(ApplicationDf, part_name='all', tag=True, label=True, beta=True):
+
+
+def filtering(full_df, part, tag=None, mass=None, label=True):
     """
     From the full datatframe, creates a new one saving only data relative to a chosen particle (filtering  with instructions in its tag).
     The new dataframe will have a label column where its particle species is specified and a beta column where beta is defined.
 
     Parameters:
-    - ApplicationDf: full dataframe
-    - part_name: name of the particle to filter
+    - full_df: full dataframe
+    - part: name of the particle to filter
+    - tag: tag used by pd.DataFrame.query for the selection
+    - mass: mass of the particle
+    - label: if true, a label column with the particle name will be appended to the dataframe
 
     Returns:
-    a list of reduced dataframes
+    the filtered dataframe
     """
     
-    if part_name == 'all':  part_name = names
+    
 
-    if tag: dfs = [ApplicationDf.query(tag_dict[part]).reset_index(drop=True) for part in part_name]
-    else:   dfs = [ApplicationDf.query(f"label == '{part}'").reset_index(drop=True) for part in part_name]
-    for df, part in zip(dfs, part_name): 
-        if label:   df['label'] = part
-        if beta:    df.eval(f'beta = p / sqrt( {mass_dict[part]}**2 + p**2)', inplace=True)
-    return dfs
+    if tag != None:       df = full_df.query(tag, inplace=False).reset_index(drop=True)
+    else:                 df = full_df.query(f"label == '{part}'").reset_index(drop=True)
+ 
+    if label:             df['label'] = part
+    if mass != None:      df.eval(f'beta = p / sqrt( {mass}**2 + p**2)', inplace=True)
+
+    return df
+
 
 
 # Plot functions
@@ -309,7 +317,7 @@ def callback(study, trial):
     if trial.value < EXIT_THRESHOLD:
         raise optuna.StopStudy
 
-def Delta(model, X, y, absolute=False):
+def Delta(model, X, y, absolute=True):
     pred = model.predict(X)
     if absolute:    return abs(y - pred)/y
     else:           return (y - pred)/y
@@ -393,10 +401,12 @@ def data_prep(config):
     - ApplicationDf: dataframe that will be used for the application. This is the original dataframe, with some new columns added. Will be created at the beginning and then saved in a file and returned.
     """
 
+    # Upload data and settings from configuration file 
+    #_________________________________________________
+
     isV0 = config['input']['isV0']
     ext_appl = config['input']['ext_appl']
 
-    # Upload from data file and config file
     RegressionDf = pd.read_parquet(config['input']['data'])
     if ext_appl:    ApplicationDf = pd.read_parquet(config['input']['appl_data'])
 
@@ -410,6 +420,8 @@ def data_prep(config):
 
     test_frac = config['data_prep']['test_frac']
     seed_split = config['data_prep']['seed_split']
+
+    seven_hits = config['data_prep']['seven_hits']  # only consider candidates with hits on all the layers
 
     do_augm = config['data_prep']['do_augm']
     beta_flat = config['training']['beta_flat']
@@ -464,24 +476,34 @@ def data_prep(config):
         if isV0:    ApplicationDf.eval('delta_p = (p - pTPC)/pTPC', inplace=True)
         
         
-    if not isV0:
-        for part in names:  RegressionDf[f'nSigma{part}Abs'] = abs(RegressionDf[f'nSigma{part}'])
+    for part in particle_dict.values():  RegressionDf[f'nSigma{part}Abs'] = abs(RegressionDf[f'nSigma{part}'])
+    if ext_appl:    
+        for part in particle_dict.values():  ApplicationDf[f'nSigma{part}Abs'] = abs(RegressionDf[f'nSigma{part}'])
     
     # Splitting, filtering (and evaluating beta)
     #__________________________________
-    RegressionDf.query('p <= 50 and 20 < rofBC < 500 and tpcITSchi2 < 5 and nClusTPC > 100 and -0.2 < delta_p < 0.2', inplace=True)
-    if ext_appl:    ApplicationDf.query('p <= 50 and 20 < rofBC < 500 and tpcITSchi2 < 5 and nClusTPC > 100 and -0.2 < delta_p < 0.2', inplace=True)
     if isV0:
+        RegressionDf.query('p <= 50 and 20 < rofBC < 500 and tpcITSchi2 < 5 and nClusTPC > 100 and -0.2 < delta_p < 0.2', inplace=True)
+        if ext_appl:    ApplicationDf.query('p <= 50 and 20 < rofBC < 500 and tpcITSchi2 < 5 and nClusTPC > 100 and -0.2 < delta_p < 0.2', inplace=True)
+
         RegressionDf.eval('label = particle', inplace=True)
         ApplicationDf.eval('label = particle', inplace=True)
         for number, name in particle_dict.items():  
-            RegressionDf['label'].replace({number: name}, inplace=True)
-            ApplicationDf['label'].replace({number: name}, inplace=True)
-    
+            RegressionDf['label'].mask(RegressionDf['particle'] == number, name, inplace=True)
+            ApplicationDf['label'].mask(ApplicationDf['particle'] == number, name, inplace=True)
 
-    TrainSet, TestSet, yTrain, yTest = train_test_split(RegressionDf, RegressionDf.p, test_size=test_frac ,random_state=seed_split)
+    else:   RegressionDf.query('p <= 50', inplace=True)
+
+    # redefine K
+    #RegressionDf['label'].mask(RegressionDf['nSigmaKAbs'] < 1, 'K', inplace=True)
+    #if isV0:    RegressionDf['particle'].mask(RegressionDf['nSigmaKAbs'] < 1, 2, inplace=True)
+#
+    #if ext_appl:    
+    #    ApplicationDf['label'].mask(ApplicationDf['nSigmaKAbs'] < 1, 'K', inplace=True)
+    #    if isV0:    ApplicationDf['particle'].mask(ApplicationDf['nSigmaKAbs'] < 1, 2, inplace=True)
+
     
-    if not ext_appl:    ApplicationDf = TestSet
+    TrainSet, TestSet, yTrain, yTest = train_test_split(RegressionDf, RegressionDf.p, test_size=test_frac, random_state=seed_split)
 
     if isV0:
         dfs_train = filtering(TrainSet, tag=False, label=False)
@@ -492,10 +514,9 @@ def data_prep(config):
         ApplicationDf = pd.concat(appl_list)
 
     else:
-        dfs_train = [None] * TrainSet['particle'].value_counts()
-        dfs_test = [None] * TestSet['particle'].value_counts()
-        dfs_train = filtering(TrainSet)
-        dfs_test = filtering(TestSet)
+        dfs_train = [filtering(TrainSet, name, tag_dict[name], mass_dict[name]) for name in particle_dict.values()]
+        dfs_test = [filtering(TestSet, name, tag_dict[name], mass_dict[name]) for name in particle_dict.values()]
+
 
     # Data Visualization
     #_________________________________
@@ -540,17 +561,28 @@ def data_prep(config):
 
     TrainSet = pd.concat(dfs_train)
     TrainSet = TrainSet.sample(frac=1).reset_index(drop=True)
-    yTrain = TrainSet['beta']
 
     TestSet = pd.concat(dfs_test)
     TestSet = TestSet.sample(frac=1).reset_index(drop=True)
-    yTest = TestSet['beta']
-
+    if not ext_appl:    ApplicationDf = pd.DataFrame(TestSet)
+    
     # negative values are intended to be nans
-    for i in range(7):
-        TrainSet[f'ClSizeL{i}'] = np.where(TrainSet[f'ClSizeL{i}'] < 0, np.nan, TrainSet[f'ClSizeL{i}'])
-        TestSet[f'ClSizeL{i}'] = np.where(TestSet[f'ClSizeL{i}'] < 0, np.nan, TestSet[f'ClSizeL{i}'])
-        ApplicationDf[f'ClSizeL{i}'] = np.where(ApplicationDf[f'ClSizeL{i}'] < 0, np.nan, ApplicationDf[f'ClSizeL{i}'])
+    if not seven_hits:
+        for i in range(7):
+            TrainSet[f'ClSizeL{i}'] = np.where(TrainSet[f'ClSizeL{i}'] < 0, np.nan, TrainSet[f'ClSizeL{i}'])
+            TestSet[f'ClSizeL{i}'] = np.where(TestSet[f'ClSizeL{i}'] < 0, np.nan, TestSet[f'ClSizeL{i}'])
+            ApplicationDf[f'ClSizeL{i}'] = np.where(ApplicationDf[f'ClSizeL{i}'] < 0, np.nan, ApplicationDf[f'ClSizeL{i}'])
+
+    # consider only candidates with seven hits
+    else:   
+        for i in range(7):
+            TrainSet.drop( TrainSet[TrainSet[f'ClSizeL{i}'] < 0].index, inplace=True )
+            TestSet.drop( TestSet[TestSet[f'ClSizeL{i}'] < 0].index, inplace=True )
+            ApplicationDf.drop( ApplicationDf[ApplicationDf[f'ClSizeL{i}'] < 0].index, inplace=True )
+
+    yTrain = pd.Series(TrainSet['beta'])
+    yTest = pd.Series(TestSet['beta'])
+    
 
     # Data augmentation
     #_________________________________
@@ -610,7 +642,10 @@ def data_prep(config):
             weights = [len(TrainSet.query(f'{betamin} <= beta < {betamax}'))/len(TrainSet) for betamin, betamax in zip(betamins, betamaxs)]
 
             conditions = [(TrainSet['beta'] >= betamin) & (TrainSet['beta'] < betamax) for betamin, betamax in zip(betamins, betamaxs)]
-            n_weights = [1./weight for weight in weights]
+            n_weights = []
+            for weight in weights:
+                if weight == 0:     n_weights.append(0)
+                else:               n_weights.append(1./weight) 
             TrainSet['beta_weight'] = np.select(conditions, n_weights)
 
     # Beta and momentum flat weights
@@ -681,10 +716,14 @@ def regression(TrainTestData, config):
 
     X_train, y_train, X_test, y_test = TrainTestData
 
+    # Upload settings from configuration file 
+    #_________________________________________________
+
     particle_dict = config['output']['particle']
     isV0 = config['input']['isV0']
 
     RegressionColumns = config['training']['RegressionColumns']
+    random_state = config['training']['random_state']
     model_choice = config['training']['model']
     ModelParams = config['training']['ModelParams']
 
@@ -702,6 +741,7 @@ def regression(TrainTestData, config):
 
     options = ''
     if do_augm:                 options += '_augm'
+    if beta_p_flat:             options += '_beta_pflat_'
     if beta_flat:               options += '_betaflat_'
     if do_equal:                options += '_equal'
 
@@ -721,7 +761,7 @@ def regression(TrainTestData, config):
 
     # Model definition
     #__________________________________
-    if model_choice=='xgboost':     model = xgb.XGBRegressor()
+    if model_choice=='xgboost':     model = xgb.XGBRegressor(random_state=random_state)
     if model_choice=='automl':      model = AutoML()
 
     # Optuna optimization
@@ -764,7 +804,10 @@ def regression(TrainTestData, config):
     if model_choice=='xgboost':
 
         print('\nXGB model...')
-        model_reg = xgb.XGBRegressor(**HyperParams, tree_method="gpu_hist")
+        if beta_flat:   print('Beta weights selected...')
+        if beta_p_flat: print('Beta and momentum weights selected...')
+
+        model_reg = xgb.XGBRegressor(**HyperParams, tree_method="gpu_hist", random_state=random_state)
         plot_specifics = config['plots']['model_train']
         with alive_bar(title='Training...') as bar:     
             if beta_flat:       model_reg.fit(X_train[RegressionColumns], y_train, sample_weight=X_train['beta_weight'])
@@ -773,8 +816,8 @@ def regression(TrainTestData, config):
         
         TrainSet, TestSet = pd.DataFrame(TrainTestData[0]), pd.DataFrame(TrainTestData[2])
         
-        plot_score_train(TrainTestData, RegressionColumns, model_reg, x_label='p', plot_specifics=plot_specifics['p'], filename=f'{output_dir}/{options}', x_test=TestSet['p'])
-        plot_score_train(TrainTestData, RegressionColumns, model_reg, x_label='#beta', plot_specifics=plot_specifics['beta'], filename=f'{output_dir}/{options}')
+        plot_score_train(TrainTestData, RegressionColumns, model_reg, x_label='p', plot_specifics=plot_specifics['p'], filename=f'{output_dir}/{options}', x_test=TestSet['p'], absolute=False)
+        plot_score_train(TrainTestData, RegressionColumns, model_reg, x_label='#beta', plot_specifics=plot_specifics['beta'], filename=f'{output_dir}/{options}', absolute=False)
         for key, name in particle_dict.items():
 
             X_train_name = TrainSet.query(f"label == '{name}'")
@@ -783,8 +826,8 @@ def regression(TrainTestData, config):
             y_test_name = X_test_name['beta']
 
             TestTrainData_name = X_train_name, y_train_name, X_test_name, y_test_name
-            plot_score_train(TestTrainData_name, RegressionColumns, model_reg, x_label='p', plot_specifics=plot_specifics['p'], filename=f'{output_dir}/{name}{options}', x_test=X_test_name['p'])
-            plot_score_train(TestTrainData_name, RegressionColumns, model_reg, x_label='#beta', plot_specifics=plot_specifics['beta'], filename=f'{output_dir}/{name}{options}')
+            plot_score_train(TestTrainData_name, RegressionColumns, model_reg, x_label='p', plot_specifics=plot_specifics['p'], filename=f'{output_dir}/{name}{options}', x_test=X_test_name['p'], absolute=False)
+            plot_score_train(TestTrainData_name, RegressionColumns, model_reg, x_label='#beta', plot_specifics=plot_specifics['beta'], filename=f'{output_dir}/{name}{options}', absolute=False)
 
 
     if model_choice=='automl':
@@ -794,8 +837,8 @@ def regression(TrainTestData, config):
         plot_specifics = config['plots']['model_train']
         with alive_bar(title='Training...') as bar:     model_reg.fit(X_train[RegressionColumns], y_train)
 
-        plot_score_train(TrainTestData, RegressionColumns, model_reg, x_label='p', plot_specifics=plot_specifics['p'], filename=f'{output_dir}/{options}')
-        plot_score_train(TrainTestData, RegressionColumns, model_reg, x_label='#beta', plot_specifics=plot_specifics['beta'], filename=f'{output_dir}/{options}')
+        plot_score_train(TrainTestData, RegressionColumns, model_reg, x_label='p', plot_specifics=plot_specifics['p'], filename=f'{output_dir}/{options}', absolute=False)
+        plot_score_train(TrainTestData, RegressionColumns, model_reg, x_label='#beta', plot_specifics=plot_specifics['beta'], filename=f'{output_dir}/{options}', absolute=False)
         for name in particle_dict.values():
 
             TrainSet, TestSet = pd.DataFrame(TrainTestData[0]), pd.DataFrame(TrainTestData[2])
@@ -805,8 +848,8 @@ def regression(TrainTestData, config):
             y_test_name = X_test_name['beta']
 
             TestTrainData_name = X_train_name, y_train_name, X_test_name, y_test_name
-            plot_score_train(TestTrainData_name, RegressionColumns, model_reg, x_label='p', plot_specifics=plot_specifics['p'], filename=f'{output_dir}/{name}{options}')
-            plot_score_train(TestTrainData_name, RegressionColumns, model_reg, x_label='#beta', plot_specifics=plot_specifics['beta'], filename=f'{output_dir}/{name}{options}')
+            plot_score_train(TestTrainData_name, RegressionColumns, model_reg, x_label='p', plot_specifics=plot_specifics['p'], filename=f'{output_dir}/{name}{options}', absolute=False)
+            plot_score_train(TestTrainData_name, RegressionColumns, model_reg, x_label='#beta', plot_specifics=plot_specifics['beta'], filename=f'{output_dir}/{name}{options}', absolute=False)
 
 
     
@@ -838,6 +881,9 @@ def regression(TrainTestData, config):
 
 def application(ApplicationDf, config, model):
 
+    # Upload settings from configuration file 
+    #_________________________________________________
+
     isV0 = config['input']['isV0']
 
     RegressionColumns = config['training']['RegressionColumns']
@@ -849,10 +895,6 @@ def application(ApplicationDf, config, model):
     beta_flat = config['training']['beta_flat']
     beta_p_flat = config['training']['beta_p_flat']
     do_equal = config['data_prep']['do_equal']
-
-    with alive_bar(title='Application...') as bar:
-        X_application = ApplicationDf[RegressionColumns]
-        preds = model.predict(X_application)               # beta
 
     if isV0:        
         final_output_dir += '/V0'
@@ -879,11 +921,15 @@ def application(ApplicationDf, config, model):
     elif do_equal:              
         final_output_dir += '/equal'
         delta_output_dir += '/equal'
+    else:
+        final_output_dir += '/no_options'
+        delta_output_dir += '/no_options'
+
 
     output_file_end = '/beta_vs_p'
     if do_augm:         output_file_end += '_augm'
     if beta_flat:       output_file_end += '_betaflat'
-    if beta_p_flat:      output_file_end += '_beta_pflat'
+    if beta_p_flat:     output_file_end += '_beta_pflat'
     if do_equal:        output_file_end += '_equal'
 
     output_file = f'{final_output_dir}' + output_file_end
@@ -893,28 +939,34 @@ def application(ApplicationDf, config, model):
     # Prediction and true beta vs p
     #________________________________________________
 
+    with alive_bar(title='Application...') as bar:
+        X_application = ApplicationDf[RegressionColumns]
+        ApplicationDf['preds'] = model.predict(X_application)               # beta
+
     plot_specifics = config['plots']['appl_plot_spec']
-    density_scatter(ApplicationDf['p'], preds, output_file, plot_specifics['b_vs_p_final'], title='beta_vs_p_final')
+    density_scatter(ApplicationDf['p'], ApplicationDf['preds'], output_file, plot_specifics['b_vs_p_final'], title='beta_vs_p_final')
 
     for name in particle_dict.values():   
-        df = ApplicationDf.query(f'label == {name}', inplace = True)  
-        density_scatter(df['p'], df['#beta'], f'{final_output_dir}/beta_vs_p_{name}', plot_specifics=plot_specifics['beta_vs_p_true'], title=f'beta_{name}')
-    density_scatter(ApplicationDf['p'], ApplicationDf['beta'], f'{final_output_dir}/beta_vs_p_total', plot_specifics=plot_specifics['beta_vs_p_true'], title=f'{y}_total')  
+        df = ApplicationDf.query(f'label == "{name}"', inplace=False)  
+        
+
+        density_scatter(df['p'], df['preds'], f'{output_file}_{name}', plot_specifics['b_vs_p_final'], title=f'beta_vs_p_final_{name}')
+        density_scatter(df['p'], df['beta'], f'{final_output_dir}/beta_vs_p_{name}', plot_specifics=plot_specifics['b_vs_p_final'], title=f'beta_{name}')
+    density_scatter(ApplicationDf['p'], ApplicationDf['beta'], f'{final_output_dir}/beta_vs_p_total', plot_specifics=plot_specifics['b_vs_p_final'], title=f'beta_true_total')  
     
 
 
     # Delta 
     #________________________________________________
 
-    plot_score(ApplicationDf, ApplicationDf['p'], RegressionColumns, model, x_label='p', plot_specifics=plot_specifics['p'], filename=f'{delta_output_dir}/Appl_')
-    plot_score(ApplicationDf, ApplicationDf['beta'], RegressionColumns, model, x_label='#beta', plot_specifics=plot_specifics['beta'], filename=f'{delta_output_dir}/Appl_')
+    plot_score(ApplicationDf, ApplicationDf['p'], RegressionColumns, model, x_label='p', plot_specifics=plot_specifics['p'], filename=f'{delta_output_dir}/Appl_', absolute=False)
+    plot_score(ApplicationDf, ApplicationDf['beta'], RegressionColumns, model, x_label='#beta', plot_specifics=plot_specifics['beta'], filename=f'{delta_output_dir}/Appl_', absolute=False)
 
     for name in particle_dict.values():
+        X_name = ApplicationDf.query(f"label == '{name}'", inplace=False)
 
-            X_name = ApplicationDf.query(f"label == '{name}'")
-
-            plot_score(X_name, X_name['p'], RegressionColumns, model, x_label='p', plot_specifics=plot_specifics['p'], filename=f'{delta_output_dir}/Appl_{name}')
-            plot_score(X_name, X_name['beta'], RegressionColumns, model, x_label='#beta', plot_specifics=plot_specifics['beta'], filename=f'{delta_output_dir}/Appl_{name}')
+        plot_score(X_name, X_name['p'], RegressionColumns, model, x_label='p', plot_specifics=plot_specifics['p'], filename=f'{delta_output_dir}/Appl_{name}', absolute=False)
+        plot_score(X_name, X_name['beta'], RegressionColumns, model, x_label='#beta', plot_specifics=plot_specifics['beta'], filename=f'{delta_output_dir}/Appl_{name}', absolute=False)
 
 
 

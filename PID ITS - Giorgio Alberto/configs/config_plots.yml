@@ -1,13 +1,15 @@
 inputs:
     dirname: null # leave null if not common for all input files
-    filenames: [/home/galucia/PID_ITS/ML_output/V0/augm/Appl_e_score_hist.root,
-                /home/galucia/PID_ITS/ML_output/V0/augm/Appl_K_score_hist.root,
+    filenames: [/home/galucia/PID_ITS/ML_output/TPC/augm_betaflat/Appl_Deu_score_hist.root,
+                /home/galucia/PID_ITS/ML_output/TPC/augm_betaflat/Appl_K_score_hist.root,
+                /home/galucia/PID_ITS/ML_output/TPC/augm_betaflat/Appl_P_score_hist.root,
+                /home/galucia/PID_ITS/ML_output/TPC/augm_betaflat/Appl_Pi_score_hist.root,
                 ]
     objectnames: ['scatter_plot', 'scatter_plot', 'scatter_plot', 'scatter_plot'] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
 
 output: 
-    filename: /home/galucia/PID_ITS/ML_output/V0/augm/PROVA_Appl_score_hist # with path and w/o extension
-    objectnames: ['e', 'K', 'p', 'pi'] # new names for the created objects. Will be AUTOMATICALLY applied if the lenght of the list equals the lenght of the one in the input section
+    filename: /home/galucia/PID_ITS/ML_output/TPC/augm_betaflat/TOTAL_Appl_score_hist # with path and w/o extension
+    objectnames: ['d', 'K', 'p', 'pi'] # new names for the created objects. Will be AUTOMATICALLY applied if the lenght of the list equals the lenght of the one in the input section
     extensions: [png, root] # possibilities: pdf, eps, png, root
 
 options:
@@ -25,7 +27,7 @@ options:
     palette: ['kBlue', 'kBlue', 'kBlue', 'kBlue']
     
     ratio: 
-        enable: true
+        enable: false
         uncertainties:
             enable: false
             corr: false
@@ -38,12 +40,19 @@ options:
     KS: false
     dottedLine: ''
 
+    statbox:
+        avoid: false
+        xlimits: [0.15, 0.95]
+        ylimits: [0.10, 0.75]
+        header: ''
+        textsize: 0.03
+
     legend:
         avoid: false #set true to avoid the legend in the final plot
         xlimits: [0.85, 0.95]
-        ylimits: [0.75, 0.95]
+        ylimits: [0.55, 0.75]
         header: ''
-        titles: [e, K, p, '#pi']
+        titles: [d, K, p, '#pi']
         options: [l, l, l, l]
         textsize: 0.045
         ncolumns: 1
