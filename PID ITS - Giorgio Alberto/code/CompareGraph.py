@@ -70,6 +70,7 @@ xTitle = inputCfg['options']['canvas']['xaxistitle']
 yTitle = inputCfg['options']['canvas']['yaxistitle']
 logX = inputCfg['options']['canvas']['logx']
 logY = inputCfg['options']['canvas']['logy']
+logZ = inputCfg['options']['canvas']['logz']
 ratioLogX = inputCfg['options']['canvas']['ratio']['logx']
 ratioLogY = inputCfg['options']['canvas']['ratio']['logy']
 uncCompLogX = inputCfg['options']['canvas']['errcomp']['logx']
@@ -246,12 +247,17 @@ if doRatio or doCompareUnc:
         cOut.cd(1).SetLogx()
     if logY:
         cOut.cd(1).SetLogy()
+    if logZ:
+        cOut.cd().SetLogz()
 else:
     hFrame = cOut.cd().DrawFrame(xLimits[0], yLimits[0], xLimits[1], yLimits[1], f';{xTitle};{yTitle}')
     if logX:
         cOut.cd().SetLogx()
     if logY:
         cOut.cd().SetLogy()
+    if logZ:
+        cOut.cd().SetLogz()
+    
 hFrame.GetYaxis().SetDecimals()
 
 
@@ -273,9 +279,8 @@ if not avoidStatBox:
 
     if all('TH' in objType for objType in objTypes):
             pave.AddText(0., 0.7, f'Entries: {h.GetEntries()}')
-            pave.AddText(0., 0.4, f'Mean: {h.GetMean()}')
-            pave.AddText(0., 0.1, f'Std Dev: {h.GetStdDev()}')
-            print('ok')
+            pave.AddText(0., 0.4, f'Mean: {round(h.GetMean(), 3)}')
+            pave.AddText(0., 0.1, f'Std Dev: {round(h.GetStdDev(), 3)}')
     pave.Draw()
 
 # Draw legend

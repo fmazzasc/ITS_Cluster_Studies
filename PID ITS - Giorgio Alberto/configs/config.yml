@@ -2,12 +2,11 @@
 # Configuration file for the particle identification with the ML algorithm in PID_ITS - Giorgio Alberto
 
 input:
-    data:       /home/galucia/PID_ITS/data/TPC/Df_filtered_ITS2Cluster505673.parquet.gzip
-    #data:       /data/shared/ITS/ML/particles_pid_520143.parquet
+    data:       /data/shared/ITS/ML/particles_pid_520143.parquet
     appl_data:  /data/shared/ITS/ML/particles_pid_520147_itstpc.parquet
-    ext_appl: False
+    ext_appl: True
 
-    isV0: False
+    isV0: True
 
 
 
@@ -19,8 +18,8 @@ output:
     save_data_dir:      ../../../data
     model_out:          ../../../ML_output
 
-    particle:   { 0: "Deu", 1: "P", 2: "K", 3: "Pi"}
-    #particle:   { 1: "P", 2: "K", 3: "Pi", 4: "E"}
+    #particle:   { 0: "Deu", 1: "P", 2: "K", 3: "Pi"}
+    particle:   { 1: "P", 2: "K", 3: "Pi", 4: "E"}
 
 
 data_prep:
@@ -47,13 +46,11 @@ data_prep:
 
     # Data Augmentation
     #____________________________________
-    do_augm: True
+    do_augm: False
     to_augm: ["K"]
     mothers: ["Pi"]
-    p_ranges: [[0.01, 0.3]]
-    #to_augm: ["K"]
-    #mothers: ["P"]
-    #p_ranges: [[0.7, 1.5]]
+    #p_ranges: [[0., 0.2]]
+    p_ranges: [[0., 0.7]]
 
     # Beta Flat
     #____________________________________
@@ -67,13 +64,12 @@ data_prep:
 
 training:
 
-    skip_training: False
+    skip_training: True
 
     random_state: 0
-    RegressionColumns: ["p", "tgL", "meanClsize", "meanSnPhi", "meanPattID",
+    
+    RegressionColumns: ["p", "tgL", "meanClsize", "meanSnPhi", "meanPattID", "clSizeCosLam",
                         "ClSizeL0", "ClSizeL1", "ClSizeL2", "ClSizeL3", "ClSizeL4", "ClSizeL5", "ClSizeL6"]
-    #RegressionColumns: ["p", "tgL", "meanClsize", "meanSnPhi", "meanPattID", "clSizeCosLam",
-    #                    "ClSizeL0", "ClSizeL1", "ClSizeL2", "ClSizeL3", "ClSizeL4", "ClSizeL5", "ClSizeL6"]
     ModelParams:        {"n_jobs": 40,
                         #"time_budget": 100,
                         #"metric": "r2",
@@ -107,12 +103,12 @@ training:
     early_stop: False
     save_model: True
 
-    beta_flat: True
-    beta_p_flat: False
+    beta_flat: False
+    beta_p_flat: True
 
 application:
     skip_appl: False
-    model_loc: 
+    model_loc: /home/galucia/PID_ITS/ML_output/RegressorModel_xgboost_beta_pflat_.pickle
 
 plots:
     do_plots: True
@@ -133,9 +129,9 @@ plots:
     
     plot_x_scat:    ["p", "p", "p", "beta"]
     plot_y_scat:    ["dedx", "beta", "meanClsize", "meanClsize"]
-    plot_spec_scat: [["p", "#frac{dE}{dx}", 1500, 0, 1.5, 600, 0, 600], ["p", "#beta", 1500, 0, 1.5, 1000, 0, 1.1], ["p", "meanClsize", 1500, 0, 1.5, 10, 0, 10], ["#beta", "meanClsize", 10, 0, 1, 10, 0, 20]] 
+    plot_spec_scat: [["p", "#frac{dE}{dx}", 1500, 0, 1.5, 600, 0, 600], ["p", "#beta", 1500, 0, 1.5, 1000, 0, 1.1], ["p", "meanClsize", 150, 0, 1.5, 120, 0, 12], ["#beta", "meanClsize", 100, 0, 1, 120, 0, 12]] 
     bp_flat_scat:   {"p": ["p", "Particle species", 15, 0, 1.5, 4, 0., 4.5], "weights": ["weights", "Particle species", 25, 0, 500, 4, 0., 4.5]}
 
     model_train:    {"p": [1500, 0, 1.5, 3000, -1.5, 1.5], "beta": [1000, 0, 1, 3000, -1.5, 1.5]}
-    appl_plot_spec: {"b_vs_p_final": ["p", "#beta", 1500, 0, 1.5, 1050, 0, 1.05], "b_vs_p_true": ["p", "#beta", 1500, 0, 1.5, 1050, 0, 1.05],
-                    "beta": [1000, 0, 1, 3000, -1.5, 1.5], "p": [1500, 0, 1.5, 3000, -1.5, 1.5]} 
+    appl_plot_spec: {"b_vs_p_final": ["p", "#beta", 1500, 0, 1.5, 1050, 0, 1.05], "b_vs_p_true": ["p", "#beta", 1500, 0, 1.5, 1050, 0, 1.05], 
+                    "dedx_vs_p": ["p", "#frac{dE}{dx}", 1500, 0, 1.5, 600, 0, 600], "beta": [1000, 0, 1, 3000, -1.5, 1.5], "p": [1500, 0, 1.5, 3000, -1.5, 1.5]} 

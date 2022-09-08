@@ -1,19 +1,20 @@
 inputs:
     dirname: null # leave null if not common for all input files
-    filenames: [/home/galucia/PID_ITS/ML_output/TPC/augm_betaflat/Appl_Deu_score_hist.root,
-                /home/galucia/PID_ITS/ML_output/TPC/augm_betaflat/Appl_K_score_hist.root,
-                /home/galucia/PID_ITS/ML_output/TPC/augm_betaflat/Appl_P_score_hist.root,
-                /home/galucia/PID_ITS/ML_output/TPC/augm_betaflat/Appl_Pi_score_hist.root,
+    filenames: [/home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/Check_Hist/BETA_075_078_meanClsize.root,
+                /home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/Check_Hist/BETA_075_078_meanClsize.root,
+                /home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/Check_Hist/BETA_075_078_meanClsize.root,
+                /home/galucia/PID_ITS/ML_output/TPC/augm_betaflat/Appl_Pi_score_hist.root
+
                 ]
-    objectnames: ['scatter_plot', 'scatter_plot', 'scatter_plot', 'scatter_plot'] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
+    objectnames: ['2', '1', '0'] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
 
 output: 
-    filename: /home/galucia/PID_ITS/ML_output/TPC/augm_betaflat/TOTAL_Appl_score_hist # with path and w/o extension
-    objectnames: ['d', 'K', 'p', 'pi'] # new names for the created objects. Will be AUTOMATICALLY applied if the lenght of the list equals the lenght of the one in the input section
-    extensions: [png, root] # possibilities: pdf, eps, png, root
+    filename: /home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/Check_Hist/BETA_075_078_meanClsize # with path and w/o extension
+    objectnames: ['3', '2', '1', 'pi'] # new names for the created objects. Will be AUTOMATICALLY applied if the lenght of the list equals the lenght of the one in the input section
+    extensions: [png] # possibilities: pdf, eps, png, root
 
 options:
-    ROOTobject: [TH1, TH1, TH1, TH1] # TH1 or TGraph: no need to specify TH1F, TH1D or TGraphErrors, TGraphAsymmErrors
+    ROOTobject: [TH1, TH1, TH1, TH1] # TH1, TH2 or TGraph: no need to specify TH1F, TH1D or TGraphErrors, TGraphAsymmErrors
     scale: [1, 1, 1, 1]
     rebin: [1, 1, 1, 1]
     normalize: [true, true, true, true] # divide histogram by its area
@@ -37,13 +38,13 @@ options:
         enable: false
         relative: true
     
-    KS: false
+    KS: true
     dottedLine: ''
 
     statbox:
         avoid: false
-        xlimits: [0.15, 0.95]
-        ylimits: [0.10, 0.75]
+        xlimits: [7, 9]
+        ylimits: [0.15, 0.8]
         header: ''
         textsize: 0.03
 
@@ -52,7 +53,7 @@ options:
         xlimits: [0.85, 0.95]
         ylimits: [0.55, 0.75]
         header: ''
-        titles: [d, K, p, '#pi']
+        titles: ['#pi', K, p]
         options: [l, l, l, l]
         textsize: 0.045
         ncolumns: 1
@@ -64,15 +65,15 @@ options:
     canvas:
         width: 1800
         heigth: 1000
-        xaxistitle: '#frac{#Delta}{#beta}'
+        xaxistitle: 'meanCLsize'
         yaxistitle: 'Norm. counts'
         yaxistitleratio: ''
-        xlimits: [-1, 1]
-        ylimits: [0.0001, 1]
+        xlimits: [0, 10]
+        ylimits: [0.0001, 1.]
         ylimitsratio: [-0.1, 1.5]
         ylimitserr: [0., 0.35]
         logx: false
-        logy: True
+        logy: true
         logz: true
         ratio:
             logy: false

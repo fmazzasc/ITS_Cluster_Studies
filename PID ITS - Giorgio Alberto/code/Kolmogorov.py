@@ -28,7 +28,7 @@ def KolmogorovHist(h1, h2, canvas, pad, legend, name):
     legend.AddEntry(h2, 'TPC', 'l')
 
     KS_result = h1.KolmogorovTest(h2)
-    h1.SetTitle(f'{name}: {KS_result}')       
+    h1.SetTitle(f'{name}: {round(KS_result, 3)}')       
 
     canvas.cd(pad)      
     h1.Draw('hist e1')
@@ -70,8 +70,8 @@ def main(d1, d2, output):
     leg.SetTextSize(0.045)
     leg.SetNColumns(1)
 
-    h_1 = [TH1F(f"h{2*i+1}", "V0", 10, -1, 1) for i in range(7)]
-    h_2 = [TH1F(f"h{2*i+2}", "TPC", 10, -1, 1) for i in range(7)]
+    h_1 = [TH1F(f"h{2*i+1}", "V0", 100, -10, 10) for i in range(7)]
+    h_2 = [TH1F(f"h{2*i+2}", "TPC", 100, -10, 10) for i in range(7)]
 
     #for i in range(7):
     #   
@@ -80,7 +80,7 @@ def main(d1, d2, output):
 
     for i, (h1, h2) in enumerate(zip(h_1, h_2)):
 
-        name = f'SnPhiL{i}'
+        name = f'TanLamL{i}'
         for n in d1[name]:     h1.Fill(n)
         for n in d2[name]:     h2.Fill(n)
         
@@ -96,7 +96,7 @@ def main(d1, d2, output):
         else:                       results[name] = KolmogorovHist(h1, h2, canvas=canvas, pad=i+1, legend=leg, name=name)
 
 
-    name = 'meanSnPhi'
+    name = 'tgL'
     h1 = TH1F("h15", "V0", 10, -1, 1)
     for n in d1[name]:     h1.Fill(n)
     h2 = TH1F("h16", "TPC", 10, -1, 1)
@@ -104,7 +104,8 @@ def main(d1, d2, output):
     
     
     if h1.GetEntries() != 0 and h2.GetEntries() != 0:   results[name] = KolmogorovHist(h1, h2, canvas=canvas, pad=8, legend=leg, name=name)
-    canvas.SaveAs(output)
+    canvas.SaveAs(f'{output}.root')
+    canvas.SaveAs(f'{output}.png')
 
     del h_1, h_2, h1, h2, canvas
     print(results)
@@ -155,7 +156,7 @@ d1.query('0.8 <= p < 0.85', inplace=True)
 d2.query('0.8 <= p < 0.85', inplace=True)
 
 # Kolmogorov on full dfs
-output = '/home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/Kolmogorov/SnPhi_Kolmogorov_08_085.root'
+output = '/home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/Kolmogorov/TanLam_Kolmogorov_08_085'
 print()
 main(d1, d2, output=output)
 print()
@@ -166,7 +167,7 @@ for i, (particle, tag) in zip(range(3), particle_dict.items()):
     new_d1 = pd.DataFrame(d1.query(f'particle == {i+1}'))
     new_d2 = pd.DataFrame(selection(d2, particle=particle, tag=tag))
 
-    output = f'/home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/Kolmogorov/SnPhi_Kolmogorov_{particle}_08_085.root'
+    output = f'/home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/Kolmogorov/TanLam_Kolmogorov_{particle}_08_085'
     print(f'{particle}')
     print()
     main(new_d1, new_d2, output=output)
