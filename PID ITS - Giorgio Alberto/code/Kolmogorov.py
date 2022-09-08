@@ -1,43 +1,11 @@
-from unittest import result
-from math import ceil, sqrt
 import pandas as pd
+
 from ROOT import TH1F, TCanvas, kCyan, kRed, TLegend, gPad, TFile
-import numpy as np
+
+from UsefulFunctions import KolmogorovHist
 
 
-def KolmogorovHist(h1, h2, canvas, pad, legend, name):
-    """
-    Does a Kolmogorov test for two given histograms, plots the histograms and returns the result
-    """
 
-    factor = 1.
-    legend.Clear()
-    
-    h1.Scale(factor/h1.Integral(), 'width') 
-    h1.SetError( np.array([ sqrt(h1.GetEntries())/(h1.GetEntries()) for i in range( int(h1.GetEntries()) )], dtype='float') )
-    h1.SetLineColor(kCyan)
-    h1.SetMaximum(10)
-    h1.SetMinimum(0.00001)
-    legend.AddEntry(h1, 'V0', 'l')
-
-    h2.Scale(factor/h2.Integral(), 'width')
-    h2.SetError( np.array([ sqrt(h2.GetEntries())/(h2.GetEntries()) for i in range( int(h2.GetEntries()) ) ], dtype='float') )
-    h2.SetLineColor(kRed)
-    h2.SetMaximum(10)
-    h2.SetMinimum(0.00001)
-    legend.AddEntry(h2, 'TPC', 'l')
-
-    KS_result = h1.KolmogorovTest(h2)
-    h1.SetTitle(f'{name}: {round(KS_result, 3)}')       
-
-    canvas.cd(pad)      
-    h1.Draw('hist e1')
-    h2.Draw('hist same e1')
-    gPad.SetLogy()
-    legend.Draw()
-    canvas.Draw()
-
-    return KS_result
 
 def selection(df, particle, tag):
     """
@@ -151,6 +119,8 @@ d1.loc[d1.nSigmaKAbs < 1, 'particle'] = 2
 
 d1.drop( d1[d1.particle == 4].index, inplace=True )
 d2.drop( d2[d2.nSigmaEAbs < 1].index, inplace=True )
+
+
 
 d1.query('0.8 <= p < 0.85', inplace=True)
 d2.query('0.8 <= p < 0.85', inplace=True)

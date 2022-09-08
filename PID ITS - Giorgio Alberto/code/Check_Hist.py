@@ -1,5 +1,5 @@
 import pandas as pd
-from UsefulFunctions import multiple_hist
+from UsefulFunctions import multiple_hist, MultipleKS
 
 
 df = pd.read_parquet('/data/shared/ITS/ML/particles_pid_520143_itstpc.parquet')
@@ -31,5 +31,5 @@ plt_spec.append([100, 0, 10])
 dict = dict(zip(columns, plt_spec))
 
 for col, spec in dict.items(): multiple_hist(dfs, col, spec, '/home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/Check_Hist/BETA_075_078_')
-
+for col, spec in dict.items(): MultipleKS(dfs, col, spec, '/home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/Check_Hist/KS_BETA_075_078_')
 
