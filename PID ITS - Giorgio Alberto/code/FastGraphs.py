@@ -10,12 +10,12 @@ mass_E = 0.000511
 particle_dict = { 1: "P", 2: "K", 3: "Pi", 4: "E"}
 mass_dict = dict(zip(particle_dict.values(), [mass_P, mass_K, mass_Pi, mass_E]))
 
-df = pd.read_parquet('/data/shared/ITS/ML/particles_pid_520147_itstpc.parquet')
+df = pd.read_parquet('/data/shared/ITS/ML/particles_pid_520147.parquet')
 
 
 
 
-density_scatter(df['p'], df['dedx'], "dedx_appl", ["p", "#frac{dE}{dx}", 1500, 0, 1.5, 600, 0, 600])
+density_scatter(df['p'], df['dedx'], "dedx_appl_V0", ["p", "#frac{dE}{dx}", 1500, 0, 1.5, 600, 0, 600])
 
 
 
@@ -27,6 +27,6 @@ df.eval('label = particle', inplace=True)
 for number, name in particle_dict.items():  df['label'].mask(df['particle'] == number, name, inplace=True)
 
 appl_list = [filtering(df, name, mass=mass_dict[name], label=False)for name in particle_dict.values()]
-df = pd.concat(appl_list)
+#df = pd.concat(appl_list)
 
-density_scatter(df['p'], df['dedx'], "dedx_appl_filt", ["p", "#frac{dE}{dx}", 1500, 0, 1.5, 600, 0, 600])
+density_scatter(appl_list[1]['p'], appl_list[1]['dedx'], "dedx_appl_filt_V0", ["p", "#frac{dE}{dx}", 1500, 0, 1.5, 600, 0, 600])

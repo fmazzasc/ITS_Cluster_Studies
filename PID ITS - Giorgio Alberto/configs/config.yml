@@ -3,7 +3,7 @@
 
 input:
     data:       /data/shared/ITS/ML/particles_pid_520143.parquet
-    appl_data:  /data/shared/ITS/ML/particles_pid_520147_itstpc.parquet
+    appl_data:  /data/shared/ITS/ML/particles_pid_520147.parquet
     ext_appl: True
 
     isV0: True
@@ -19,7 +19,7 @@ output:
     model_out:          ../../../ML_output
 
     #particle:   { 0: "Deu", 1: "P", 2: "K", 3: "Pi"}
-    particle:   { 1: "P", 2: "K", 3: "Pi", 4: "E"}
+    particle:   { 1: "P", 2: "K", 3: "Pi"}
 
 
 data_prep:
@@ -47,10 +47,10 @@ data_prep:
     # Data Augmentation
     #____________________________________
     do_augm: False
-    to_augm: ["K"]
-    mothers: ["Pi"]
+    to_augm: ["K", "K"]
+    mothers: ["Pi", "P"]
     #p_ranges: [[0., 0.2]]
-    p_ranges: [[0., 0.7]]
+    p_ranges: [[0., 0.7], [0.6, 1.5]]
 
     # Beta Flat
     #____________________________________
@@ -59,16 +59,18 @@ data_prep:
 
     # Beta p Flat
     #____________________________________
-    pmins: [0., 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4]
-    pmaxs: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5]
+    pmins: [0., 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0, 1.05, 1.1, 1.15, 1.2, 1.25, 1.3, 1.35, 1.4, 1.45]
+    pmaxs: [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0, 1.05, 1.1, 1.15, 1.2, 1.25, 1.3, 1.35, 1.4, 1.45, 1.5]
 
 training:
 
-    skip_training: True
+    skip_training: False
 
     random_state: 0
     
-    RegressionColumns: ["p", "tgL", "meanClsize", "meanSnPhi", "meanPattID", "clSizeCosLam",
+    RegressionColumns: ["p", 
+                        "tgL", 
+                        "meanSnPhi", "meanPattID", "clSizeCosLam",
                         "ClSizeL0", "ClSizeL1", "ClSizeL2", "ClSizeL3", "ClSizeL4", "ClSizeL5", "ClSizeL6"]
     ModelParams:        {"n_jobs": 40,
                         #"time_budget": 100,
@@ -112,13 +114,13 @@ application:
 
 plots:
     do_plots: True
-    vars_to_plot:   ["ClSizeL0", "ClSizeL1", "ClSizeL2", "ClSizeL3", "ClSizeL4", "ClSizeL5", "ClSizeL6", "meanClsize",
+    vars_to_plot:   ["ClSizeL0", "ClSizeL1", "ClSizeL2", "ClSizeL3", "ClSizeL4", "ClSizeL5", "ClSizeL6", "clSizeCosLam",
                     "meanSnPhi", "tgL", "meanPattID", "p"]
     #vars_to_plot:   ["ClSizeL0", "ClSizeL1", "ClSizeL2", "ClSizeL3", "ClSizeL4", "ClSizeL5", "ClSizeL6", "meanClsize",
     #                "meanSnPhi", "tgL", "meanPattID", "p", "clSizeCosLam"]
 
     plot_spec_hist: {"ClSizeL0": [10, 0, 10], "ClSizeL1": [10, 0, 10], "ClSizeL2": [10, 0, 10], "ClSizeL3": [10, 0, 10], 
-                    "ClSizeL4": [10, 0, 10], "ClSizeL5": [10, 0, 10], "ClSizeL6": [10, 0, 10], "meanClsize": [100, 0, 10],
+                    "ClSizeL4": [10, 0, 10], "ClSizeL5": [10, 0, 10], "ClSizeL6": [10, 0, 10], "clSizeCosLam": [100, 0, 10],
                     "SnPhiL0": [100, -1, 1], "SnPhiL1": [100, -1, 1], "SnPhiL2": [100, -1, 1], "SnPhiL3": [100, -1, 1], 
                     "SnPhiL4": [100, -1, 1], "SnPhiL5": [100, -1, 1], "SnPhiL6": [100, -1, 1], "meanSnPhi": [100, -1, 1], 
                     "TanLamL0": [100, -10, 10], "TanLamL1": [100, -10, 10], "TanLamL2": [100, -10, 10], "TanLamL3": [100, -10, 10], 
@@ -128,9 +130,9 @@ plots:
                     "L6_L0": [100, 0, 10], "p": [200, 0, 2]}     # dict (variable_to_plot, hist_settings) 
     
     plot_x_scat:    ["p", "p", "p", "beta"]
-    plot_y_scat:    ["dedx", "beta", "meanClsize", "meanClsize"]
-    plot_spec_scat: [["p", "#frac{dE}{dx}", 1500, 0, 1.5, 600, 0, 600], ["p", "#beta", 1500, 0, 1.5, 1000, 0, 1.1], ["p", "meanClsize", 150, 0, 1.5, 120, 0, 12], ["#beta", "meanClsize", 100, 0, 1, 120, 0, 12]] 
-    bp_flat_scat:   {"p": ["p", "Particle species", 15, 0, 1.5, 4, 0., 4.5], "weights": ["weights", "Particle species", 25, 0, 500, 4, 0., 4.5]}
+    plot_y_scat:    ["dedx", "beta", "clSizeCosLam", "clSizeCosLam"]
+    plot_spec_scat: [["p", "#frac{dE}{dx}", 1500, 0, 1.5, 600, 0, 600], ["p", "#beta", 1500, 0, 1.5, 1000, 0, 1.1], ["p", "clSizeCosLam", 150, 0, 1.5, 120, 0, 12], ["#beta", "clSizeCosLam", 100, 0, 1, 120, 0, 12]] 
+    bp_flat_scat:   {"p": ["p", "Particle species", 15, 0, 1.5, 4, 0., 4.5], "weights": ["weights", "Particle species", 100, 0, 1, 4, 0., 4.5]}
 
     model_train:    {"p": [1500, 0, 1.5, 3000, -1.5, 1.5], "beta": [1000, 0, 1, 3000, -1.5, 1.5]}
     appl_plot_spec: {"b_vs_p_final": ["p", "#beta", 1500, 0, 1.5, 1050, 0, 1.05], "b_vs_p_true": ["p", "#beta", 1500, 0, 1.5, 1050, 0, 1.05], 

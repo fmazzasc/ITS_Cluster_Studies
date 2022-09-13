@@ -121,7 +121,6 @@ def data_prep(config):
     # Define some new columns
     #_________________________________
 
-    RegressionDf.eval('meanClsize = (ClSizeL0+ClSizeL1+ClSizeL2+ClSizeL3+ClSizeL4+ClSizeL5+ClSizeL6)/7', inplace=True)
     RegressionDf.eval('meanPattID = (PattIDL0+PattIDL1+PattIDL2+PattIDL3+PattIDL4+PattIDL5+PattIDL6)/7', inplace=True)
     RegressionDf.eval('meanSnPhi = (SnPhiL0+SnPhiL1+SnPhiL2+SnPhiL3+SnPhiL4+SnPhiL5+SnPhiL6)/7', inplace=True)
     RegressionDf.eval('L6_L0 = ClSizeL6/ClSizeL0', inplace=True)
@@ -129,7 +128,6 @@ def data_prep(config):
     RegressionDf.eval('delta_p = (p - pTPC)/pTPC', inplace=True)  
 
     if ext_appl:
-        ApplicationDf.eval('meanClsize = (ClSizeL0+ClSizeL1+ClSizeL2+ClSizeL3+ClSizeL4+ClSizeL5+ClSizeL6)/7', inplace=True)
         ApplicationDf.eval('meanPattID = (PattIDL0+PattIDL1+PattIDL2+PattIDL3+PattIDL4+PattIDL5+PattIDL6)/7', inplace=True)
         ApplicationDf.eval('meanSnPhi = (SnPhiL0+SnPhiL1+SnPhiL2+SnPhiL3+SnPhiL4+SnPhiL5+SnPhiL6)/7', inplace=True)
         ApplicationDf.eval('L6_L0 = ClSizeL6/ClSizeL0', inplace=True)  
@@ -161,9 +159,9 @@ def data_prep(config):
 
 
     # redefine K
-    #RegressionDf['label'].mask(RegressionDf['nSigmaKAbs'] < 1, 'K', inplace=True)
-    #if isV0:    RegressionDf['particle'].mask(RegressionDf['nSigmaKAbs'] < 1, 2, inplace=True)
-#
+    RegressionDf['label'].mask(RegressionDf['nSigmaKAbs'] < 1, 'K', inplace=True)
+    if isV0:    RegressionDf['particle'].mask(RegressionDf['nSigmaKAbs'] < 1, 2, inplace=True)
+
     #if ext_appl:    
     #    ApplicationDf['label'].mask(ApplicationDf['nSigmaKAbs'] < 1, 'K', inplace=True)
     #    if isV0:    ApplicationDf['particle'].mask(ApplicationDf['nSigmaKAbs'] < 1, 2, inplace=True)
@@ -204,7 +202,7 @@ def data_prep(config):
             density_scatter(total_df[x], total_df[y], f'{output_dir}/{y}_vs_{x}_total', scat_spec, title=f'{y}_total')
 
         density_scatter(RegressionDf['p'], RegressionDf['dedx'], f'{output_dir}/dedx_all', plot_spec_scat[0], title='dedx_all')
-        density_scatter(RegressionDf['p'], RegressionDf['meanClsize'], f'{output_dir}/meanClsize_all', plot_spec_scat[2], title='meanClsize_all')
+        density_scatter(RegressionDf['p'], RegressionDf['clSizeCosLam'], f'{output_dir}/clSizeCosLam_all', plot_spec_scat[2], title='clSizeCosLam_all')
         
         # Check hypotesis 
         check_dfs = []
@@ -337,12 +335,18 @@ def data_prep(config):
                 for i, (pmin, pmax) in enumerate(zip(pmins, pmaxs)):    
                     weights.append(len(TrainSet.query(f'label == "{name}" and {pmin} <= p < {pmax}'))/N)
                     conditions.append((TrainSet['label'] == name) & (TrainSet['p'] >= pmin) & (TrainSet['p'] < pmax))
+                
             
             n_weights = []
             for weight in weights:
                 if weight == 0.:    n_weights.append(0.)
                 else:               n_weights.append(1./weight)
-            TrainSet['beta_pweight'] = np.select(conditions, n_weights)
+            nn_weights = []
+            for n_weight in n_weights:
+                if n_weight == 0:   nn_weights.append(0.)
+                else:               nn_weights.append(n_weight/max(n_weights) * 10**3)
+
+            TrainSet['beta_pweight'] = np.select(conditions, nn_weights)
 
             plot_spec_flat = config['plots']['bp_flat_scat']
             density_scatter(TrainSet['p'], TrainSet['particle'], f'{output_dir}/beta_pflat_momentum', plot_specifics=plot_spec_flat['p'])
@@ -632,16 +636,19 @@ def application(ApplicationDf, config, model):
     density_scatter(ApplicationDf['p'], ApplicationDf['preds'], output_file, plot_specifics['b_vs_p_final'], title='beta_vs_p_final')
     density_scatter(ApplicationDf['p'], ApplicationDf['dedx'], f'{final_output_dir}/dex_vs_p', plot_specifics=plot_specifics['dedx_vs_p'])
 
-     # beta from TPC (some candidates will be erased)
+    # beta from TPC (some candidates will be erased)
     appl_list = [filtering(ApplicationDf, name, mass=mass_dict[name], label=False)for name in particle_dict.values()]
     ApplicationDf = pd.concat(appl_list)
+    ApplicationDf.eval('Delta = (beta - preds)/beta', inplace=True)
 
     for name in particle_dict.values():   
         df = ApplicationDf.query(f'label == "{name}"', inplace=False)  
         
-        if name == 'P':
-            df1 = df.query('0.4 <= p < 0.45')
-            density_scatter(df1['preds'], df1['meanClsize'], f'{final_output_dir}/meanClsize_vs_beta_ricostruita_{name}', ["#beta", "meanClsize", 100, 0, 1, 120, 0, 12])
+        df1 = df.query('0.4 <= p < 0.45')
+        for i in range(7):  df1.drop( df1[df1[f'ClSizeL{i}'] < 0].index, inplace=True )
+        
+        density_scatter(df1['preds'], df1['clSizeCosLam'], f'{final_output_dir}/clSizeCosLam_vs_beta_ricostruita_{name}', ["#beta", "clSizeCosLam", 100, 0, 1, 120, 0, 12])
+        density_scatter(df1['Delta'], df1['clSizeCosLam'], f'{final_output_dir}/clSizeCosLam_vs_delta_{name}', ["#Delta", "clSizeCosLam", 200, -1, 1, 120, 0, 12])
 
         density_scatter(df['p'], df['preds'], f'{output_file}_{name}', plot_specifics['b_vs_p_final'], title=f'beta_vs_p_final_{name}')
         density_scatter(df['p'], df['beta'], f'{final_output_dir}/beta_vs_p_{name}', plot_specifics=plot_specifics['b_vs_p_final'], title=f'beta_{name}')
@@ -652,13 +659,13 @@ def application(ApplicationDf, config, model):
     # Delta 
     #________________________________________________
 
-    plot_score(ApplicationDf, ApplicationDf['p'], RegressionColumns, model, x_label='p', plot_specifics=plot_specifics['p'], filename=f'{delta_output_dir}/Appl_', absolute=False)
+    plot_score(ApplicationDf, ApplicationDf['p'], RegressionColumns, model, x_label='p', plot_specifics=plot_specifics['p'], filename=f'{delta_output_dir}/Appl_p_', absolute=False)
     plot_score(ApplicationDf, ApplicationDf['beta'], RegressionColumns, model, x_label='#beta', plot_specifics=plot_specifics['beta'], filename=f'{delta_output_dir}/Appl_', absolute=False)
 
     for name in particle_dict.values():
         X_name = ApplicationDf.query(f"label == '{name}'", inplace=False)
 
-        plot_score(X_name, X_name['p'], RegressionColumns, model, x_label='p', plot_specifics=plot_specifics['p'], filename=f'{delta_output_dir}/Appl_{name}', absolute=False)
+        plot_score(X_name, X_name['p'], RegressionColumns, model, x_label='p', plot_specifics=plot_specifics['p'], filename=f'{delta_output_dir}/Appl_p_{name}', absolute=False)
         plot_score(X_name, X_name['beta'], RegressionColumns, model, x_label='#beta', plot_specifics=plot_specifics['beta'], filename=f'{delta_output_dir}/Appl_{name}', absolute=False)
 
     

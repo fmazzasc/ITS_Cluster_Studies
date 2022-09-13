@@ -1,16 +1,15 @@
 inputs:
     dirname: null # leave null if not common for all input files
-    filenames: [/home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/Check_Hist/BETA_075_078_meanClsize.root,
-                /home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/Check_Hist/BETA_075_078_meanClsize.root,
-                /home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/Check_Hist/BETA_075_078_meanClsize.root,
-                /home/galucia/PID_ITS/ML_output/TPC/augm_betaflat/Appl_Pi_score_hist.root
+    filenames: [/home/galucia/PID_ITS/data_visual_root/V0/beta_pflat/tgL.root,
+                /home/galucia/PID_ITS/data_visual_root/V0/beta_pflat/tgL.root,
+                /home/galucia/PID_ITS/data_visual_root/V0/beta_pflat/tgL.root,
 
                 ]
-    objectnames: ['2', '1', '0'] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
+    objectnames: ['0', '1', '2', 'scatter_plot'] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
 
 output: 
-    filename: /home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/Check_Hist/BETA_075_078_meanClsize # with path and w/o extension
-    objectnames: ['3', '2', '1', 'pi'] # new names for the created objects. Will be AUTOMATICALLY applied if the lenght of the list equals the lenght of the one in the input section
+    filename: /home/galucia/PID_ITS/data_visual_root/V0/beta_pflat/PNG_tgL # with path and w/o extension
+    objectnames: ['p', 'K', 'pi'] # new names for the created objects. Will be AUTOMATICALLY applied if the lenght of the list equals the lenght of the one in the input section
     extensions: [png] # possibilities: pdf, eps, png, root
 
 options:
@@ -38,12 +37,12 @@ options:
         enable: false
         relative: true
     
-    KS: true
+    KS: false
     dottedLine: ''
 
     statbox:
         avoid: false
-        xlimits: [7, 9]
+        xlimits: [2., 3.7]
         ylimits: [0.15, 0.8]
         header: ''
         textsize: 0.03
@@ -53,7 +52,7 @@ options:
         xlimits: [0.85, 0.95]
         ylimits: [0.55, 0.75]
         header: ''
-        titles: ['#pi', K, p]
+        titles: [p, K, '#pi']
         options: [l, l, l, l]
         textsize: 0.045
         ncolumns: 1
@@ -65,12 +64,12 @@ options:
     canvas:
         width: 1800
         heigth: 1000
-        xaxistitle: 'meanCLsize'
+        xaxistitle: 'tan #lambda'
         yaxistitle: 'Norm. counts'
         yaxistitleratio: ''
-        xlimits: [0, 10]
-        ylimits: [0.0001, 1.]
-        ylimitsratio: [-0.1, 1.5]
+        xlimits: [-4, 4]
+        ylimits: [0.0001, 1]
+        ylimitsratio: [-1, 1]
         ylimitserr: [0., 0.35]
         logx: false
         logy: true

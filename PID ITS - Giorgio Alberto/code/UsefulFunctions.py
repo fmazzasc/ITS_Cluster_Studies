@@ -278,8 +278,17 @@ def callback(study, trial):
 
 def Delta(model, X, y, absolute=True):
     pred = model.predict(X)
+
     if absolute:    return abs(y - pred)/y
     else:           return (y - pred)/y
+
+def Delta_alt(model, X, y, RegressionColumns, absolute=True):
+    pred = model.predict(X[RegressionColumns])
+    for n, (i, j) in enumerate(zip(pred, X['preds'])):
+        if(i != j):  print(pred.head(n+5), X['preds'].head(n+5))
+    if absolute:    return abs(y - pred)/y
+    else:           return (y - pred)/y
+    
     
 #def Delta_score(model, X, y, weight:pd.Series):
 def Delta_score(model, X, y):
@@ -302,14 +311,17 @@ def plot_score(X, y, RegressionColumns, model, x_label, plot_specifics, x=pd.Ser
     - plot_specifics: list with the following entries [nbinsx, xlow, xup, nbinsy, ylow, yup]
     """
 
-    delta = Delta(model, X[RegressionColumns], y, absolute=absolute)
+    if 'preds' not in X.columns:    X['preds'] = model.predict(X[RegressionColumns])
+    if 'Delta' not in X.columns:    
+        if absolute:    X.eval('Delta = abs(beta - preds)/beta', inplace=True)
+        else:           X.eval('Delta = (beta - preds)/beta', inplace=True)
 
     plot_spec = [x_label, '#Delta'] + plot_specifics
-    if x.empty:     density_scatter(y, delta, f'{filename}_score_scatter', plot_spec)
-    else:           density_scatter(x, delta, f'{filename}_score_scatter', plot_spec)
+    if x.empty:     density_scatter(y, X['Delta'], f'{filename}_score_scatter', plot_spec)
+    else:           density_scatter(x, X['Delta'], f'{filename}_score_scatter', plot_spec)
 
     plot_spec_hist = [f'#Delta'] + plot_specifics[3:]
-    hist(delta, f'{filename}_score_hist', plot_spec_hist)
+    hist(X['Delta'], f'{filename}_score_hist', plot_spec_hist)
 
 def plot_score_train(TrainTestData, RegressionColumns, model, x_label, plot_specifics, x_train=pd.Series(), x_test=pd.Series(), filename='', absolute=False):
     """
@@ -324,20 +336,27 @@ def plot_score_train(TrainTestData, RegressionColumns, model, x_label, plot_spec
 
     X_train, y_train, X_test, y_test = TrainTestData
 
-    delta_train = Delta(model, X_train[RegressionColumns], y_train, absolute=absolute)
-    delta_test = Delta(model, X_test[RegressionColumns], y_test, absolute=absolute)
+    if 'preds' not in X_train.columns:    X_train['preds'] = model.predict(X_train[RegressionColumns])
+    if 'Delta' not in X_train.columns:    
+        if absolute:    X_train.eval('Delta = abs(beta - preds)/beta', inplace=True)
+        else:           X_train.eval('Delta = (beta - preds)/beta', inplace=True)
+
+    if 'preds' not in X_test.columns:    X_test['preds'] = model.predict(X_test[RegressionColumns])
+    if 'Delta' not in X_test.columns:    
+        if absolute:    X_test.eval('Delta = abs(beta - preds)/beta', inplace=True)
+        else:           X_test.eval('Delta = (beta - preds)/beta', inplace=True)
 
     plot_spec = [x_label, '#Delta'] + plot_specifics
     if type(x_train) == pd.Series and x_train.empty:       
-        density_scatter(y_train, delta_train, f'{filename}_score_scatter_train', plot_spec, title='Score scatter train')
-    else:                   density_scatter(x_train, delta_train, f'{filename}_score_scatter_train_x', plot_spec, title='Score scatter train')
+        density_scatter(y_train, X_train['Delta'], f'{filename}_score_scatter_train', plot_spec, title='Score scatter train')
+    else:                   density_scatter(x_train, X_train['Delta'], f'{filename}_score_scatter_train_x', plot_spec, title='Score scatter train')
 
     if type(x_test) == pd.Series and x_test.empty:        
-        density_scatter(y_test, delta_test, f'{filename}_score_scatter_test', plot_spec, title='Score scatter test')
-    else:                   density_scatter(x_test, delta_test, f'{filename}_score_scatter_test_p', plot_spec, title='Score scatter test')
+        density_scatter(y_test, X_test['Delta'], f'{filename}_score_scatter_test', plot_spec, title='Score scatter test')
+    else:                   density_scatter(x_test, X_test['Delta'], f'{filename}_score_scatter_test_p', plot_spec, title='Score scatter test')
 
     # no column will be used, since delta_train, delta_test are not dfs.
-    multiple_hist([delta_train, delta_test], '', plot_specifics[3:], f'{filename}_score_hist', hist_names=['Train', 'Test'])
+    multiple_hist([X_train['Delta'], X_test['Delta']], '', plot_specifics[3:], f'{filename}_score_hist', hist_names=['Train', 'Test'])
 
 
 
@@ -358,7 +377,7 @@ def KolmogorovHist(h1, h2, canvas, pad, legend, name, **kwargs):
     legend.Clear()
     
     h1.Scale(factor/h1.Integral(), 'width') 
-    h1.SetError( np.array([ sqrt(h1.GetEntries())/(h1.GetEntries()) for i in range( int(h1.GetEntries()) )], dtype='float') )
+    #h1.SetError( np.array([ sqrt(h1.GetEntries())/(h1.GetEntries()) for i in range( int(h1.GetEntries()) )], dtype='float') )
     h1.SetLineColor(kCyan)
     h1.SetMaximum(10)
     h1.SetMinimum(0.00001)
@@ -366,7 +385,7 @@ def KolmogorovHist(h1, h2, canvas, pad, legend, name, **kwargs):
     else:                       legend.AddEntry(h1, 'V0', 'l')
 
     h2.Scale(factor/h2.Integral(), 'width')
-    h2.SetError( np.array([ sqrt(h2.GetEntries())/(h2.GetEntries()) for i in range( int(h2.GetEntries()) ) ], dtype='float') )
+    #h2.SetError( np.array([ sqrt(h2.GetEntries())/(h2.GetEntries()) for i in range( int(h2.GetEntries()) ) ], dtype='float') )
     h2.SetLineColor(kRed)
     h2.SetMaximum(10)
     h2.SetMinimum(0.00001)
