@@ -4,7 +4,7 @@ from math import ceil, sqrt
 from itertools import combinations
 
 
-from ROOT import TH2F, TCanvas, TH1F, gStyle, kBird, TFile, kCyan, kRed, gPad, TLegend
+from ROOT import TH2F, TCanvas, TH1F, gStyle, kBird, TFile, kCyan, kRed, kGreen, gPad, TLegend
 from ROOT_graph import set_obj_style
 
 
@@ -376,28 +376,28 @@ def KolmogorovHist(h1, h2, canvas, pad, legend, name, **kwargs):
     factor = 1.
     legend.Clear()
     
-    h1.Scale(factor/h1.Integral(), 'width') 
-    #h1.SetError( np.array([ sqrt(h1.GetEntries())/(h1.GetEntries()) for i in range( int(h1.GetEntries()) )], dtype='float') )
-    h1.SetLineColor(kCyan)
-    h1.SetMaximum(10)
-    h1.SetMinimum(0.00001)
+    #h1.Scale(factor/h1.Integral(), 'width') 
+    h1.SetError( np.array([ sqrt(h1.GetEntries()) for i in range( int(h1.GetEntries()) )], dtype='float') )
+    h1.SetLineColor(kGreen)
+    #h1.SetMaximum(100)
+    #h1.SetMinimum(0.00001)
     if 'leg_entry1' in kwargs:  legend.AddEntry(h1, kwargs['leg_entry1'], 'l')
     else:                       legend.AddEntry(h1, 'V0', 'l')
 
-    h2.Scale(factor/h2.Integral(), 'width')
-    #h2.SetError( np.array([ sqrt(h2.GetEntries())/(h2.GetEntries()) for i in range( int(h2.GetEntries()) ) ], dtype='float') )
+    #h2.Scale(factor/h2.Integral(), 'width')
+    h2.SetError( np.array([ sqrt(h2.GetEntries()) for i in range( int(h2.GetEntries()) ) ], dtype='float') )
     h2.SetLineColor(kRed)
-    h2.SetMaximum(10)
-    h2.SetMinimum(0.00001)
+    #h2.SetMaximum(100)
+    #h2.SetMinimum(0.00001)
     if 'leg_entry2' in kwargs:  legend.AddEntry(h2, kwargs['leg_entry2'], 'l')
     else:                       legend.AddEntry(h2, 'TPC', 'l')
 
     KS_result = h1.KolmogorovTest(h2)
-    h1.SetTitle(f'{name}: {round(KS_result, 3)}')       
+    h1.SetTitle(f'KS({name}): {round(KS_result, 3)}')       
 
     canvas.cd(pad)      
-    h1.Draw('hist e1')
-    h2.Draw('hist same e1')
+    h1.DrawNormalized('hist e1')
+    h2.DrawNormalized('hist same e1')
     gPad.SetLogy()
     legend.Draw()
     canvas.Draw()

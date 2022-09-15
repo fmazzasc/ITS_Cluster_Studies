@@ -1,14 +1,13 @@
 inputs:
     dirname: null # leave null if not common for all input files
-    filenames: [/home/galucia/PID_ITS/data_visual_root/V0/beta_pflat/tgL.root,
-                /home/galucia/PID_ITS/data_visual_root/V0/beta_pflat/tgL.root,
-                /home/galucia/PID_ITS/data_visual_root/V0/beta_pflat/tgL.root,
-
+    filenames: [/home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/Check_Hist/P_04_05_clSizeCosLam.root,
+                /home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/Check_Hist/P_04_05_clSizeCosLam.root,
+                /home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/Check_Hist/P_04_05_clSizeCosLam.root
                 ]
     objectnames: ['0', '1', '2', 'scatter_plot'] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
 
 output: 
-    filename: /home/galucia/PID_ITS/data_visual_root/V0/beta_pflat/PNG_tgL # with path and w/o extension
+    filename: /home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/Check_Hist/P_04_05_clSizeCosLam # with path and w/o extension
     objectnames: ['p', 'K', 'pi'] # new names for the created objects. Will be AUTOMATICALLY applied if the lenght of the list equals the lenght of the one in the input section
     extensions: [png] # possibilities: pdf, eps, png, root
 
@@ -42,7 +41,7 @@ options:
 
     statbox:
         avoid: false
-        xlimits: [2., 3.7]
+        xlimits: [0.45, 0.95]
         ylimits: [0.15, 0.8]
         header: ''
         textsize: 0.03
@@ -52,7 +51,7 @@ options:
         xlimits: [0.85, 0.95]
         ylimits: [0.55, 0.75]
         header: ''
-        titles: [p, K, '#pi']
+        titles: [K, p, '#pi']
         options: [l, l, l, l]
         textsize: 0.045
         ncolumns: 1
@@ -64,11 +63,11 @@ options:
     canvas:
         width: 1800
         heigth: 1000
-        xaxistitle: 'tan #lambda'
+        xaxistitle: '#Delta'
         yaxistitle: 'Norm. counts'
         yaxistitleratio: ''
-        xlimits: [-4, 4]
-        ylimits: [0.0001, 1]
+        xlimits: [-1, 1]
+        ylimits: [0.0001, 1.0]
         ylimitsratio: [-1, 1]
         ylimitserr: [0., 0.35]
         logx: false

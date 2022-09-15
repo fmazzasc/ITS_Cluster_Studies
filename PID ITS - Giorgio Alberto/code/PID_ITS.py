@@ -70,6 +70,7 @@ def data_prep(config):
 
     if True:
         isV0 = config['input']['isV0']
+        hybrid = config['input']['hybrid']
         ext_appl = config['input']['ext_appl']
 
         RegressionDf = pd.read_parquet(config['input']['data'])
@@ -95,7 +96,10 @@ def data_prep(config):
         save_data = config['data_prep']['save_data']
         save_data_dir = config['output']['save_data_dir']
 
-        if isV0:                    
+        if hybrid:
+            output_dir += '/hybrid'
+            save_data_dir += '/hybrid'
+        elif isV0:                    
             output_dir += '/V0'
             save_data_dir += '/V0'
         else:                       
@@ -150,6 +154,9 @@ def data_prep(config):
         RegressionDf.query('p <= 0.7', inplace=True)
         ApplicationDf.query('p <= 0.7', inplace=True)
 
+    #RegressionDf.query('p <= 0.6', inplace=True)
+    
+
     if isV0:
         RegressionDf.eval('label = particle', inplace=True)
         for number, name in particle_dict.items():  RegressionDf['label'].mask(RegressionDf['particle'] == number, name, inplace=True)     
@@ -159,8 +166,8 @@ def data_prep(config):
 
 
     # redefine K
-    RegressionDf['label'].mask(RegressionDf['nSigmaKAbs'] < 1, 'K', inplace=True)
-    if isV0:    RegressionDf['particle'].mask(RegressionDf['nSigmaKAbs'] < 1, 2, inplace=True)
+    #RegressionDf['label'].mask(RegressionDf['nSigmaKAbs'] < 1, 'K', inplace=True)
+    #if isV0:    RegressionDf['particle'].mask(RegressionDf['nSigmaKAbs'] < 1, 2, inplace=True)
 
     #if ext_appl:    
     #    ApplicationDf['label'].mask(ApplicationDf['nSigmaKAbs'] < 1, 'K', inplace=True)
@@ -344,7 +351,7 @@ def data_prep(config):
             nn_weights = []
             for n_weight in n_weights:
                 if n_weight == 0:   nn_weights.append(0.)
-                else:               nn_weights.append(n_weight/max(n_weights) * 10**3)
+                else:               nn_weights.append(n_weight * 1000)
 
             TrainSet['beta_pweight'] = np.select(conditions, nn_weights)
 
@@ -403,6 +410,7 @@ def regression(TrainTestData, config):
     if True:
         particle_dict = config['output']['particle']
         isV0 = config['input']['isV0']
+        hybrid = config['input']['hybrid']
 
         RegressionColumns = config['training']['RegressionColumns']
         random_state = config['training']['random_state']
@@ -427,7 +435,8 @@ def regression(TrainTestData, config):
         if beta_flat:               options += '_betaflat_'
         if do_equal:                options += '_equal'
 
-        if isV0:                    output_dir += '/V0'
+        if hybrid:                  output_dir += '/hybrid'
+        elif isV0:                  output_dir += '/V0'
         else:                       output_dir += '/TPC'
 
         if do_augm and beta_p_flat: output_dir += '/augm'
@@ -506,7 +515,7 @@ def regression(TrainTestData, config):
         
         plot_score_train(TrainTestData, RegressionColumns, model_reg, x_label='p', plot_specifics=plot_specifics['p'], filename=f'{output_dir}/{options}', x_test=TestSet['p'], absolute=False)
         plot_score_train(TrainTestData, RegressionColumns, model_reg, x_label='#beta', plot_specifics=plot_specifics['beta'], filename=f'{output_dir}/{options}', absolute=False)
-        for key, name in particle_dict.items():
+        for name in particle_dict.values():
 
             X_train_name = TrainSet.query(f"label == '{name}'")
             y_train_name = X_train_name['beta']
@@ -574,6 +583,7 @@ def application(ApplicationDf, config, model):
 
     if True:
         isV0 = config['input']['isV0']
+        hybrid = config['input']['hybrid']
 
         RegressionColumns = config['training']['RegressionColumns']
         final_output_dir = config['output']['final_dir']
@@ -585,7 +595,10 @@ def application(ApplicationDf, config, model):
         beta_p_flat = config['training']['beta_p_flat']
         do_equal = config['data_prep']['do_equal']
 
-        if isV0:        
+        if hybrid:        
+            final_output_dir += '/hybrid'
+            delta_output_dir += '/hybrid'
+        elif isV0:        
             final_output_dir += '/V0'
             delta_output_dir += '/V0'
         else:           
@@ -641,6 +654,16 @@ def application(ApplicationDf, config, model):
     ApplicationDf = pd.concat(appl_list)
     ApplicationDf.eval('Delta = (beta - preds)/beta', inplace=True)
 
+    # redefine pi
+    ApplicationDf['label'] = np.where(ApplicationDf['nSigmaPiAbs'] < 1, 'Pi', 
+                                np.where(ApplicationDf['nSigmaKAbs'] > 3, 'Pi', 
+                                    np.where(ApplicationDf['nSigmaPAbs'] > 3, 'Pi', 
+                                        np.where(ApplicationDf['nSigmaEAbs'] > 3, 'Pi', ApplicationDf['label']) ) ) )
+    ApplicationDf['particle'] = np.where(ApplicationDf['nSigmaPiAbs'] < 1, 3, 
+                                np.where(ApplicationDf['nSigmaKAbs'] > 3, 3, 
+                                    np.where(ApplicationDf['nSigmaPAbs'] > 3, 3, 
+                                        np.where(ApplicationDf['nSigmaEAbs'] > 3, 3, ApplicationDf['particle']) ) ) )
+
     for name in particle_dict.values():   
         df = ApplicationDf.query(f'label == "{name}"', inplace=False)  
         
@@ -651,7 +674,7 @@ def application(ApplicationDf, config, model):
         density_scatter(df1['Delta'], df1['clSizeCosLam'], f'{final_output_dir}/clSizeCosLam_vs_delta_{name}', ["#Delta", "clSizeCosLam", 200, -1, 1, 120, 0, 12])
 
         density_scatter(df['p'], df['preds'], f'{output_file}_{name}', plot_specifics['b_vs_p_final'], title=f'beta_vs_p_final_{name}')
-        density_scatter(df['p'], df['beta'], f'{final_output_dir}/beta_vs_p_{name}', plot_specifics=plot_specifics['b_vs_p_final'], title=f'beta_{name}')
+        density_scatter(df['p'], df['beta'], f'{final_output_dir}/betatrue_vs_p_{name}', plot_specifics=plot_specifics['b_vs_p_final'], title=f'beta_{name}')
     density_scatter(ApplicationDf['p'], ApplicationDf['beta'], f'{final_output_dir}/beta_vs_p_total', plot_specifics=plot_specifics['b_vs_p_final'], title=f'beta_true_total')  
     
 

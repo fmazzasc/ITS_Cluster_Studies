@@ -1,12 +1,15 @@
 
 # Configuration file for the particle identification with the ML algorithm in PID_ITS - Giorgio Alberto
 
+# NOTA: /data/shared/ITS/ML/particles_pid_520143.parquet è il dataset ripulito
+
 input:
-    data:       /data/shared/ITS/ML/particles_pid_520143.parquet
-    appl_data:  /data/shared/ITS/ML/particles_pid_520147.parquet
+    data:       /data/shared/ITS/ML/NEW/particles_pid_520143.parquet
+    appl_data:  /data/shared/ITS/ML/particles_pid_520147_itstpc.parquet
     ext_appl: True
 
     isV0: True
+    hybrid: True   # hybrid true requires isV0 true
 
 
 
@@ -19,7 +22,7 @@ output:
     model_out:          ../../../ML_output
 
     #particle:   { 0: "Deu", 1: "P", 2: "K", 3: "Pi"}
-    particle:   { 1: "P", 2: "K", 3: "Pi"}
+    particle:   { 1: "P", 2: "K", 3: "Pi", 4: "E"}
 
 
 data_prep:
@@ -46,11 +49,11 @@ data_prep:
 
     # Data Augmentation
     #____________________________________
-    do_augm: False
-    to_augm: ["K", "K"]
-    mothers: ["Pi", "P"]
+    do_augm: True
+    to_augm: ["K"]
+    mothers: ["Pi"]
     #p_ranges: [[0., 0.2]]
-    p_ranges: [[0., 0.7], [0.6, 1.5]]
+    p_ranges: [[0.15, 0.4]]
 
     # Beta Flat
     #____________________________________
@@ -132,7 +135,7 @@ plots:
     plot_x_scat:    ["p", "p", "p", "beta"]
     plot_y_scat:    ["dedx", "beta", "clSizeCosLam", "clSizeCosLam"]
     plot_spec_scat: [["p", "#frac{dE}{dx}", 1500, 0, 1.5, 600, 0, 600], ["p", "#beta", 1500, 0, 1.5, 1000, 0, 1.1], ["p", "clSizeCosLam", 150, 0, 1.5, 120, 0, 12], ["#beta", "clSizeCosLam", 100, 0, 1, 120, 0, 12]] 
-    bp_flat_scat:   {"p": ["p", "Particle species", 15, 0, 1.5, 4, 0., 4.5], "weights": ["weights", "Particle species", 100, 0, 1, 4, 0., 4.5]}
+    bp_flat_scat:   {"p": ["p", "Particle species", 30, 0, 1.5, 4, 0., 4.5], "weights": ["weights", "Particle species", 100, 0, 1, 4, 0., 4.5]}
 
     model_train:    {"p": [1500, 0, 1.5, 3000, -1.5, 1.5], "beta": [1000, 0, 1, 3000, -1.5, 1.5]}
     appl_plot_spec: {"b_vs_p_final": ["p", "#beta", 1500, 0, 1.5, 1050, 0, 1.05], "b_vs_p_true": ["p", "#beta", 1500, 0, 1.5, 1050, 0, 1.05], 

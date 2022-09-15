@@ -33,13 +33,13 @@ def main(d1, d2, output):
     canvas.SetTitle('Kolmogorov Test')
     canvas.Divide(2, 4)
 
-    leg = TLegend(0.65, 0.8, 0.75, 0.95)
+    leg = TLegend(0.15, 0.3, 0.35, 0.5)
     leg.SetFillStyle(0)
     leg.SetTextSize(0.045)
     leg.SetNColumns(1)
 
-    h_1 = [TH1F(f"h{2*i+1}", "V0", 100, -10, 10) for i in range(7)]
-    h_2 = [TH1F(f"h{2*i+2}", "TPC", 100, -10, 10) for i in range(7)]
+    h_1 = [TH1F(f"h{2*i+1}", "V0", 12, 0, 12) for i in range(7)]
+    h_2 = [TH1F(f"h{2*i+2}", "TPC", 12, 0, 12) for i in range(7)]
 
     #for i in range(7):
     #   
@@ -48,7 +48,7 @@ def main(d1, d2, output):
 
     for i, (h1, h2) in enumerate(zip(h_1, h_2)):
 
-        name = f'TanLamL{i}'
+        name = f'ClSizeL{i}'
         for n in d1[name]:     h1.Fill(n)
         for n in d2[name]:     h2.Fill(n)
         
@@ -64,10 +64,10 @@ def main(d1, d2, output):
         else:                       results[name] = KolmogorovHist(h1, h2, canvas=canvas, pad=i+1, legend=leg, name=name)
 
 
-    name = 'tgL'
-    h1 = TH1F("h15", "V0", 10, -1, 1)
+    name = 'clSizeCosLam'
+    h1 = TH1F("h15", "V0", 120, 0, 12)
     for n in d1[name]:     h1.Fill(n)
-    h2 = TH1F("h16", "TPC", 10, -1, 1)
+    h2 = TH1F("h16", "TPC", 120, 0, 12)
     for n in d2[name]:     h2.Fill(n)
     
     
@@ -96,15 +96,12 @@ particle_dict = {'P': 'nSigmaPAbs < 1',
                 }
 
 d1 = pd.read_parquet('/data/shared/ITS/ML/particles_pid_520143.parquet')
-d2 = pd.read_parquet('/data/shared/ITS/ML/particles_pid_520147_itstpc.parquet')
+d2 = pd.read_parquet('/data/shared/ITS/ML/particles_pid_520143_itstpc.parquet')
 
 d1.eval('delta_p = (p - pTPC)/pTPC', inplace=True)
 d1.query('p <= 50 and 20 < rofBC < 500 and tpcITSchi2 < 5 and nClusTPC > 100 and -0.2 < delta_p < 0.2', inplace=True)
 d2.eval('delta_p = (p - pTPC)/pTPC', inplace=True)
 d2.query('p <= 50 and 20 < rofBC < 500 and tpcITSchi2 < 5 and nClusTPC > 100 and -0.2 < delta_p < 0.2', inplace=True)
-
-d1.eval('meanClsize = (ClSizeL0 + ClSizeL1 + ClSizeL2 + ClSizeL3 + ClSizeL4 + ClSizeL5 + ClSizeL6)/7', inplace=True)
-d2.eval('meanClsize = (ClSizeL0 + ClSizeL1 + ClSizeL2 + ClSizeL3 + ClSizeL4 + ClSizeL5 + ClSizeL6)/7', inplace=True)
 
 d1.eval('meanPattID = (PattIDL0+PattIDL1+PattIDL2+PattIDL3+PattIDL4+PattIDL5+PattIDL6)/7', inplace=True)
 d2.eval('meanPattID = (PattIDL0+PattIDL1+PattIDL2+PattIDL3+PattIDL4+PattIDL5+PattIDL6)/7', inplace=True)
@@ -122,11 +119,11 @@ d2.drop( d2[d2.nSigmaEAbs < 1].index, inplace=True )
 
 
 
-d1.query('0.8 <= p < 0.85', inplace=True)
-d2.query('0.8 <= p < 0.85', inplace=True)
+d1.query('0.6 <= p < 0.65', inplace=True)
+d2.query('0.6 <= p < 0.65', inplace=True)
 
 # Kolmogorov on full dfs
-output = '/home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/Kolmogorov/TanLam_Kolmogorov_08_085'
+output = '/home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/Kolmogorov/ClSize_Kolmogorov_06_065'
 print()
 main(d1, d2, output=output)
 print()
@@ -135,9 +132,9 @@ print()
 for i, (particle, tag) in zip(range(3), particle_dict.items()):
 
     new_d1 = pd.DataFrame(d1.query(f'particle == {i+1}'))
-    new_d2 = pd.DataFrame(selection(d2, particle=particle, tag=tag))
+    new_d2 = pd.DataFrame(d2.query(f'particle == {i+1}'))
 
-    output = f'/home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/Kolmogorov/TanLam_Kolmogorov_{particle}_08_085'
+    output = f'/home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/Kolmogorov/ClSize_Kolmogorov_{particle}_06_065'
     print(f'{particle}')
     print()
     main(new_d1, new_d2, output=output)
