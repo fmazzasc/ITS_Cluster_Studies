@@ -1,0 +1,63 @@
+inputs:
+    dirname: null # leave null if not common for all input files
+    filenames: [SnPhiScan.root, SnPhiScan.root, SnPhiScan.root]
+    objectnames: [hTanLamL1_p1_10000_proj, hTanLamL2_p1_10000_proj, hTanLamL3_p1_10000_proj] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
+
+output: 
+    filename: TanLamProj # with path and w/o extension
+    extensions: [png, root] # possibilities: pdf, eps, png, root
+
+options:
+    ROOTobject: [TH1, TH1, TH1, TH1, TH1, TH1, TH1, TH1, TH1] # TH1 or TGraph: no need to specify TH1F, TH1D or TGraphErrors, TGraphAsymmErrors
+    scale: [1., 1., 1., 1, 1., 1., 1., 1., 1.]
+    rebin: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    normalize: [true, true, true, false, false, false, false, false, false] # divide histogram by its area
+    colors: [kOrange+1, kAzure+4, kRed+1, kMagenta+1, kBlue, kCyan+3, kSpring-5]
+    markers: [kFullCircle, kFullCircle, kFullCircle, kFullCircle, kFullCircle, kFullCircle, kFullCircle]
+    markersize: 1.5
+    linewidth: 1
+    fillstyle: [0,0,0,0,0,0,0,0]
+    fillalpha: [1,1,1,1,1,1,1,1]
+    drawopt: [e, e, e, e, e, e, e, e, e]
+    
+    ratio: 
+        enable: false
+        uncertainties:
+            enable: false
+            corr: false
+        displayRMS: true
+
+    errcomp: # comparison of uncertainties
+        enable: false
+        relative: true
+    
+    KS: false
+    dottedLine: ''
+
+    legend:
+        avoid: false #set true to avoid the legend in the final plot
+        xlimits: [0.6, 0.8]
+        ylimits: [0.7, 0.95]
+        header: '1.0 < #it{p}'
+        titles: [CL size, L2, L3, L4, L5, L6, wide left, wide right, wide left and right, alt step 1, alt step 2]
+        options: [lp, lp, lp, lp, lp, lp, lp, lp, lp]
+        textsize: 0.045
+        ncolumns: 1
+
+    canvas:
+        width: 1080
+        heigth: 1080
+        xaxistitle: 'tan(#lambda) L0'
+        yaxistitle: 'entries'
+        xlimits: [-1, 1]
+        ylimits: [0.001, 0.1]
+        ylimitsratio: [0., 2.]
+        ylimitserr: [0., 0.35]
+        logy: true  
+        logx: false
+        ratio:
+            logy: false
+            logx: false
+        errcomp:
+            logy: false
+            logx: false  
