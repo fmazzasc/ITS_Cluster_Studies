@@ -5,6 +5,8 @@
 .vscode
 *.pdf
 *.png
-
-!LHCCplots/*
-!utils/*
+*.tf
+*.log
+*.pkl
+core*
+.model

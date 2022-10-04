@@ -172,7 +172,7 @@ void mcOrigin(std::string inPath="", std::string outLabel="", bool isOldData=fal
     {   
         if (true)
         {
-            if (counter > 4500)
+            if (counter > 10)
             {
                 continue;
             }
@@ -182,7 +182,7 @@ void mcOrigin(std::string inPath="", std::string outLabel="", bool isOldData=fal
         LOG(info) << "Analysing directory: " << dir <<"  counter:"<<counter;
         std::string o2clus_its_file = dir + "/" + "o2clus_its.root";
         std::string o2trac_its_file = dir + "/" + "o2trac_its.root";
-        std::string o2kine_file = dir + "/" + Form("sgn_%s_Kine.root", dir.substr(37, dir.size()).data());
+        std::string o2kine_file = dir + "/" + Form("sgn_%s_Kine.root", dir.substr(66, dir.size()).data());
 
         auto fITSclus = TFile::Open(o2clus_its_file.data());
         auto fITStrac = TFile::Open(o2trac_its_file.data());
@@ -370,6 +370,7 @@ void mcOrigin(std::string inPath="", std::string outLabel="", bool isOldData=fal
     }
 
     LOG(info) << "------------------ SAVING OUTFILE ------------------";
+    outFile.cd();
     hCLid->Write();
     hTrackCLid->Write();
     hPDGcode->Write();
@@ -384,5 +385,6 @@ void mcOrigin(std::string inPath="", std::string outLabel="", bool isOldData=fal
     //{
     //    LOG(info) << "PDG OUTSIDER"<<PDGcodeOutsider[i];   
     //}
+    outFile.Close();
 
 }
