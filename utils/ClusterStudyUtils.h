@@ -321,3 +321,20 @@ double calcMass(const V0 &v0, PID v0PID)
     }
     return moth.M();
 }
+
+
+std::array<int, 2>
+matchITStracktoMC(const std::vector<std::vector<o2::MCTrack>> &mcTracksMatrix,
+                  o2::MCCompLabel ITSlabel)
+{
+    std::array<int, 2> outArray = {-1, -1};
+    int trackID, evID, srcID;
+    bool fake;
+    ITSlabel.get(trackID, evID, srcID, fake);
+    if (ITSlabel.isValid())
+    {
+        outArray = {evID, trackID};
+    }
+
+    return outArray;
+}

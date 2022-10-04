@@ -54,7 +54,7 @@ options:
         ylimits: [0.6, 0.9]
         header: '0.4 < p < 0.5 GeV/#it{c}'
         titles: [All,
-                 1th BC,
+                 1st BC,
                  2nd BC,
                  3rd BC
                 ]

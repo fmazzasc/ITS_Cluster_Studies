@@ -2,6 +2,9 @@
 
 #include <iostream>
 
+#include "SimulationDataFormat/MCCompLabel.h"
+#include "SimulationDataFormat/MCTrack.h"
+
 #include "CommonDataFormat/RangeReference.h"
 #include "ReconstructionDataFormats/PID.h"
 #include "ReconstructionDataFormats/V0.h"
@@ -448,6 +451,7 @@ void V0ClusterTreeBuilder(int runNumber, std::string runPeriod)
     float p, pTPC, pt, ptTPC, pITS, ptITS, rofBC, tgL, clSizeCosLam, dedx, tpcITSchi2;
     float nsigmaDeu, nsigmaP, nsigmaK, nsigmaPi, nsigmaE;
     int V0ind = 0;
+    int V0DauPosSource, V0DauNegSource = -1;
 
     // V0 tree elements
     float V0radius, V0CosPA, V0ArmenterosAlpha, V0ArmenterosQt, V0p;
@@ -471,6 +475,8 @@ void V0ClusterTreeBuilder(int runNumber, std::string runPeriod)
     V0Tree->Branch("nSigmaNegDauPi", &nSigmaNegDauPi);
     V0Tree->Branch("nSigmaPosDauE", &nSigmaPosDauE);
     V0Tree->Branch("nSigmaNegDauE", &nSigmaNegDauE);
+    V0Tree->Branch("V0DauPosSource", &V0DauPosSource);
+    V0Tree->Branch("V0DauNegSource", &V0DauNegSource);
 
     DauTree->Branch("p", &p);
     DauTree->Branch("pt", &pt);
@@ -622,6 +628,8 @@ void V0ClusterTreeBuilder(int runNumber, std::string runPeriod)
                 photMassHyp = v0.calcMass2(PID::Electron, PID::Electron);
                 k0sMassHyp = calcMass(v0, PID::K0);
                 lamMassHyp = calcMass(v0, PID::Lambda);
+                V0DauPosSource = v0.getProngID(0).getSource();
+                V0DauNegSource = v0.getProngID(1).getSource();
 
                 for (int v0Dau{0}; v0Dau < 2; v0Dau++)
                 {
@@ -773,5 +781,281 @@ void V0ClusterTreeBuilder(int runNumber, std::string runPeriod)
     outFile.cd();
     DauTree->Write();
     V0Tree->Write();
+    outFile.Close();
+}
+
+void TreeBuilders(int runNumber = 505548, std::string runPeriod = "OCT")
+{
+    // Topology dictionary
+    o2::itsmft::TopologyDictionary mdict;
+    o2::parameters::GRPObject *grp;
+    std::string pathDir;
+
+    if (runPeriod == "OCT")
+    {
+        mdict.readFromFile(o2::base::DetectorNameConf::getAlpideClusterDictionaryFileName(o2::detectors::DetID::ITS, "../utils/ITSdictionary.bin"));
+        TFile *fGRP = TFile::Open("../utils/ccdb_grp_low_field_pos");
+        grp = reinterpret_cast<o2::parameters::GRPObject *>(fGRP->Get("ccdb_object"));
+        fGRP->Close();
+        pathDir = "/data/shared/ITS/OCT/MC";
+    }
+
+    else
+    {
+        LOG(fatal) << "Run period not recognized";
+    }
+
+    TFile outFile = TFile(Form("../results/MCClusterTree%i.root", runNumber), "recreate");
+    TTree *MLtree = new TTree("ITStreeML", "ITStreeML");
+    std::array<float, 7> clSizeArr, snPhiArr, tanLamArr, pattIDarr;
+    float pMC, ptMC, pITS, ptITS, tgL, clSizeCosLam, itsChi2;
+    bool isPositive;
+    int nClusITS, pdgMC;
+
+    MLtree->Branch("pdgMC", &pdgMC);
+    MLtree->Branch("pMC", &pMC);
+    MLtree->Branch("ptMC", &ptMC);
+    MLtree->Branch("pITS", &pITS);
+    MLtree->Branch("ptITS", &ptITS);
+    MLtree->Branch("tgL", &tgL);
+    MLtree->Branch("clSizeCosLam", &clSizeCosLam);
+    MLtree->Branch("isPositive", &isPositive);
+    MLtree->Branch("nClusITS", &nClusITS);
+
+    for (int i{0}; i < 7; i++)
+    {
+        MLtree->Branch(Form("ClSizeL%i", i), &clSizeArr[i]);
+        MLtree->Branch(Form("SnPhiL%i", i), &snPhiArr[i]);
+        MLtree->Branch(Form("TanLamL%i", i), &tanLamArr[i]);
+        MLtree->Branch(Form("PattIDL%i", i), &pattIDarr[i]);
+    }
+
+    // Geometry
+    o2::base::GeometryManager::loadGeometry("../utils/o2_geometry.root");
+    auto gman = o2::its::GeometryTGeo::Instance();
+    gman->fillMatrixCache(o2::math_utils::bit2Mask(o2::math_utils::TransformType::T2L, o2::math_utils::TransformType::L2G));
+
+    // load propagator
+    o2::base::Propagator::initFieldFromGRP(grp);
+
+    auto *lut = o2::base::MatLayerCylSet::loadFromFile("../utils/matbud.root");
+    o2::base::Propagator::Instance()->setMatLUT(lut);
+
+    if (lut)
+        LOG(info) << "Loaded material LUT";
+
+    std::string path = Form("%s/%i", pathDir.data(), runNumber);
+    LOG(info) << "Reading from " << path;
+    TSystemDirectory dir("MyDir", path.data());
+    auto files = dir.GetListOfFiles();
+    std::vector<std::string> dirs, kineNames;
+    for (auto fileObj : *files)
+    {
+        std::string dirStr = ((TSystemFile *)fileObj)->GetName();
+        TSystemDirectory innerDir("InnerDir", (path + "/" + dirStr).data());
+        auto innerFiles = innerDir.GetListOfFiles();
+        for (auto innerFile : *innerFiles)
+        {
+            std::string innerDirStr = ((TSystemFile *)innerFile)->GetName();
+            if(innerDirStr.substr(0, 2) != "tf") continue;
+
+            dirs.push_back(path + "/" + dirStr + "/" + innerDirStr);
+            TSystemDirectory kineDir("KineDir", (path + "/" + dirStr + "/" + innerDirStr).data());
+            auto kineFiles = kineDir.GetListOfFiles();
+            for (auto kineFile : *kineFiles)
+            {
+                TString kinefileStr = ((TSystemFile *)kineFile)->GetName();
+                if (kinefileStr.EndsWith("Kine.root") && kinefileStr.Contains("sgn"))
+                {
+                    kineNames.push_back(std::string(kinefileStr.Data()));
+                }
+            }
+        }
+    }
+
+    // std::sort(dirs.begin(), dirs.end());
+
+    int counter = 0;
+
+    for (auto iDir{0}; iDir < dirs.size(); iDir++)
+    {
+        auto dir = dirs[iDir];
+        auto kineName = kineNames[iDir];
+
+
+        // if (counter > 50)
+        //     continue;
+        counter++;
+
+        LOG(info) << "Processing: " << counter << ", dir: " << dir;
+        LOG(info) << "Processing: " << counter << ", kine: " << kineName;
+
+        std::string kine_file = dir + "/" + kineName;
+        std::string o2trac_its_file = dir + "/o2trac_its.root";
+        std::string o2clus_its_file = dir + "/o2clus_its.root";
+
+        // Files
+        auto fKine = TFile::Open(kine_file.data());
+        auto fITS = TFile::Open(o2trac_its_file.data());
+        auto fITSclus = TFile::Open(o2clus_its_file.data());
+
+        if (!fITS || !fKine || !fITSclus)
+            continue;
+
+        auto treeMCTracks = (TTree *)fKine->Get("o2sim");
+        auto treeITS = (TTree *)fITS->Get("o2sim");
+        auto treeITSclus = (TTree *)fITSclus->Get("o2sim");
+
+        // Tracks
+        std::vector<o2::MCTrack> *MCtracks = nullptr;
+        std::vector<o2::its::TrackITS> *ITStracks = nullptr;
+        std::vector<o2::MCCompLabel> *labITSvec = nullptr;
+        std::vector<int> *ITSTrackClusIdx = nullptr;
+
+        // Clusters
+        std::vector<CompClusterExt> *ITSclus = nullptr;
+        std::vector<unsigned char> *ITSpatt = nullptr;
+
+        // Setting branches
+        treeMCTracks->SetBranchAddress("MCTrack", &MCtracks);
+        treeITS->SetBranchAddress("ITSTrack", &ITStracks);
+        treeITS->SetBranchAddress("ITSTrackClusIdx", &ITSTrackClusIdx);
+        treeITS->SetBranchAddress("ITSTrackMCTruth", &labITSvec);
+        treeITSclus->SetBranchAddress("ITSClusterComp", &ITSclus);
+        treeITSclus->SetBranchAddress("ITSClusterPatt", &ITSpatt);
+
+        // creating MC matrix
+        std::vector<std::vector<o2::MCTrack>> mcTracksMatrix;
+        auto nev = treeMCTracks->GetEntriesFast();
+        mcTracksMatrix.resize(nev);
+        for (int n = 0; n < nev; n++)
+        { // loop over MC events
+            treeMCTracks->GetEvent(n);
+            mcTracksMatrix[n].resize(MCtracks->size());
+            for (unsigned int mcI{0}; mcI < MCtracks->size(); ++mcI)
+            {
+                mcTracksMatrix[n][mcI] = MCtracks->at(mcI);
+            }
+        }
+
+        for (int frame = 0; frame < treeITS->GetEntriesFast(); frame++)
+        {
+
+
+            if (!treeITSclus->GetEvent(frame) || !treeITS->GetEvent(frame))
+                continue;
+            LOG(info) << "frame: " << frame;
+            LOG(info) << "size: " << ITStracks->size();
+
+            std::vector<ITSCluster> ITSClusXYZ;
+            ITSClusXYZ.reserve(ITSclus->size());
+            gsl::span<const unsigned char> spanPatt{*ITSpatt};
+            auto pattIt = spanPatt.begin();
+            o2::its::ioutils::convertCompactClusters(*ITSclus, pattIt, ITSClusXYZ, &mdict);
+
+            std::vector<o2::itsmft::ClusterPattern> pattVec;
+            getClusterPatterns(pattVec, ITSclus, ITSpatt, mdict, gman);
+
+            for (unsigned int iTrack{0}; iTrack < ITStracks->size(); ++iTrack)
+            {
+                auto &ITStrack = ITStracks->at(iTrack);
+                auto &labITS = labITSvec->at(iTrack);
+                auto mcCoord = matchITStracktoMC(mcTracksMatrix, labITS);
+                if (mcCoord[0] == -1 || mcCoord[1] == -1)
+                    continue;
+                auto &mcTrack = mcTracksMatrix[mcCoord[0]][mcCoord[1]];
+
+                std::array<CompClusterExt, 7> TrackClus;
+                std::array<ITSCluster, 7> TrackClusXYZ;
+                std::array<unsigned int, 7> TrackPattID;
+                std::array<o2::itsmft::ClusterPattern, 7> TrackPatt;
+
+                auto firstClus = ITStrack.getFirstClusterEntry();
+                auto ncl = ITStrack.getNumberOfClusters();
+                nClusITS = ncl;
+
+                for (int icl = 0; icl < ncl; icl++)
+                {
+                    auto &clus = (*ITSclus)[(*ITSTrackClusIdx)[firstClus + icl]];
+                    auto &patt = pattVec[(*ITSTrackClusIdx)[firstClus + icl]];
+                    auto &clusXYZ = ITSClusXYZ[(*ITSTrackClusIdx)[firstClus + icl]];
+
+                    auto layer = gman->getLayer(clus.getSensorID());
+                    TrackClus[layer] = clus;
+                    TrackClusXYZ[layer] = clusXYZ;
+                    TrackPattID[layer] = clus.getPatternID();
+                    TrackPatt[layer] = patt;
+                }
+
+                for (int layer{0}; layer < 7; layer++)
+                {
+                    if (ITStrack.hasHitOnLayer(layer))
+                    {
+
+                        clSizeArr[layer] = TrackPatt[layer].getNPixels();
+                    }
+                    else
+                        clSizeArr[layer] = -10;
+                }
+
+                float mean = 0, norm = 0;
+                for (unsigned int i{0}; i < clSizeArr.size(); i++)
+                {
+                    if (clSizeArr[i] > 0)
+                    {
+                        mean += clSizeArr[i];
+                        norm += 1;
+                    }
+                }
+                mean /= norm;
+                mean *= std::sqrt(1. / (1 + ITStrack.getTgl() * ITStrack.getTgl()));
+                pdgMC = mcTrack.GetPdgCode();
+                pMC = mcTrack.GetP();
+                ptMC = mcTrack.GetPt();
+                pITS = ITStrack.getP();
+                ptITS = ITStrack.getPt();
+                isPositive = ITStrack.getSign() == 1;
+                tgL = ITStrack.getTgl();
+                clSizeCosLam = mean;
+
+                itsChi2 = ITStrack.getChi2();
+
+                for (unsigned int layer{0}; layer < clSizeArr.size(); layer++)
+                {
+                    if (ITStrack.hasHitOnLayer(layer))
+                    {
+                        auto &clusXYZ = TrackClusXYZ[layer];
+                        pattIDarr[layer] = TrackPattID[layer];
+                        if (propagateToClus(clusXYZ, ITStrack, gman))
+                        {
+                            snPhiArr[layer] = ITStrack.getSnp();
+                            tanLamArr[layer] = ITStrack.getTgl();
+                        }
+
+                        else
+                        {
+                            snPhiArr[layer] = -10;
+                            tanLamArr[layer] = -10;
+                        }
+                    }
+                    else
+                    {
+                        pattIDarr[layer] = -10;
+                        snPhiArr[layer] = -10;
+                        tanLamArr[layer] = -10;
+                    }
+                }
+                MLtree->Fill();
+            }
+        }
+        treeITS->ResetBranchAddresses();
+        treeITSclus->ResetBranchAddresses();
+        fITS->Close();
+        fKine->Close();
+        fITSclus->Close();
+    }
+    outFile.cd();
+
+    MLtree->Write();
     outFile.Close();
 }

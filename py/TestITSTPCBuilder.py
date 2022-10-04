@@ -17,7 +17,7 @@ def fill_hist_2d(hist, dataframe, column1, column2):
         hist.Fill(val1, val2)
     return hist
 
-run_number = 520143
+run_number = 520271
 
 h_proton_clus = ROOT.TH1F('h_proton_clus', 'h_proton_clus; ClSize; Counts', 80, 0.5, 10.5)
 h_rof_bc = ROOT.TH1F('h_rof_bc', 'h_rof_bc; BC; Counts', 2000, -0.5, 1999.5)
@@ -48,17 +48,14 @@ df_proton = df.query('abs(nSigmaP)<1 and tpcITSchi2<1')
 df_pion = df.query('abs(nSigmaPi)<1 and tpcITSchi2<1')
 df_kaon = df.query('abs(nSigmaK)<1 and tpcITSchi2<5 and nClusTPC>100')
 
-df_proton.query('rofBC<400', inplace=True)
-df_pion.query('rofBC<400', inplace=True)
-df_kaon.query('rofBC<400', inplace=True)
 
 fill_hist(h_proton_clus_slice, df_proton.query('0.4<pTPC<0.5'), 'clSizeCosLam')
 fill_hist(h_proton_clus_slice_bc0, df_proton.query('rofBC<400 and 0.4<pTPC<0.5'), 'clSizeCosLam')
-fill_hist(h_proton_clus_slice_bc1, df_proton.query('rofBC>400 and rofBC<1200 and 0.4<pTPC<0.5'), 'clSizeCosLam')
-fill_hist(h_proton_clus_slice_bc2, df_proton.query('rofBC>1200 and 0.4<pTPC<0.5'), 'clSizeCosLam')
+fill_hist(h_proton_clus_slice_bc1, df_proton.query('rofBC>500 and rofBC<700 and 0.4<pTPC<0.5'), 'clSizeCosLam')
+fill_hist(h_proton_clus_slice_bc2, df_proton.query('rofBC>1400 and rofBC<1600 and 0.4<pTPC<0.5'), 'clSizeCosLam')
 fill_hist(h_rof_bc0, df_proton.query('rofBC<400'), 'rofBC')
-fill_hist(h_rof_bc1, df_proton.query('rofBC>400 and rofBC<1200'), 'rofBC')
-fill_hist(h_rof_bc2, df_proton.query('rofBC>1200'), 'rofBC')
+fill_hist(h_rof_bc1, df_proton.query('rofBC>500 and rofBC<700'), 'rofBC')
+fill_hist(h_rof_bc2, df_proton.query('rofBC>1400 and rofBC<1600'), 'rofBC')
 
 
 

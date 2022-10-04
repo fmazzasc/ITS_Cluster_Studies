@@ -18,7 +18,7 @@ def fill_hist_2d(hist, dataframe, column1, column2):
     return hist
 
 
-run_num = 520147
+run_num = 520271
 lambda_mass = 1.116
 k0s_mass = 0.4976
 

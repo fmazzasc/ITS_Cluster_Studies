@@ -13,6 +13,8 @@
 #include "TCanvas.h"
 #include "TFile.h"
 #include "TH1D.h"
+#include "TH2D.h"
+
 #include "TMath.h"
 #include "TString.h"
 #include "TTree.h"
@@ -50,10 +52,11 @@ void testDeltaElectrons()
     hists[1] = new TH1D("Delta rays w/ process disabled ITS", "; delta-ray Radius (cm) ; Counts", 200, 1, 50);
     hists[2] = new TH1D("Delta rays w/ process enabled", "; delta-ray Radius (cm) ; Counts", 200, 1, 50);
 
-    TH1D * hEnergy = new TH1D("Delta Energy distr", "; E (GeV/c^2) ; Counts", 200, 3e-5, 1e-3);
+    TH1D * hEnergy = new TH1D("Delta Energy distr", "; E (GeV/c^2) ; Counts", 300, 1e-5, 1e-3);
+    TH2D *hXYCoord = new TH2D("XY coord", "; X (cm) ; Y (cm)", 600, -40, 40, 600, -40, 40);
 
-    std::array<TString, 3> fileNames = {"/data/shared/ITS/mc_no_delta_at_all/tf1/sgn_1_Kine.root", "/data/shared/ITS/mc_no_delta/tf1/sgn_1_Kine.root", "/data/shared/ITS/mc_delta/tf1/sgn_1_Kine.root"};
-    for (int j = 0; j < 3; j++)
+    std::array<TString, 3> fileNames = {"/data/fmazzasc/its_data/sim/MB/tf1/sgn_1_Kine.root"};
+    for (int j = 0; j <1; j++)
     {
 
         TFile file = TFile(fileNames[j]);
@@ -76,8 +79,8 @@ void testDeltaElectrons()
 
                     counter++;
                     double rad = calcRad(track);
-                    hists[j]->Fill(rad);
-                    hEnergy->Fill(track.GetEnergy());
+                    hEnergy->Fill(track.GetEnergy() - 0.511*1e-3);
+                    hXYCoord->Fill(track.GetStartVertexCoordinatesX(), track.GetStartVertexCoordinatesY());
                 }
             }
         }
@@ -85,26 +88,6 @@ void testDeltaElectrons()
 
     auto outFile = TFile::Open("DeltaElectrons.root", "RECREATE");
     hEnergy->Write();
-    auto cv = TCanvas::MakeDefCanvas();
-    hists[0]->SetLineColor(kRed);
-    hists[1]->SetLineColor(kBlue);
-    hists[2]->SetLineColor(kBlack);
-
-    hists[0]->SetStats(0);
-    hists[1]->SetStats(0);
-    hists[2]->SetStats(0);
-
-    hists[2]->Draw();
-    hists[1]->Draw("same");
-    hists[0]->Draw("same");
-
-    auto legend = new TLegend(0.6, 0.6, 0.9, 0.9);
-    legend->AddEntry(hists[0], "Empty simcuts.dat for ITS and MFT", "l");
-    legend->AddEntry(hists[1], "Empty simcuts.dat for ITS", "l");
-    legend->AddEntry(hists[2], "Filled simcuts.dat", "l");
-    legend->Draw();
-
-    cv->Write();
-
+    hXYCoord->Write();
     outFile->Close();
 }
