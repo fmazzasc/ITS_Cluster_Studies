@@ -52,7 +52,7 @@ void testDeltaElectrons()
     hists[1] = new TH1D("Delta rays w/ process disabled ITS", "; delta-ray Radius (cm) ; Counts", 200, 1, 50);
     hists[2] = new TH1D("Delta rays w/ process enabled", "; delta-ray Radius (cm) ; Counts", 200, 1, 50);
 
-    TH1D * hEnergy = new TH1D("Delta Energy distr", "; E (GeV/c^2) ; Counts", 300, 1e-5, 1e-3);
+    TH1D * hEnergy = new TH1D("Delta Energy distr", "; E (MeV) ; Counts", 500, 1e-3, 3e-1);
     TH2D *hXYCoord = new TH2D("XY coord", "; X (cm) ; Y (cm)", 600, -40, 40, 600, -40, 40);
 
     std::array<TString, 3> fileNames = {"/data/fmazzasc/its_data/sim/MB/tf1/sgn_1_Kine.root"};
@@ -79,14 +79,15 @@ void testDeltaElectrons()
 
                     counter++;
                     double rad = calcRad(track);
-                    hEnergy->Fill(track.GetEnergy() - 0.511*1e-3);
+                    hEnergy->Fill(track.GetEnergy()*(1e3) - 0.511);
+                    LOG(info) << "Radius: " << rad << " Energy: " << track.GetEnergy()*(1e3) - 0.511 << " Process: " << track.getProcess();
                     hXYCoord->Fill(track.GetStartVertexCoordinatesX(), track.GetStartVertexCoordinatesY());
                 }
             }
         }
     }
 
-    auto outFile = TFile::Open("DeltaElectrons.root", "RECREATE");
+    auto outFile = TFile::Open("DeltaElectrons_cdiff.root", "RECREATE");
     hEnergy->Write();
     hXYCoord->Write();
     outFile->Close();

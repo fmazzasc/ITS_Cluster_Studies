@@ -10,3 +10,4 @@
 *.pkl
 core*
 .model
+*__pycache__

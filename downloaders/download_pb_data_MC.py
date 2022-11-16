@@ -10,7 +10,7 @@ for run_number in run_number_list:
                 os.makedirs(f'{output_dir}{run_number}')
 
         os.system(f'rm -rf {output_dir}{run_number}/*')
-        os.system(f'alien.py find /alice/sim/2022/LHC22f1a2/{run_number}/0*/tf*/* > {output_dir}{run_number}/out.txt')
+        os.system(f'alien.py find /alice/sim/2022/LHC22f1a3/{run_number}/0*/tf*/* > {output_dir}{run_number}/out.txt')
 
         with open(f'{output_dir}/{run_number}/out.txt') as file:
             lines = file.readlines()

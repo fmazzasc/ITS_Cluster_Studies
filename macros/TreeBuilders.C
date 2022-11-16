@@ -784,7 +784,7 @@ void V0ClusterTreeBuilder(int runNumber, std::string runPeriod)
     outFile.Close();
 }
 
-void TreeBuilders(int runNumber = 505548, std::string runPeriod = "OCT")
+void TreeBuilderMC(int runNumber = 505548, std::string runPeriod = "OCT")
 {
     // Topology dictionary
     o2::itsmft::TopologyDictionary mdict;
