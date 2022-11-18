@@ -59,12 +59,16 @@ using ITSCluster = o2::BaseCluster<float>;
 using Vec3 = ROOT::Math::SVector<double, 3>;
 using MCLabCont = o2::dataformats::MCTruthContainer<o2::MCCompLabel>;
 
-void mcOrigin(std::string inPath="", std::string outLabel="", bool isOldData=false, unsigned int pix_thr = 40, bool verbose=false) 
+void mcOrigin(std::string inPath="", std::string outLabel="", bool isOldData=false,
+              unsigned int pix_thr = 40, bool verbose=false, bool debug=false)
 {
     /*
+     - inPath: path to the input file
+     - outLabel: label for the output file
      - outLabel: label added to final root file 
      - isOldData: bool to adopt old/new dictionary
      - verbose: allow additional print
+     -  debug: stop after 10 events
     */
     // "------------------ GLOBAL info ------------------"
     o2::base::GeometryManager::loadGeometry("../utils/o2_geometry.root");
@@ -170,7 +174,7 @@ void mcOrigin(std::string inPath="", std::string outLabel="", bool isOldData=fal
     int counter = 0;
     for (auto &dir : fulldirs)
     {   
-        if (true)
+        if (debug)
         {
             if (counter > 10)
             {
@@ -215,6 +219,7 @@ void mcOrigin(std::string inPath="", std::string outLabel="", bool isOldData=fal
         std::vector<int> LargeCLTrackID;
         std::vector<int> LargeCLEvID;
         std::vector<int> CLsiezes;
+        std::vector<int> Layers;
         for (int frame = 0; frame < treeITSclus->GetEntriesFast(); frame++)
         {   // LOOP OVER FRAMES  
             if (!treeITSclus->GetEvent(frame) || !treeITStrac->GetEvent(frame))
@@ -238,6 +243,8 @@ void mcOrigin(std::string inPath="", std::string outLabel="", bool isOldData=fal
                 auto &clus = ITSclus->at(iClus);
                 auto chipID = clus.getChipID();
                 int layer, sta, ssta, mod, chipInMod;
+                layer = gman->getLayer(clus.getSensorID());
+                Layers.push_back(layer);
                 auto pattID = clus.getPatternID();
                 int npix = patt.getNPixels();
                 hCLsizeAll->Fill(npix);
@@ -342,6 +349,7 @@ void mcOrigin(std::string inPath="", std::string outLabel="", bool isOldData=fal
             p = mcTracksMatrix[evID][trID].GetP();
             phi = mcTracksMatrix[evID][trID].GetPhi();
             eta = mcTracksMatrix[evID][trID].GetEta();
+            layer = Layers.at(i);
             start_coord_x = mcTracksMatrix[evID][trID].GetStartVertexCoordinatesX();
             start_coord_y = mcTracksMatrix[evID][trID].GetStartVertexCoordinatesY();
             start_coord_z = mcTracksMatrix[evID][trID].GetStartVertexCoordinatesZ();

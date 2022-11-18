@@ -31,6 +31,7 @@ outExtensions = inputCfg['output']['extensions']
 objTypes = inputCfg['options']['ROOTobject']
 scales = inputCfg['options']['scale']
 normalizes = inputCfg['options']['normalize']
+normrange = inputCfg['options']['normrange']
 colors = inputCfg['options']['colors']
 markers = inputCfg['options']['markers']
 markersize = inputCfg['options']['markersize']
@@ -114,7 +115,7 @@ for iFile, (inFileName, objName, objType, scale, normalize, color, marker, fills
         if normalize:
             if scale != 1.:
                 print('WARNING: you are both scaling and normalizing the histogram, check if it makes sense!')
-            hToCompare[iFile].Scale(1. / hToCompare[iFile].Integral())
+            hToCompare[iFile].Scale(1. / hToCompare[iFile].Integral(normrange[0], normrange[1]))
         hToCompare[iFile].Scale(scale)
     else:
         ScaleGraph(hToCompare[iFile], scale)

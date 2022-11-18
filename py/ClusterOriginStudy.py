@@ -41,16 +41,18 @@ def SetHistStyle(histo, color, marker, xtitle='', ytitle='', style=1):
 
 def main():
     #----------------------------------------------------------------
-    data = '/home/spolitan/Analyses/ITS_Cluster_Studies/macros/outFileMCid_thr0_1207_MCtree_morning.root'
-    outlabel = '0208_EkinFix'
+    data = '/home/spolitan/Analyses/ITS_Cluster_Studies/outFileMCid_MC_1711281122.root'
+    outlabel = 'FracDraysNewCut181122'
     query = ''
     outFile = TFile(f'MCOriginStudy{outlabel}.root', 'recreate')
-    Vars = [] # if left empty consider all the vars
-    enabledProcesses = ['d-rays']
+    Vars = ['CLsize'] # if left empty consider all the vars
+    enabledProcesses = ['d-rays'] #, 'Primary', 'HInhelastic', 'Hadronic', 'PositronNuclear', 'ElectronNuclear', 'Pair']
     doLayerStudy = False # if true, study L0 and L6 clusters
-    doEkinStudy = True # if true, study Ekin distribution of d-rays and close
+    doEkinStudy = False # if true, study Ekin distssribution and CL0, CL6 of d-rays and close
+    doLayerFracStudy = True # if true, study the fraction of d-rays on each layer and close 
     #----------------------------------------------------------------
 
+    # read data
     df = uproot.open(data)['MCtree'].arrays(library='pd')
     df_sel = df
     df_sel['E_mev'] = df_sel['E'] * 1000
@@ -60,6 +62,7 @@ def main():
 
     df_sel_proc = []
     labels = []
+    print(f'\033[1mEnabled processes: {enabledProcesses}\033[0m')
     for i, idProcess in enumerate(df_sel['ProcessID'].unique()):
         label = MCProcess(idProcess)
         if label not in enabledProcesses:
@@ -69,6 +72,7 @@ def main():
 
     if doEkinStudy:
         if enabledProcesses == ['d-rays']:
+            print(f'\033[1mEkin study for d-rays\033[0m')
             hEkin = TH1F('hEkin', 'hEkin', 1000, 0, 1)
             hEtotal = TH1F('hEtotal', 'hEtotal', 1000, 0, 1)
             hCL0 = TH1F('hCL0', 'hCL0', 100, 0, 100)
@@ -102,9 +106,30 @@ def main():
             input('Press enter to exit')
             sys.exit()
         else:
-            print('Ekin study not implemented for this process')
+            print('Ekin study not implemented for this process. Exit.')
             sys.exit()
 
+    if doLayerFracStudy:
+        print(f'\033[1mLayer fraction study\033[0m')
+        if enabledProcesses == ['d-rays']:
+            hLayers = TH1F('hLayers', 'hLayers', 7, -0.5, 6.5)
+            hLayersOver40 = TH1F('hLayersOver40', 'hLayersOver40', 7, -0.5, 6.5)
+            for i, (layer, clsize) in enumerate(zip(df_sel_proc[0]['Layer'], df_sel_proc[0]['CLsize'])):
+                hLayers.Fill(layer)
+                if clsize > 40:
+                    hLayersOver40.Fill(layer)
+            SetHistStyle(hLayers, kBlack, kOpenCircle, 'Layer', '#delta-rays per layer')
+            SetHistStyle(hLayersOver40, kRed, kOpenCircle, 'Layer', '#delta-rays > 40 per layer')
+            hLayers.Write()
+            hLayersOver40.Write()
+            outFile.Write()
+            input('Press enter to exit')
+            sys.exit()
+        else:
+            print('Layer fraction study not implemented for this process. Exit.')
+            sys.exit()
+
+    print(f'\033[1mEnabled variables: {Vars}\033[0m')
     if not Vars:
         Vars = df.keys()
     binning, mins, maxs = ([] for i in range(3))
@@ -130,17 +155,27 @@ def main():
 
     with alive_bar(len(Vars), title="Plotting variables") as bar:
         for i, (var, bins, minvar, maxvar) in enumerate(zip(Vars, binning, mins, maxs)):
+            print(f'Plotting {var}')
             hVar = TH1F(f'h{var}', f';{var}; counts', bins, minvar, maxvar)
+            if doLayerStudy and var == 'CLsize':
+                hCL0 = TH1F(f'h{var}_L0', f';{var}; counts', bins, minvar, maxvar)
+                hCL6 = TH1F(f'h{var}_L6', f';{var}; counts', bins, minvar, maxvar)
             hVarSel = TH1F(f'h{var}Sel', f';{var}; counts', bins, minvar, maxvar)
             hVarSel_dray = TH1F(f'h{var}Sel_dray', f';{var}; counts', bins, minvar, maxvar)
             hVarSel_proc = []
-            for j, proc in enumerate(df_sel_proc):
-                hVarSel_proc.append(TH1F(f'h{var}Sel_proc{proc}', f';{var}; counts', bins, minvar, maxvar))
+            for _, label in enumerate(labels):
+                hVarSel_proc.append(TH1F(f'h{var}Sel_proc{label}', f';{var}; counts', bins, minvar, maxvar))
     
             # plot
             c1 = TCanvas(f"c{var}", "", 1800, 1200)
             for i in (df[f'{var}']):
                 hVar.Fill(i)
+            if doLayerStudy and var == 'CLsize':
+                for i, (clsize, layer) in enumerate(zip(df[f'{var}'], df['Layer'])):
+                    if layer == 0:
+                        hCL0.Fill(clsize)
+                    if layer == 6:
+                        hCL6.Fill(clsize)
             for i, dfproc in enumerate(df_sel_proc):
                 for j in (dfproc[f'{var}']):
                     hVarSel_proc[i].Fill(j)
@@ -168,7 +203,9 @@ def main():
                 hRatio[i].Write()
             c2.Write()
             bar()
-
+    if doLayerStudy:
+        hCL0.Write()
+        hCL6.Write()
     outFile.Write()
     input('Press enter to exit')
     sys.exit()
