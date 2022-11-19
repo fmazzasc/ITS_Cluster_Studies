@@ -41,14 +41,14 @@ def SetHistStyle(histo, color, marker, xtitle='', ytitle='', style=1):
 
 def main():
     #----------------------------------------------------------------
-    data = '/home/spolitan/Analyses/ITS_Cluster_Studies/outFileMCid_MC_1711281122.root'
+    data = '/home/fmazzasc/alice/ITS_Cluster_Studies/macros/outFileMCid_fmazz.root'
     outlabel = 'FracDraysNewCut181122'
     query = ''
     outFile = TFile(f'MCOriginStudy{outlabel}.root', 'recreate')
     Vars = ['CLsize'] # if left empty consider all the vars
     enabledProcesses = ['d-rays'] #, 'Primary', 'HInhelastic', 'Hadronic', 'PositronNuclear', 'ElectronNuclear', 'Pair']
     doLayerStudy = False # if true, study L0 and L6 clusters
-    doEkinStudy = False # if true, study Ekin distssribution and CL0, CL6 of d-rays and close
+    doEkinStudy = True # if true, study Ekin distssribution and CL0, CL6 of d-rays and close
     doLayerFracStudy = True # if true, study the fraction of d-rays on each layer and close 
     #----------------------------------------------------------------
 

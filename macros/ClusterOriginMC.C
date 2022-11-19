@@ -59,13 +59,12 @@ using ITSCluster = o2::BaseCluster<float>;
 using Vec3 = ROOT::Math::SVector<double, 3>;
 using MCLabCont = o2::dataformats::MCTruthContainer<o2::MCCompLabel>;
 
-void mcOrigin(std::string inPath="", std::string outLabel="", bool isOldData=false,
-              unsigned int pix_thr = 40, bool verbose=false, bool debug=false)
+void mcOrigin(std::string inPath = "", std::string outLabel = "", bool isOldData = false, bool isLocalMC = false, unsigned int pix_thr = 40, bool verbose = false, bool debug = false)
 {
     /*
      - inPath: path to the input file
      - outLabel: label for the output file
-     - outLabel: label added to final root file 
+     - outLabel: label added to final root file
      - isOldData: bool to adopt old/new dictionary
      - verbose: allow additional print
      -  debug: stop after 10 events
@@ -80,7 +79,7 @@ void mcOrigin(std::string inPath="", std::string outLabel="", bool isOldData=fal
 
     auto outFile = TFile(Form("outFileMCid_%s.root", outLabel.data()), "recreate");
     TTree *MCtree = new TTree("MCtree", "MCtree");
-    
+
     float p, eta, phi, start_coord_x, start_coord_y, start_coord_z, E;
     int PDGID, CLsize, ProcessID, layer;
 
@@ -112,10 +111,10 @@ void mcOrigin(std::string inPath="", std::string outLabel="", bool isOldData=fal
     hPDGcode->SetDirectory(nullptr);
     hCLsizeAll->SetDirectory(nullptr);
 
-
     LOG(info) << "------------------ LOADING INPUT FILES ------------------";
     // Topology dictionary
-    if (verbose){
+    if (verbose)
+    {
         LOG(info) << "Loading topology dictionary";
     }
     o2::itsmft::TopologyDictionary mdict;
@@ -140,22 +139,27 @@ void mcOrigin(std::string inPath="", std::string outLabel="", bool isOldData=fal
     TSystemDirectory dir("MyDir", inPath.data());
     auto files = dir.GetListOfFiles();
     std::vector<std::string> dirs;
-    for (auto fileObj : *files)
+    if (isLocalMC)
+        dirs.push_back(inPath);
+
+    else
     {
-        std::string file = ((TSystemFile *)fileObj)->GetName();
-        if (verbose)
+        for (auto fileObj : *files)
         {
-            LOG(info) << "Keeping " << file;
-        } 
-        dirs.push_back(inPath+file);
+            std::string file = ((TSystemFile *)fileObj)->GetName();
+            if (verbose)
+            {
+                LOG(info) << "Keeping " << file;
+            }
+            dirs.push_back(inPath + file);
+        }
     }
-    std::sort(dirs.begin(), dirs.end());
 
     std::vector<std::string> fulldirs;
     for (auto &dir : dirs)
     {
-        TSystemDirectory subdir("MyDir2", dir.data());  
-        auto files = subdir.GetListOfFiles(); 
+        TSystemDirectory subdir("MyDir2", dir.data());
+        auto files = subdir.GetListOfFiles();
         for (auto fileObj : *files)
         {
             std::string file = ((TSystemFile *)fileObj)->GetName();
@@ -164,35 +168,33 @@ void mcOrigin(std::string inPath="", std::string outLabel="", bool isOldData=fal
                 if (verbose)
                 {
                     LOG(info) << "Keeping " << file;
-                } 
+                }
                 fulldirs.push_back(dir + "/" + file);
             }
         }
     }
-    std::sort(fulldirs.begin(), fulldirs.end());
-
+    LOG(info) << "Found " << fulldirs.size() << " files";
     int counter = 0;
     for (auto &dir : fulldirs)
-    {   
+    {
         if (debug)
         {
             if (counter > 10)
             {
                 continue;
             }
-            counter ++;
         }
-        //counter ++;
-        LOG(info) << "Analysing directory: " << dir <<"  counter:"<<counter;
+        counter ++;
+        LOG(info) << "Analysing directory: " << dir << ", n: " << counter << "/" << fulldirs.size();
         std::string o2clus_its_file = dir + "/" + "o2clus_its.root";
         std::string o2trac_its_file = dir + "/" + "o2trac_its.root";
-        std::string o2kine_file = dir + "/" + Form("sgn_%s_Kine.root", dir.substr(66, dir.size()).data());
+        std::string o2kine_file = dir + "/" + Form("sgn_%s_Kine.root", dir.substr(dir.find("tf") + 2, dir.size()).data());
 
         auto fITSclus = TFile::Open(o2clus_its_file.data());
         auto fITStrac = TFile::Open(o2trac_its_file.data());
         auto fMCTracks = TFile::Open(o2kine_file.data());
 
-        if ( !fITSclus || !fITStrac || !fMCTracks)
+        if (!fITSclus || !fITStrac || !fMCTracks)
         {
             LOG(info) << "SKIPPING: missing file!";
             continue;
@@ -208,37 +210,37 @@ void mcOrigin(std::string inPath="", std::string outLabel="", bool isOldData=fal
         std::vector<int> *ITSTrackClusIdx = nullptr;
         std::vector<o2::its::TrackITS> *ITStracks = nullptr;
         std::vector<o2::MCTrack> *MCtracks = nullptr;
-        
+
         treeITSclus->SetBranchAddress("ITSClusterComp", &ITSclus);
         treeITSclus->SetBranchAddress("ITSClusterPatt", &ITSpatt);
         treeITSclus->SetBranchAddress("ITSClusterMCTruth", &clusLabArr);
         treeITStrac->SetBranchAddress("ITSTrack", &ITStracks);
         treeITStrac->SetBranchAddress("ITSTrackClusIdx", &ITSTrackClusIdx);
         treeMCTracks->SetBranchAddress("MCTrack", &MCtracks);
-        
+
         std::vector<int> LargeCLTrackID;
         std::vector<int> LargeCLEvID;
         std::vector<int> CLsiezes;
         std::vector<int> Layers;
         for (int frame = 0; frame < treeITSclus->GetEntriesFast(); frame++)
-        {   // LOOP OVER FRAMES  
+        { // LOOP OVER FRAMES
             if (!treeITSclus->GetEvent(frame) || !treeITStrac->GetEvent(frame))
             {
-                if(verbose)
+                if (verbose)
                 {
                     LOG(info) << "Skipping frame: " << frame;
                 }
                 continue;
             }
 
-            if(verbose) 
+            if (verbose)
             {
                 LOG(info) << "Frame: " << frame;
             }
             std::vector<o2::itsmft::ClusterPattern> pattVec;
             getClusterPatterns(pattVec, ITSclus, ITSpatt, mdict, gman);
             for (unsigned int iClus{0}; iClus < ITSclus->size(); iClus++)
-            {   // LOOP OVER CLUSTERS
+            { // LOOP OVER CLUSTERS
                 auto &patt = pattVec[iClus];
                 auto &clus = ITSclus->at(iClus);
                 auto chipID = clus.getChipID();
@@ -251,12 +253,12 @@ void mcOrigin(std::string inPath="", std::string outLabel="", bool isOldData=fal
                 if (npix > pix_thr)
                 {
                     auto &labCls = (clusLabArr->getLabels(iClus))[0];
-                    int  trackID, evID, srcID;
+                    int trackID, evID, srcID;
                     bool fake;
                     labCls.get(trackID, evID, srcID, fake);
                     if (verbose)
                     {
-                        LOG(info) << "(NPIX="<<npix<<") Labels info: trackID="<<trackID<<", eventID="<<evID<<", srcID="<<srcID;
+                        LOG(info) << "(NPIX=" << npix << ") Labels info: trackID=" << trackID << ", eventID=" << evID << ", srcID=" << srcID;
                     }
                     if (!labCls.isNoise() && labCls.isValid() && labCls.isCorrect() && !labCls.isFake())
                     {
@@ -266,50 +268,49 @@ void mcOrigin(std::string inPath="", std::string outLabel="", bool isOldData=fal
                         CLsiezes.push_back(npix);
                     }
                 }
-
             }
         }
-            /*
-            o2::its::TrackITS ITStrack;
-            for (unsigned int iTrack{0}; iTrack < ITStracks->size(); iTrack++)
-            {   // LOOP OVER TRACKS
-                if (iTrack%10 == 0 && verbose)
+        /*
+        o2::its::TrackITS ITStrack;
+        for (unsigned int iTrack{0}; iTrack < ITStracks->size(); iTrack++)
+        {   // LOOP OVER TRACKS
+            if (iTrack%10 == 0 && verbose)
+            {
+                LOG(info) << "iTrack: " << iTrack;
+            }
+
+            auto &patt = pattVec[iTrack];
+            ITStrack = (*ITStracks)[iTrack];
+            auto firstClus = ITStrack.getFirstClusterEntry();
+            auto ncl = ITStrack.getNumberOfClusters();
+
+            for (int icl = 0; icl < ncl; icl++)
+            {   // LOOP OVER CLUSTERS
+                auto &clus = (*ITSclus)[(*ITSTrackClusIdx)[firstClus + icl]];
+                auto &patt = pattVec[(*ITSTrackClusIdx)[firstClus + icl]];
+
+                int npix = patt.getNPixels();
+                if (npix > pix_thr)
                 {
-                    LOG(info) << "iTrack: " << iTrack;
-                }
-
-                auto &patt = pattVec[iTrack];
-                ITStrack = (*ITStracks)[iTrack];
-                auto firstClus = ITStrack.getFirstClusterEntry();
-                auto ncl = ITStrack.getNumberOfClusters();
-
-                for (int icl = 0; icl < ncl; icl++)
-                {   // LOOP OVER CLUSTERS
-                    auto &clus = (*ITSclus)[(*ITSTrackClusIdx)[firstClus + icl]];
-                    auto &patt = pattVec[(*ITSTrackClusIdx)[firstClus + icl]];
-                    
-                    int npix = patt.getNPixels();
-                    if (npix > pix_thr)
+                    auto &labCls = (clusLabArr->getLabels(ITSTrackClusIdx->at(firstClus+icl)))[0];
+                    int  trackID, evID, srcID;
+                    bool fake;
+                    labCls.get(trackID, evID, srcID, fake);
+                    if (verbose)
                     {
-                        auto &labCls = (clusLabArr->getLabels(ITSTrackClusIdx->at(firstClus+icl)))[0];
-                        int  trackID, evID, srcID;
-                        bool fake;
-                        labCls.get(trackID, evID, srcID, fake);
-                        if (verbose)
-                        {
-                            LOG(info) << "Labels info: trackID="<<trackID<<", eventID="<<evID<<", srcID="<<srcID;
-                        }
-                        hTrackCLid->Fill(trackID);
+                        LOG(info) << "Labels info: trackID="<<trackID<<", eventID="<<evID<<", srcID="<<srcID;
                     }
+                    hTrackCLid->Fill(trackID);
                 }
             }
-            */
+        }
+        */
 
         if (LargeCLTrackID.size() == 0)
         {
-            if(true)
+            if (true)
             {
-                LOG(info) <<"Skipping: no large cluster found!";
+                LOG(info) << "Skipping: no large cluster found!";
             }
             continue;
         }
@@ -323,10 +324,10 @@ void mcOrigin(std::string inPath="", std::string outLabel="", bool isOldData=fal
             mcTracksMatrix[n].resize(MCtracks->size());
             if (verbose)
             {
-                LOG(info) << "N MC ev.=" << nev <<", N MC tracks="<<MCtracks->size();
+                LOG(info) << "N MC ev.=" << nev << ", N MC tracks=" << MCtracks->size();
             }
             for (unsigned int mcI{0}; mcI < MCtracks->size(); ++mcI)
-            {   // LOOP over MC tracks
+            { // LOOP over MC tracks
                 mcTracksMatrix[n][mcI] = MCtracks->at(mcI);
             }
         }
@@ -338,13 +339,13 @@ void mcOrigin(std::string inPath="", std::string outLabel="", bool isOldData=fal
             auto trID = LargeCLTrackID.at(i);
             if (verbose)
             {
-                LOG(info) <<"evID="<<evID<<", trID="<<trID;
+                LOG(info) << "evID=" << evID << ", trID=" << trID;
             }
             auto trPDG = mcTracksMatrix[evID][trID].GetPdgCode();
 
-            //if (trPDG < 1000000000)
+            // if (trPDG < 1000000000)
             //{
-                //double mass = TDatabasePDG::Instance()->GetParticle(trPDG)->Mass();
+            // double mass = TDatabasePDG::Instance()->GetParticle(trPDG)->Mass();
             CLsize = CLsiezes.at(i);
             p = mcTracksMatrix[evID][trID].GetP();
             phi = mcTracksMatrix[evID][trID].GetPhi();
@@ -359,19 +360,19 @@ void mcOrigin(std::string inPath="", std::string outLabel="", bool isOldData=fal
 
             MCtree->Fill();
 
-            //if (verbose)
+            // if (verbose)
             //{
-            //    LOG(info) <<"m="<<mass<<", p="<<p<<", PDG="<<trPDG;
-            //}
-            //hPDGmass->Fill(mass);
-            //}
-            //else
+            //     LOG(info) <<"m="<<mass<<", p="<<p<<", PDG="<<trPDG;
+            // }
+            // hPDGmass->Fill(mass);
+            // }
+            // else
             //{
-            //    PDGcodeOutsider.push_back(trPDG);
-            //    LOG(info) << "------------------ PDG OUTSIDER INFO ------------------";
-            //    LOG(info) << "Tot PDG OUTSIDER"<<PDGcodeOutsider.size();
-            //    LOG(info) << "PDG OUTSIDER"<<PDGcodeOutsider[PDGcodeOutsider.size()];
-            //}
+            //     PDGcodeOutsider.push_back(trPDG);
+            //     LOG(info) << "------------------ PDG OUTSIDER INFO ------------------";
+            //     LOG(info) << "Tot PDG OUTSIDER"<<PDGcodeOutsider.size();
+            //     LOG(info) << "PDG OUTSIDER"<<PDGcodeOutsider[PDGcodeOutsider.size()];
+            // }
             hPDGp->Fill(p);
             hPDGcode->Fill(trPDG);
         }
@@ -387,12 +388,11 @@ void mcOrigin(std::string inPath="", std::string outLabel="", bool isOldData=fal
     hCLsizeAll->Write();
     MCtree->Write();
 
-    //LOG(info) << "------------------ PDG OUTSIDER INFO ------------------";
-    //LOG(info) << "Tot PDG OUTSIDER"<<PDGcodeOutsider.size();
-    //for (int i = 0; i < PDGcodeOutsider.size(); i++)
+    // LOG(info) << "------------------ PDG OUTSIDER INFO ------------------";
+    // LOG(info) << "Tot PDG OUTSIDER"<<PDGcodeOutsider.size();
+    // for (int i = 0; i < PDGcodeOutsider.size(); i++)
     //{
-    //    LOG(info) << "PDG OUTSIDER"<<PDGcodeOutsider[i];   
-    //}
+    //     LOG(info) << "PDG OUTSIDER"<<PDGcodeOutsider[i];
+    // }
     outFile.Close();
-
 }
