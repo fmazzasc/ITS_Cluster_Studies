@@ -625,7 +625,9 @@ def regression(TrainTestData, config):
         with alive_bar(title='Hyper-Parameters optimization') as bar:
             if early_stop:  study = model_handler.optimize_params_optuna(TrainTestData, HyperParamsRange, delta_scorer, direction='maximize', callbacks=[callback])
             else:           study = model_handler.optimize_params_optuna(TrainTestData, HyperParamsRange, delta_scorer, direction='maximize', n_trials=50)
-            #else:           study = model_handler.optimize_params_optuna(TrainTestData, HyperParamsRange, delta_scorer, direction='minimize', timeout=300)
+            #else:           study = model_handler.optimize_params_optuna(TrainTestData, HyperParamsRange, delta_scorer, direction='minimize', fit_params={'sample_weight': X_train['beta_pweight']}, timeout=300)
+            ## VERIFY HOW CLASSES ASSIGN WEIGHTS TO REWRITE THE LAST LINE. IN THIS WAY THE ALGORITHM WILL TRAIN KNOWING ABOUT THE WEIGHTS
+        
 
         print('Number of finished trials:', len(study.trials))
         print('Best trial:', study.best_trial.params)
