@@ -1,0 +1,84 @@
+inputs:
+    dirname: null # leave null if not common for all input files
+    filenames: [/home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/output.root,
+                /home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/output.root,
+
+                ]
+    objectnames: ['Delta_Pi_NOOPT_hybrid', 'Delta_Pi_AUGM_hybrid', 'clsize_K_TPC_sliced', '0'] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
+
+output: 
+    filename: /home/galucia/PID_ITS/Tesi/Delta_Pi_hybrid # with path and w/o extension
+    objectnames: ['p', 'K', 'pi', 'e'] # new names for the created objects. Will be AUTOMATICALLY applied if the lenght of the list equals the lenght of the one in the input section
+    extensions: [png] # possibilities: pdf, eps, png, root
+
+options:
+    ROOTobject: [TH1, TH1, TH1] # TH1, TH2 or TGraph: no need to specify TH1F, TH1D or TGraphErrors, TGraphAsymmErrors
+    scale: [1, 1, 1, 1]
+    rebin: [1, 1, 1, 1]
+    normalize: [true, true, true, true] # divide histogram by its area
+    colors: [kRed+1, kAzure+4, kGreen+3, kOrange+2]
+    markers: [kFullCircle, kFullCircle, kFullCircle, kFullCircle]
+    markersize: 1.5
+    linewidth: 2
+    fillstyle: [3004,3004,3004,0]
+    fillalpha: [1,1,1,1]
+    drawopt: ['hist', 'hist', 'hist e0']
+    palette: ['kBlue', 'kBlue', 'kBlue', 'kBlue']
+    
+    ratio: 
+        enable: false
+        uncertainties:
+            enable: false
+            corr: false
+        displayRMS: false
+
+    errcomp: # comparison of uncertainties
+        enable: false
+        relative: true
+    
+    KS: true
+    dottedLine: ''
+
+    statbox:
+        avoid: true
+        xlimits: [6.4, 9.9]
+        ylimits: [0.1, 0.9]
+        header: ''
+        textsize: 0.045
+
+    legend:
+        avoid: false #set true to avoid the legend in the final plot
+        xlimits: [0.57, 0.9]
+        ylimits: [0.58, 0.83]
+        header: '#splitline{#splitline{pions}{#splitline{hybrid train; ITS-TPC appl.}{0.35 < #it{p} < 0.45 GeV/#it{c}}}}{}'
+        titles: ['without weights', 'with weights']
+        options: [l, l, lp, l]
+        textsize: 0.042
+        ncolumns: 1
+
+    statlegend:
+        avoid:  true
+        x:      [0.9, 0.55]
+        y:      [0.9, 0.55]
+        w:      [0.4, 0.4]
+        h:      [0.2, 0.2]
+
+    canvas:
+        width: 1200
+        heigth: 1000
+        xaxistitle: '#Delta'
+        yaxistitle: 'Norm. counts'
+        yaxistitleratio: ''
+        xlimits: [-0.1, 0.8]
+        ylimits: [0.000, 0.05]
+        ylimitsratio: [0.00001, 1]
+        ylimitserr: [0., 0.35]
+        logx: false
+        logy: false
+        logz: true
+        ratio:
+            logy: true
+            logx: false
+        errcomp:
+            logy: false
+            logx: false

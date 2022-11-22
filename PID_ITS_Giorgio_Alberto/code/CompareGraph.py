@@ -10,12 +10,14 @@ import numpy as np
 import yaml
 from ROOT import TCanvas, TFile, TLegend, TLine, gStyle, TList, TPaveText # pylint: disable=import-error,no-name-in-module
 sys.path.append('../..')
-from utils.StyleFormatter import SetGlobalStyle, SetObjectStyle, GetROOTColor, GetROOTMarker #pylint: disable=wrong-import-position,import-error
+from utils.StyleFormatter_old import SetGlobalStyle, SetObjectStyle, GetROOTColor, GetROOTMarker #pylint: disable=wrong-import-position,import-error
 from utils.AnalysisUtils import ComputeRatioDiffBins, ScaleGraph, ComputeRatioGraph #pylint: disable=wrong-import-position,import-error
 
-def StatLegendPosition(x, y):
+def StatLegendPosition(x, y, w, h):
     gStyle.SetStatX(x)
     gStyle.SetStatY(y)
+    gStyle.SetStatW(w)
+    gStyle.SetStatH(h)
 
 def min_size(*args):
     if not args:    return 0
@@ -91,8 +93,11 @@ header = inputCfg['options']['legend']['header']
 legTextSize = inputCfg['options']['legend']['textsize']
 ncolumns = inputCfg['options']['legend']['ncolumns']
 
+avoidStatLegend = inputCfg['options']['statlegend']['avoid']
 xStatLegend = inputCfg['options']['statlegend']['x']
 yStatLegend = inputCfg['options']['statlegend']['y']
+wStatLegend = inputCfg['options']['statlegend']['w']
+hStatLegend = inputCfg['options']['statlegend']['h']
 
 single = (min_size(inFileNames, outFileNames, objNames, objTypes, scales, normalizes, colors, markers, fillstyles, fillalphas, rebins) == 1)
 if single:  doRatio, doCompareUnc = False, False        # auto-disable ratio and compare features if a single object is created
@@ -100,7 +105,8 @@ if single:  doRatio, doCompareUnc = False, False        # auto-disable ratio and
 
 # set global style
 SetGlobalStyle(padleftmargin=0.18, padbottommargin=0.14, titleoffsety=1.5, optstat=1111)
-StatLegendPosition(xStatLegend, yStatLegend)
+if avoidStatLegend:     gStyle.SetOptStat(0)
+
 
 pave = TPaveText(xStatLimits[0], yStatLimits[0], xStatLimits[1], yStatLimits[1])
 pave.SetFillStyle(0)
@@ -131,7 +137,7 @@ for iFile, (inFileName, outFileName, objName, objType, scale, normalize, color, 
         else:                                       hToCompare[iFile].SetName(f'h{iFile}')
     else:
         hToCompare[iFile].SetName(f'g{iFile}')
-    hToCompare[iFile].Rebin(rebin)
+    if 'TH' in objType:     hToCompare[iFile].Rebin(rebin)
     SetObjectStyle(hToCompare[iFile],
                    color=GetROOTColor(color),
                    markerstyle=GetROOTMarker(marker),
@@ -140,8 +146,7 @@ for iFile, (inFileName, outFileName, objName, objType, scale, normalize, color, 
                    fillstyle=fillstyle,
                    fillalpha=fillalpha)
     if 'TH' in objType:
-        hToCompare[iFile].SetDirectory(0)
-        if not single:  hToCompare[iFile].SetStats(0)
+        hToCompare[iFile].SetDirectory(0)               
         if normalize:
             if scale != 1.:
                 print('WARNING: you are both scaling and normalizing the histogram, check if it makes sense!')
@@ -248,7 +253,7 @@ if doRatio or doCompareUnc:
     if logY:
         cOut.cd(1).SetLogy()
     if logZ:
-        cOut.cd().SetLogz()
+        cOut.cd(1).SetLogz()
 else:
     hFrame = cOut.cd().DrawFrame(xLimits[0], yLimits[0], xLimits[1], yLimits[1], f';{xTitle};{yTitle}')
     if logX:
@@ -264,12 +269,15 @@ hFrame.GetYaxis().SetDecimals()
 list = TList()
 
 # Draw main histograms
-for histo, objType, drawOpt in zip(hToCompare, objTypes, drawOptions):
+for ihisto, (histo, objType, drawOpt) in enumerate(zip(hToCompare, objTypes, drawOptions)):
     if 'TH' in objType:
         list.Add(histo)
+        if not avoidStatLegend: StatLegendPosition(xStatLegend[ihisto], yStatLegend[ihisto], wStatLegend[ihisto], hStatLegend[ihisto])      
         histo.DrawCopy(f'{drawOpt}same')
+        print( legNames[ihisto], f'Entries: {histo.GetEntries()}', f'Mean: {round(histo.GetMean(), 3)}', f'Std Dev: {round(histo.GetStdDev(), 3)}' )
     else:
         histo.Draw(drawOpt)
+
 
 # Create stat box (entries, mean and stddev of all histograms drawn)
 if not avoidStatBox:

@@ -54,21 +54,20 @@ def SetGlobalStyle(**kwargs):
     Parameters
     ----------
 
-    - padrightmargin (float), default = 186/25535
+    - padrightmargin (float), default = 0.035
     - padleftmargin (float), default = 0.12
-    - padtopmargin (float), default = 186/25535
+    - padtopmargin (float), default = 0.035
     - padbottommargin (float), default = 0.12
 
-    - titlesize (float), default = 186/25550
-    - titlesizex (float), default = 186/25550
-    - titlesizey (float), default = 186/25550
-    - titlesizez (float), default = 186/25550
+    - titlesize (float), default = 0.050
+    - titlesizex (float), default = 0.050
+    - titlesizey (float), default = 0.050
+    - titlesizez (float), default = 0.050
 
-    - labelsize (float), default = 186/25545
-    - labelsizex (float), default = 186/25545
-    - labelsizey (float), default = 186/25545
-    - labelsizez (float), default = 186/25545
-    - labeloffset (float), default = 186/25505
+    - labelsize (float), default = 0.045
+    - labelsizex (float), default = 0.045
+    - labelsizey (float), default = 0.045
+    - labelsizez (float), default = 0.045
 
     - titleoffset (float), default = 1.2
     - titleoffsetx (float), default = 1.2
@@ -90,7 +89,7 @@ def SetGlobalStyle(**kwargs):
     if 'padrightmargin' in kwargs:
         gStyle.SetPadRightMargin(kwargs['padrightmargin'])
     else:
-        gStyle.SetPadRightMargin(186/25535)
+        gStyle.SetPadRightMargin(0.035)
 
     if 'padleftmargin' in kwargs:
         gStyle.SetPadLeftMargin(kwargs['padleftmargin'])
@@ -100,7 +99,7 @@ def SetGlobalStyle(**kwargs):
     if 'padtopmargin' in kwargs:
         gStyle.SetPadTopMargin(kwargs['padtopmargin'])
     else:
-        gStyle.SetPadTopMargin(186/25535)
+        gStyle.SetPadTopMargin(0.035)
 
     if 'padbottommargin' in kwargs:
         gStyle.SetPadBottomMargin(kwargs['padbottommargin'])
@@ -111,7 +110,7 @@ def SetGlobalStyle(**kwargs):
     if 'titlesize' in kwargs:
         gStyle.SetTitleSize(kwargs['titlesize'], 'xyz')
     else:
-        gStyle.SetTitleSize(186/25550, 'xyz')
+        gStyle.SetTitleSize(0.050, 'xyz')
 
     if 'titlesizex' in kwargs:
         gStyle.SetTitleSize(kwargs['titlesizex'], 'x')
@@ -124,7 +123,7 @@ def SetGlobalStyle(**kwargs):
     if 'labelsize' in kwargs:
         gStyle.SetLabelSize(kwargs['labelsize'], 'xyz')
     else:
-        gStyle.SetLabelSize(186/25545, 'xyz')
+        gStyle.SetLabelSize(0.045, 'xyz')
 
     if 'labelsizex' in kwargs:
         gStyle.SetLabelSize(kwargs['labelsizex'], 'x')

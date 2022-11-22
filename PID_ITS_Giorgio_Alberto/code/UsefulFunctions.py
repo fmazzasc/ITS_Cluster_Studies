@@ -3,8 +3,13 @@ import numpy as np
 from math import ceil, sqrt
 from itertools import combinations
 
+from sklearn.metrics import make_scorer
+import optuna
 
-from ROOT import TH2F, TCanvas, TH1F, gStyle, kBird, TFile, kCyan, kRed, kGreen, gPad, TLegend
+import uproot
+
+
+from ROOT import TH2F, TCanvas, TH1F, gStyle, kBird, TFile, kCyan, kRed, kGreen, gPad, TLegend, TGraphErrors
 from ROOT_graph import set_obj_style
 
 
@@ -93,7 +98,7 @@ def hist_canvas(x, filename, canvas, plot_specifics, pad=None, normalized=True, 
     
     if save:        canvas.SaveAs(f'{filename}.root')
 
-def multiple_hist(dfs, column, plot_specifics, filename, hist_names=None):
+def multiple_hist(dfs, column, plot_specifics, filename, hist_names=None, weights=None):
     """
     Saves multiple histigrams (different particle species, same variable) on the same file. You can reiterate for different variables as well.
     
@@ -111,18 +116,20 @@ def multiple_hist(dfs, column, plot_specifics, filename, hist_names=None):
     """
     
     nbinsx, xlow, xup = plot_specifics
-    file = TFile(f'{filename}{column}.root', 'recreate')
+    file = TFile(f'{filename}.root', 'recreate')
 
     for i, df in enumerate(dfs):
-        if hist_names != None:        hist_name = hist_names[i]
-        #elif type(df) == pd.DataFrame:    
-        #    if 'particle' in df.columns:   hist_name = f'{df.particle.iloc[0]}'
-        else:                           hist_name = f'{i}'
+        if hist_names != None:          hist_name = f'{column}_{hist_names[i]}'
+        else:                           hist_name = f'{column}_{i}'
 
         hist = TH1F(hist_name, hist_name, nbinsx, xlow, xup)
-        if type(df) == pd.DataFrame:    
-            for x in df[column]:    hist.Fill(x)
-        else:                           
+        if type(df) == pd.DataFrame: 
+            if weights != None:   
+                for x, w in zip(df[column], df[weights]):    hist.Fill(x, w)
+            else:
+                for x in df[column]:    hist.Fill(x)
+        else:    
+            if weights != None: print('warning: weights could not be applied')
             for x in df:            hist.Fill(x)
 
         set_obj_style(hist, title=hist_name, x_label=column, y_label="Counts")
@@ -190,7 +197,8 @@ def multiplots(xs, ys, n_pads, filename, plot, plot_specifics):
     
     canvas.SaveAs(f'{filename}.root')
 
-        
+
+    
 
 
 
@@ -302,6 +310,12 @@ def Delta_score(model, X, y):
     return Delta.sum()/len(y)
     #return Delta.sum()/weight.sum()
 
+def _deltaScore(y_true, y_pred, **kwargs):
+    delta = (y_true - y_pred)**2
+    return delta.sum() / len(y_true)
+
+delta_scorer = make_scorer(_deltaScore, greater_is_better=False)
+
 def plot_score(X, y, RegressionColumns, model, x_label, plot_specifics, x=pd.Series(), filename='', absolute=False):
     """
     Plot a prediction scoring variable (defined as (true-predicted)/true) vs a chosen variable from X columns.
@@ -312,7 +326,8 @@ def plot_score(X, y, RegressionColumns, model, x_label, plot_specifics, x=pd.Ser
     """
 
     if 'preds' not in X.columns:    X['preds'] = model.predict(X[RegressionColumns])
-    if 'Delta' not in X.columns:    
+    if 'Delta' not in X.columns:
+        print('ayaayyay')    
         if absolute:    X.eval('Delta = abs(beta - preds)/beta', inplace=True)
         else:           X.eval('Delta = (beta - preds)/beta', inplace=True)
 

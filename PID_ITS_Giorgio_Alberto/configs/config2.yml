@@ -1,0 +1,551 @@
+# Configuration file for the particle identification with the ML algorithm in PID_ITS - Giorgio Alberto
+
+
+# modes are: "TPC", "hybrid", "MC", "MCtpc" 
+mode: "hybrid"
+
+### TPC
+TPC:
+    input:
+        data:       /data/shared/ITS/ML/particles_pid_520143_itstpc.parquet 
+        appl_data:  /data/shared/ITS/ML/particles_pid_520147_itstpc.parquet
+        ext_appl: True
+
+
+    output:
+        data_visual_dir:    ../../../data_visual_root/TPC
+        ml_dir:             ../../../ML_output/TPC
+        final_dir:          ../../../final_plots/TPC
+        delta_dir:          ../../../ML_output/TPC
+
+        save_data_dir:      ../../../data/TPC
+        model_out:          ../../../ML_output/TPC/mlModels 
+
+        particle:   { 0: "Deu", 1: "P", 2: "K", 3: "Pi"}
+
+
+    data_prep:
+
+        skip_data_prep: False
+        prep_data: [/Users/giogi/Desktop/Stage INFN/PID ITS/data/TrainSet_augm.parquet.gzip,
+                    /Users/giogi/Desktop/Stage INFN/PID ITS/data/yTrain_augm.parquet.gzip,
+                    /Users/giogi/Desktop/Stage INFN/PID ITS/data/TestSet_augm.parquet.gzip,
+                    /Users/giogi/Desktop/Stage INFN/PID ITS/data/yTest_betaflataugm.gzip]
+        appl_data:  /Users/giogi/Desktop/Stage INFN/PID ITS/data/ApplicationDf_augm.parquet.gzip
+        save_data: True
+
+        test_size: 0.2
+        random_state: 0   # random_state for train_test_split
+
+        # Seven Hits (only consider candidates with hits on all the layeres)
+        #___________________________________
+        seven_hits: False
+    
+        # Equal
+        #___________________________________
+        do_equal: False
+
+
+        # Data Augmentation
+        #____________________________________
+        do_augm: False
+        to_augm: ["K"]
+        mothers: ["P"]
+        p_ranges: [[0.2, 1.5]]
+
+        # Beta Flat
+        #____________________________________
+        betaSpec: [10, 0., 1.]  # nbins, betamin, betamax
+
+        # Beta p Flat
+        #____________________________________
+        betaPSpec: [30, 0., 1.5, 4, 1, 5]   # nxbins, xlow, xup, nybins, ylow, yup
+
+    training:
+
+        skip_training: False
+
+        random_state: 0
+
+        RegressionColumns: ["p", 
+                            "tgL", "meanPattID", "clSizeCosLam",
+                            "ClSizeL0", "ClSizeL1", "ClSizeL2", "ClSizeL3", "ClSizeL4", "ClSizeL5", "ClSizeL6"]
+        ModelParams:        {"n_jobs": 40,
+                            "tree_method": "hist", # not available in FLAML
+                            "colsample_bylevel": 0.6337942873486531, # not available in FLAML 
+                            "colsample_bytree": 0.7, # not available in FLAML
+                            "subsample": 0.710841077866278, # not available in FLAML
+                            "learning_rate": 0.04952863262192068, # not available in FLAML
+                            "n_estimators": 400, # not available in FLAML
+                            "max_depth": 13, # not available in FLAML
+                            "min_child_weight": 10, # not available in FLAML
+                            "eval_metric": "rmse", # not available in FLAML
+                            "reg_alpha": 0.349923237394973, # not available in FLAML
+                            "reg_lambda": 0.5031161568154017, # not available in FLAML
+                            "verbosity": 1,
+                            } # dict of hyperparameters (XGB and AUTOML USE DIFFERENT HYPER-PARS!)
+
+        HyperParamsRange:   {"max_depth": [3, 15], 
+                            "learning_rate": [0.01, 0.1],
+                            "n_estimators": [300, 1500], 
+                            "min_child_weight":[1, 10],
+                            "subsample": [0.8, 1.], 
+                            "colsample_bytree": [0.8, 1],
+                            }                      # dict of ranges for the hyperparameters evaluated by optuna
+
+        model: "xgboost"        # accepted models: xgboost, automl
+        do_opt: True
+        early_stop: False
+        save_model: True
+
+        beta_flat: False
+        beta_p_flat: False
+        MCweights: False
+
+    application:
+        skip_appl: False
+        model_loc: /home/galucia/PID_ITS/ML_output/hybrid/RegressorModel_xgboost_beta_pflat_.pickle
+
+    plots:
+        do_plots: True
+        plotSpec1D:     {"ClSizeL0": ["Cl. Size L0", 25, 0, 25], "ClSizeL1": ["Cl. Size L1", 25, 0, 25], "ClSizeL2": ["Cl. Size L2", 25, 0, 25], "ClSizeL3": ["Cl. Size L3", 25, 0, 25], 
+                        "ClSizeL4": ["Cl. Size L4", 25, 0, 25], "ClSizeL5": ["Cl. Size L5", 25, 0, 25], "ClSizeL6": ["Cl. Size L6", 25, 0, 25], "clSizeCosLam": ["<Cl. Size> <cos#lambda>", 250, 0, 25],
+                        "SnPhiL0": ["sin#phi L0", 100, -1, 1], "SnPhiL1": ["sin#phi L1", 100, -1, 1], "SnPhiL2": ["sin#phi L2", 100, -1, 1], "SnPhiL3": ["sin#phi L3", 100, -1, 1], 
+                        "SnPhiL4": ["sin#phi L4", 100, -1, 1], "SnPhiL5": ["sin#phi L5", 100, -1, 1], "SnPhiL6": ["sin#phi L6", 100, -1, 1], "meanSnPhi": ["<sin#phi>", 100, -1, 1], 
+                        "TanLamL0": ["tan#lambda L0", 80, -4, 4], "TanLamL1": ["tan#lambda L1", 80, -4, 4], "TanLamL2": ["tan#lambda L2", 80, -4, 4], "TanLamL3": ["tan#lambda L3", 80, -4, 4], 
+                        "TanLamL4": ["tan#lambda L4", 80, -4, 4], "TanLamL5": ["tan#lambda L5", 80, -4, 4], "TanLamL6": ["tan#lambda L6", 80, -4, 4], "tgL": ["<tan#lambda>", 80, -4, 4],
+                        "PattIDL0": ["Pattern ID L0", 10, 0, 100], "PattIDL1": ["Pattern ID L1", 10, 0, 100], "PattIDL2": ["Pattern ID L2", 10, 0, 100], "PattIDL3": ["Pattern ID L3", 10, 0, 100], 
+                        "PattIDL4": ["Pattern ID L4", 10, 0, 100], "PattIDL5": ["Pattern ID L5", 10, 0, 100], "PattIDL6": ["Pattern ID L6", 10, 0, 100], "meanPattID": ["<Pattern ID>", 100, 0, 100],
+                        "L6_L0": ["#frac{Cl. Size L0}{Cl. Size L0}", 100, 0, 10], "p": ["#it{p} (GeV/#it{c})", 70, 0, 0.7], "pITS": ["#it{p}_{ITS} (GeV/#it{c})", 70, 0, 0.7],
+                        "pTPC": ["#it{p}_{TPC} (GeV/#{c})", 70, 0, 10.7], "tpcITSchi2": ["#chi_{ITS-TPC}^2", 100, 0, 10], "nClusTPC": ["n Cluster TPC",130, 50, 180]
+                        }
+        plotAxis2D:     {1: ["p", "beta"], 2: ["p", "clSizeCosLam"], 3: ["beta", "clSizeCosLam"], 4: ["p", "dedx"]
+                        }
+        plotSpec2D:     {1: ["#it{p} (GeV/#it{c})", "#beta", 700, 0, 0.7, 1100, 0, 1.1], 
+                        2: ["#it{p} (GeV/#it{c})", "<Cl. size> <cos#lambda>", 70, 0, 0.7, 120, 0, 12], 
+                        3: ["#beta", "<Cl. size> <cos#lambda>", 100, 0, 1, 120, 0, 12],
+                        4: ["#it{p} (GeV/#it{c})", "#frac{dE}{dx} (keV/#mum)", 700, 0, .7, 600, 0, 600], 
+                        }
+        plotAxisBetaP:  {1: ["p", "particle"], 2: ["beta_pweight", "particle"]
+                        }
+        plotSpecBetaP:  {1: ["#it{p} (GeV/#it{c})", "Particle species", 30, 0, 1.5, 4, 0.5, 4.5], 
+                        2: ["Weights", "Particle species", 100, 0, 1, 4, 0.5, 4.5]
+                        }
+        scoreDeltaSpec: {"p": ["#it{p} (GeV/#it{c})", 70, 0., 0.7],
+                        "beta_pred": ["#beta (ML)", 105, 0., 1.05]
+                        }
+        finalAxis2D:    {1: ["p", "beta"], 2: ["p", "beta_pred"], 3: ["p", "dedx"]
+                        }
+        finalSpec2D:    {1: ["#it{p} (GeV/#it{c})", "#beta_{true}", 700, 0, 0.7, 1100, 0, 1.1], 
+                        2: ["#it{p} (GeV/#it{c})", "#beta (ML)", 700, 0, 0.7, 1100, 0, 1.1], 
+                        3: ["p (GeV/c)", "#frac{dE}{dx} (keV/#mum)", 70, 0, 0.7, 600, 0, 600]
+                        }
+
+### hybrid
+hybrid:
+    input:
+        data:       /data/shared/ITS/ML/NEW/particles_pid_520143.parquet
+        appl_data:  /data/shared/ITS/ML/particles_pid_520147_itstpc.parquet
+        ext_appl: True
+
+
+    output:
+        data_visual_dir:    ../../../data_visual_root/hybrid
+        ml_dir:             ../../../ML_output/hybrid
+        final_dir:          ../../../final_plots/hybrid
+        delta_dir:          ../../../ML_output/hybrid
+
+        save_data_dir:      ../../../data/hybrid
+        model_out:          ../../../ML_output/hybrid/mlModels 
+
+        particle:   { 1: "P", 2: "K", 3: "Pi", 4: "E"}
+
+
+    data_prep:
+
+        skip_data_prep: False
+        prep_data: [/Users/giogi/Desktop/Stage INFN/PID ITS/data/TrainSet_augm.parquet.gzip,
+                    /Users/giogi/Desktop/Stage INFN/PID ITS/data/yTrain_augm.parquet.gzip,
+                    /Users/giogi/Desktop/Stage INFN/PID ITS/data/TestSet_augm.parquet.gzip,
+                    /Users/giogi/Desktop/Stage INFN/PID ITS/data/yTest_betaflataugm.gzip]
+        appl_data:  /Users/giogi/Desktop/Stage INFN/PID ITS/data/ApplicationDf_augm.parquet.gzip
+        save_data: True
+
+        test_size: 0.2
+        random_state: 0   # random_state for train_test_split
+
+        # Seven Hits (only consider candidates with hits on all the layeres)
+        #___________________________________
+        seven_hits: False
+    
+        # Equal
+        #___________________________________
+        do_equal: False
+
+
+        # Data Augmentation
+        #____________________________________
+        do_augm: True
+        to_augm: ["K"]
+        mothers: ["P"]
+        p_ranges: [[1, 1.5]]
+
+        # Beta Flat
+        #____________________________________
+        betaSpec: [10, 0., 1.]  # nbins, betamin, betamax
+
+        # Beta p Flat
+        #____________________________________
+        betaPSpec: [30, 0., 1.5, 4, 0.5, 4.5]   # nxbins, xlow, xup, nybins, ylow, yup
+
+    training:
+
+        skip_training: False
+
+        random_state: 0
+
+        RegressionColumns: ["p", 
+                            "tgL", "meanPattID", "clSizeCosLam",
+                            "ClSizeL0", "ClSizeL1", "ClSizeL2", "ClSizeL3", "ClSizeL4", "ClSizeL5", "ClSizeL6"]
+        ModelParams:        {"n_jobs": 40,
+                            "tree_method": "hist", # not available in FLAML
+                            "colsample_bylevel": 0.6337942873486531, # not available in FLAML 
+                            "colsample_bytree": 0.7, # not available in FLAML
+                            "subsample": 0.710841077866278, # not available in FLAML
+                            "learning_rate": 0.04952863262192068, # not available in FLAML
+                            "n_estimators": 400, # not available in FLAML
+                            "max_depth": 13, # not available in FLAML
+                            "min_child_weight": 10, # not available in FLAML
+                            "eval_metric": "rmse", # not available in FLAML
+                            "reg_alpha": 0.349923237394973, # not available in FLAML
+                            "reg_lambda": 0.5031161568154017, # not available in FLAML
+                            "verbosity": 1,
+                            } # dict of hyperparameters (XGB and AUTOML USE DIFFERENT HYPER-PARS!)
+
+        HyperParamsRange:   {"max_depth": [3, 15], 
+                            "learning_rate": [0.01, 0.1],
+                            "n_estimators": [300, 1500], 
+                            "min_child_weight":[1, 10],
+                            "subsample": [0.8, 1.], 
+                            "colsample_bytree": [0.8, 1],
+                            }                      # dict of ranges for the hyperparameters evaluated by optuna
+
+        model: "xgboost"        # accepted models: xgboost, automl
+        do_opt: True
+        early_stop: False
+        save_model: True
+
+        beta_flat: False
+        beta_p_flat: True
+        MCweights: False
+
+    application:
+        skip_appl: False
+        model_loc: /home/galucia/PID_ITS/ML_output/hybrid/RegressorModel_xgboost_beta_pflat_.pickle
+
+    plots:
+        do_plots: True
+        plotSpec1D:     {"ClSizeL0": ["Cl. Size L0", 25, 0, 25], "ClSizeL1": ["Cl. Size L1", 25, 0, 25], "ClSizeL2": ["Cl. Size L2", 25, 0, 25], "ClSizeL3": ["Cl. Size L3", 25, 0, 25], 
+                        "ClSizeL4": ["Cl. Size L4", 25, 0, 25], "ClSizeL5": ["Cl. Size L5", 25, 0, 25], "ClSizeL6": ["Cl. Size L6", 25, 0, 25], "clSizeCosLam": ["<Cl. Size> <cos#lambda>", 250, 0, 25],
+                        "SnPhiL0": ["sin#phi L0", 100, -1, 1], "SnPhiL1": ["sin#phi L1", 100, -1, 1], "SnPhiL2": ["sin#phi L2", 100, -1, 1], "SnPhiL3": ["sin#phi L3", 100, -1, 1], 
+                        "SnPhiL4": ["sin#phi L4", 100, -1, 1], "SnPhiL5": ["sin#phi L5", 100, -1, 1], "SnPhiL6": ["sin#phi L6", 100, -1, 1], "meanSnPhi": ["<sin#phi>", 100, -1, 1], 
+                        "TanLamL0": ["tan#lambda L0", 80, -4, 4], "TanLamL1": ["tan#lambda L1", 80, -4, 4], "TanLamL2": ["tan#lambda L2", 80, -4, 4], "TanLamL3": ["tan#lambda L3", 80, -4, 4], 
+                        "TanLamL4": ["tan#lambda L4", 80, -4, 4], "TanLamL5": ["tan#lambda L5", 80, -4, 4], "TanLamL6": ["tan#lambda L6", 80, -4, 4], "tgL": ["<tan#lambda>", 80, -4, 4],
+                        "PattIDL0": ["Pattern ID L0", 10, 0, 100], "PattIDL1": ["Pattern ID L1", 10, 0, 100], "PattIDL2": ["Pattern ID L2", 10, 0, 100], "PattIDL3": ["Pattern ID L3", 10, 0, 100], 
+                        "PattIDL4": ["Pattern ID L4", 10, 0, 100], "PattIDL5": ["Pattern ID L5", 10, 0, 100], "PattIDL6": ["Pattern ID L6", 10, 0, 100], "meanPattID": ["<Pattern ID>", 100, 0, 100],
+                        "L6_L0": ["#frac{Cl. Size L0}{Cl. Size L0}", 100, 0, 10], "p": ["#it{p} (GeV/#it{c})", 150, 0, 1.5], "pITS": ["#it{p}_{ITS} (GeV/#it{c})", 150, 0, 1.5],
+                        "pTPC": ["#it{p}_{TPC} (GeV/#{c})", 150, 0, 1.5], "tpcITSchi2": ["#chi_{ITS-TPC}^2", 100, 0, 10], "nClusTPC": ["n Cluster TPC",130, 50, 180]
+                        }
+        plotAxis2D:     {1: ["p", "beta"], 2: ["p", "clSizeCosLam"], 3: ["beta", "clSizeCosLam"], 4: ["p", "dedx"]
+                        }
+        plotSpec2D:     {1: ["#it{p} (GeV/#it{c})", "#beta", 300, 0, 1.5, 220, 0, 1.1], 
+                        2: ["#it{p} (GeV/#it{c})", "<Cl. size> <cos#lambda>", 150, 0, 1.5, 120, 0, 12], 
+                        3: ["#beta", "<Cl. size> <cos#lambda>", 100, 0, 1, 120, 0, 12],
+                        4: ["#it{p} (GeV/#it{c})", "#frac{dE}{dx} (keV/#mum)", 1500, 0, 1.5, 600, 0, 600], 
+                        }
+        plotAxisBetaP:  {1: ["p", "particle"], 2: ["beta_pweight", "particle"]
+                        }
+        plotSpecBetaP:  {1: ["#it{p} (GeV/#it{c})", "Particle species", 30, 0, 1.5, 4, 0.5, 4.5], 
+                        2: ["Weights", "Particle species", 100, 0, 1, 4, 0.5, 4.5]
+                        }
+        scoreDeltaSpec: {"p": ["#it{p} (GeV/#it{c})", 150, 0., 1.5],
+                        "beta_pred": ["#beta (BDT)", 105, 0., 1.05]
+                        }
+        finalAxis2D:    {1: ["p", "beta"], 2: ["p", "beta_pred"], 3: ["p", "dedx"]
+                        }
+        finalSpec2D:    {1: ["#it{p} (GeV/#it{c})", "#beta_{true}", 1500, 0, 1.5, 1100, 0, 1.1], 
+                        2: ["#it{p} (GeV/#it{c})", "#beta (BDT)", 1500, 0, 1.5, 1100, 0, 1.1], 
+                        3: ["p (GeV/c)", "#frac{dE}{dx} (keV/#mum)", 150, 0, 1.5, 600, 0, 600]
+                        }
+
+### MC
+MC:
+    input:
+        data:       /data/shared/ITS/ML/NEW/MCClusterTree505548.root
+        appl_data:  /data/shared/ITS/ML/particles_pid_520147_itstpc.parquet
+        ext_appl: False
+
+
+    output:
+        data_visual_dir:    ../../../data_visual_root/MC2
+        ml_dir:             ../../../ML_output/MC2
+        final_dir:          ../../../final_plots/MC2
+        delta_dir:          ../../../ML_output/MC2
+
+        save_data_dir:      ../../../data/MC2
+        model_out:          ../../../ML_output/MC2/mlModels 
+
+        particle:   { 1: "P", 2: "K", 3: "Pi", 4: "E"}
+
+
+    data_prep:
+
+        skip_data_prep: False
+        prep_data: [/Users/giogi/Desktop/Stage INFN/PID ITS/data/TrainSet_augm.parquet.gzip,
+                    /Users/giogi/Desktop/Stage INFN/PID ITS/data/yTrain_augm.parquet.gzip,
+                    /Users/giogi/Desktop/Stage INFN/PID ITS/data/TestSet_augm.parquet.gzip,
+                    /Users/giogi/Desktop/Stage INFN/PID ITS/data/yTest_betaflataugm.gzip]
+        appl_data:  /Users/giogi/Desktop/Stage INFN/PID ITS/data/ApplicationDf_augm.parquet.gzip
+        save_data: True
+
+        test_size: 0.2
+        random_state: 0   # random_state for train_test_split
+
+        # Seven Hits (only consider candidates with hits on all the layeres)
+        #___________________________________
+        seven_hits: False
+    
+        # Equal
+        #___________________________________
+        do_equal: False
+
+
+        # Data Augmentation
+        #____________________________________
+        do_augm: False
+        to_augm: ["K"]
+        mothers: ["P"]
+        #p_ranges: [[0., 0.2]]
+        p_ranges: [[0.2, 1.5]]
+
+        # Beta Flat
+        #____________________________________
+        betaSpec: [10, 0., 1.]  # nbins, betamin, betamax
+
+        # Beta p Flat
+        #____________________________________
+        betaPSpec: [30, 0., 1.5, 4, 1, 5]   # nxbins, xlow, xup, nybins, ylow, yup
+
+    training:
+
+        skip_training: False
+
+        random_state: 0
+
+        RegressionColumns: ["p", 
+                            "tgL", "meanPattID", "clSizeCosLam",
+                            "ClSizeL0", "ClSizeL1", "ClSizeL2", "ClSizeL3", "ClSizeL4", "ClSizeL5", "ClSizeL6"]
+        ModelParams:        {"n_jobs": 40,
+                            "tree_method": "hist", # not available in FLAML
+                            "colsample_bylevel": 0.6337942873486531, # not available in FLAML 
+                            "colsample_bytree": 0.7, # not available in FLAML
+                            "subsample": 0.710841077866278, # not available in FLAML
+                            "learning_rate": 0.04952863262192068, # not available in FLAML
+                            "n_estimators": 400, # not available in FLAML
+                            "max_depth": 13, # not available in FLAML
+                            "min_child_weight": 10, # not available in FLAML
+                            "eval_metric": "rmse", # not available in FLAML
+                            "reg_alpha": 0.349923237394973, # not available in FLAML
+                            "reg_lambda": 0.5031161568154017, # not available in FLAML
+                            "verbosity": 1,
+                            } # dict of hyperparameters (XGB and AUTOML USE DIFFERENT HYPER-PARS!)
+
+        HyperParamsRange:   {"max_depth": [3, 15], 
+                            "learning_rate": [0.01, 0.1],
+                            "n_estimators": [300, 1500], 
+                            "min_child_weight":[1, 10],
+                            "subsample": [0.8, 1.], 
+                            "colsample_bytree": [0.8, 1],
+                            }                      # dict of ranges for the hyperparameters evaluated by optuna
+
+        model: "xgboost"        # accepted models: xgboost, automl
+        do_opt: False
+        early_stop: False
+        save_model: True
+
+        beta_flat: False
+        beta_p_flat: False
+        MCweights: False
+
+    application:
+        skip_appl: False
+        model_loc: /home/galucia/PID_ITS/ML_output/hybrid/RegressorModel_xgboost_beta_pflat_.pickle
+
+    plots:
+        do_plots: True
+        plotSpec1D:     {"ClSizeL0": ["Cl. Size L0", 25, 0, 25], "ClSizeL1": ["Cl. Size L1", 25, 0, 25], "ClSizeL2": ["Cl. Size L2", 25, 0, 25], "ClSizeL3": ["Cl. Size L3", 25, 0, 25], 
+                        "ClSizeL4": ["Cl. Size L4", 25, 0, 25], "ClSizeL5": ["Cl. Size L5", 25, 0, 25], "ClSizeL6": ["Cl. Size L6", 25, 0, 25], "clSizeCosLam": ["<Cl. Size> <cos#lambda>", 250, 0, 25],
+                        "SnPhiL0": ["sin#phi L0", 100, -1, 1], "SnPhiL1": ["sin#phi L1", 100, -1, 1], "SnPhiL2": ["sin#phi L2", 100, -1, 1], "SnPhiL3": ["sin#phi L3", 100, -1, 1], 
+                        "SnPhiL4": ["sin#phi L4", 100, -1, 1], "SnPhiL5": ["sin#phi L5", 100, -1, 1], "SnPhiL6": ["sin#phi L6", 100, -1, 1], "meanSnPhi": ["<sin#phi>", 100, -1, 1], 
+                        "TanLamL0": ["tan#lambda L0", 80, -4, 4], "TanLamL1": ["tan#lambda L1", 80, -4, 4], "TanLamL2": ["tan#lambda L2", 80, -4, 4], "TanLamL3": ["tan#lambda L3", 80, -4, 4], 
+                        "TanLamL4": ["tan#lambda L4", 80, -4, 4], "TanLamL5": ["tan#lambda L5", 80, -4, 4], "TanLamL6": ["tan#lambda L6", 80, -4, 4], "tgL": ["<tan#lambda>", 80, -4, 4],
+                        "PattIDL0": ["Pattern ID L0", 10, 0, 100], "PattIDL1": ["Pattern ID L1", 10, 0, 100], "PattIDL2": ["Pattern ID L2", 10, 0, 100], "PattIDL3": ["Pattern ID L3", 10, 0, 100], 
+                        "PattIDL4": ["Pattern ID L4", 10, 0, 100], "PattIDL5": ["Pattern ID L5", 10, 0, 100], "PattIDL6": ["Pattern ID L6", 10, 0, 100], "meanPattID": ["<Pattern ID>", 100, 0, 100],
+                        "L6_L0": ["#frac{Cl. Size L0}{Cl. Size L0}", 100, 0, 10], "p": ["#it{p} (GeV/#it{c})", 200, 0, 2], "pITS": ["#it{p}_{ITS} (GeV/#it{c})", 150, 0, 1.5]
+                        }
+        plotAxis2D:     {1: ["p", "beta"], 2: ["p", "clSizeCosLam"], 3: ["beta", "clSizeCosLam"]
+                        }
+        plotSpec2D:     {1: ["#it{p} (GeV/#it{c})", "#beta", 1500, 0, 1.5, 1100, 0, 1.1], 
+                        2: ["#it{p} (GeV/#it{c})", "<Cl. size> <cos#lambda>", 150, 0, 1.5, 120, 0, 12], 
+                        3: ["#beta", "<Cl. size> <cos#lambda>", 100, 0, 1, 120, 0, 12]
+                        }
+        plotAxisBetaP:  {1: ["p", "particle"], 2: ["beta_pweight", "particle"]
+                        }
+        plotSpecBetaP:  {1: ["#it{p} (GeV/#it{c})", "Particle species", 30, 0, 1.5, 4, 0.5, 4.5], 
+                        2: ["Weights", "Particle species", 100, 0, 1, 4, 0.5, 4.5]
+                        }
+        scoreDeltaSpec: {"p": ["#it{p} (GeV/#it{c})", 150, 0., 1.5],
+                        "beta_pred": ["#beta (ML)", 105, 0., 1.05]
+                        }
+        finalAxis2D:    {1: ["p", "beta"], 2: ["p", "beta_pred"]
+                        }
+        finalSpec2D:    {1: ["#it{p} (GeV/#it{c})", "#beta_{true}", 1500, 0, 1.5, 1100, 0, 1.1], 
+                        2: ["#it{p} (GeV/#it{c})", "#beta (ML)", 1500, 0, 1.5, 1100, 0, 1.1], 
+                        }
+
+### MCtpc
+MCtpc:
+    input:
+        data:       /data/shared/ITS/ML/NEW/MCClusterTree505548.root
+        appl_data:  /data/shared/ITS/ML/particles_pid_520147_itstpc.parquet
+        ext_appl: True
+
+
+    output:
+        data_visual_dir:    ../../../data_visual_root/MCtpc
+        ml_dir:             ../../../ML_output/MCtpc
+        final_dir:          ../../../final_plots/MCtpc
+        delta_dir:          ../../../ML_output/MCtpc
+
+        save_data_dir:      ../../../data/MCtpc
+        model_out:          ../../../ML_output/MCtpc/mlModels 
+
+        particle:   { 1: "P", 2: "K", 3: "Pi", 4: "E"}
+
+
+    data_prep:
+
+        skip_data_prep: False
+        prep_data: [/Users/giogi/Desktop/Stage INFN/PID ITS/data/TrainSet_augm.parquet.gzip,
+                    /Users/giogi/Desktop/Stage INFN/PID ITS/data/yTrain_augm.parquet.gzip,
+                    /Users/giogi/Desktop/Stage INFN/PID ITS/data/TestSet_augm.parquet.gzip,
+                    /Users/giogi/Desktop/Stage INFN/PID ITS/data/yTest_betaflataugm.gzip]
+        appl_data:  /Users/giogi/Desktop/Stage INFN/PID ITS/data/ApplicationDf_augm.parquet.gzip
+        save_data: True
+
+        test_size: 0.2
+        random_state: 0   # random_state for train_test_split
+
+        # Seven Hits (only consider candidates with hits on all the layeres)
+        #___________________________________
+        seven_hits: False
+    
+        # Equal
+        #___________________________________
+        do_equal: False
+
+
+        # Data Augmentation
+        #____________________________________
+        do_augm: False
+        to_augm: ["K"]
+        mothers: ["P"]
+        p_ranges: [[0.2, 1.5]]
+
+        # Beta Flat
+        #____________________________________
+        betaSpec: [10, 0., 1.]  # nbins, betamin, betamax
+
+        # Beta p Flat
+        #____________________________________
+        betaPSpec: [30, 0., 1.5, 4, 1, 5]   # nxbins, xlow, xup, nybins, ylow, yup
+
+    training:
+
+        skip_training: False
+
+        random_state: 0
+
+        RegressionColumns: ["p", 
+                            "tgL", "meanPattID", "clSizeCosLam",
+                            "ClSizeL0", "ClSizeL1", "ClSizeL2", "ClSizeL3", "ClSizeL4", "ClSizeL5", "ClSizeL6"]
+        ModelParams:        {"n_jobs": 40,
+                            "tree_method": "hist", # not available in FLAML
+                            "colsample_bylevel": 0.6337942873486531, # not available in FLAML 
+                            "colsample_bytree": 0.7, # not available in FLAML
+                            "subsample": 0.710841077866278, # not available in FLAML
+                            "learning_rate": 0.04952863262192068, # not available in FLAML
+                            "n_estimators": 400, # not available in FLAML
+                            "max_depth": 13, # not available in FLAML
+                            "min_child_weight": 10, # not available in FLAML
+                            "eval_metric": "rmse", # not available in FLAML
+                            "reg_alpha": 0.349923237394973, # not available in FLAML
+                            "reg_lambda": 0.5031161568154017, # not available in FLAML
+                            "verbosity": 1,
+                            } # dict of hyperparameters (XGB and AUTOML USE DIFFERENT HYPER-PARS!)
+
+        HyperParamsRange:   {"max_depth": [3, 15], 
+                            "learning_rate": [0.01, 0.1],
+                            "n_estimators": [300, 1500], 
+                            "min_child_weight":[1, 10],
+                            "subsample": [0.8, 1.], 
+                            "colsample_bytree": [0.8, 1],
+                            }                      # dict of ranges for the hyperparameters evaluated by optuna
+
+        model: "xgboost"        # accepted models: xgboost, automl
+        do_opt: True
+        early_stop: False
+        save_model: True
+
+        beta_flat: False
+        beta_p_flat: False
+        MCweights: False
+
+    application:
+        skip_appl: False
+        model_loc: /home/galucia/PID_ITS/ML_output/hybrid/RegressorModel_xgboost_beta_pflat_.pickle
+
+    plots:
+        do_plots: True
+        plotSpec1D:     {"ClSizeL0": ["Cl. Size L0", 25, 0, 25], "ClSizeL1": ["Cl. Size L1", 25, 0, 25], "ClSizeL2": ["Cl. Size L2", 25, 0, 25], "ClSizeL3": ["Cl. Size L3", 25, 0, 25], 
+                        "ClSizeL4": ["Cl. Size L4", 25, 0, 25], "ClSizeL5": ["Cl. Size L5", 25, 0, 25], "ClSizeL6": ["Cl. Size L6", 25, 0, 25], "clSizeCosLam": ["<Cl. Size> <cos#lambda>", 250, 0, 25],
+                        "SnPhiL0": ["sin#phi L0", 100, -1, 1], "SnPhiL1": ["sin#phi L1", 100, -1, 1], "SnPhiL2": ["sin#phi L2", 100, -1, 1], "SnPhiL3": ["sin#phi L3", 100, -1, 1], 
+                        "SnPhiL4": ["sin#phi L4", 100, -1, 1], "SnPhiL5": ["sin#phi L5", 100, -1, 1], "SnPhiL6": ["sin#phi L6", 100, -1, 1], "meanSnPhi": ["<sin#phi>", 100, -1, 1], 
+                        "TanLamL0": ["tan#lambda L0", 80, -4, 4], "TanLamL1": ["tan#lambda L1", 80, -4, 4], "TanLamL2": ["tan#lambda L2", 80, -4, 4], "TanLamL3": ["tan#lambda L3", 80, -4, 4], 
+                        "TanLamL4": ["tan#lambda L4", 80, -4, 4], "TanLamL5": ["tan#lambda L5", 80, -4, 4], "TanLamL6": ["tan#lambda L6", 80, -4, 4], "tgL": ["<tan#lambda>", 80, -4, 4],
+                        "PattIDL0": ["Pattern ID L0", 10, 0, 100], "PattIDL1": ["Pattern ID L1", 10, 0, 100], "PattIDL2": ["Pattern ID L2", 10, 0, 100], "PattIDL3": ["Pattern ID L3", 10, 0, 100], 
+                        "PattIDL4": ["Pattern ID L4", 10, 0, 100], "PattIDL5": ["Pattern ID L5", 10, 0, 100], "PattIDL6": ["Pattern ID L6", 10, 0, 100], "meanPattID": ["<Pattern ID>", 100, 0, 100],
+                        "L6_L0": ["#frac{Cl. Size L0}{Cl. Size L0}", 100, 0, 10], "p": ["#it{p} (GeV/#it{c})", 200, 0, 2], "pITS": ["#it{p}_{ITS} (GeV/#it{c})", 150, 0, 1.5]
+                        }
+        plotAxis2D:     {1: ["p", "beta"], 2: ["p", "clSizeCosLam"], 3: ["beta", "clSizeCosLam"]
+                        }
+        plotSpec2D:     {1: ["#it{p} (GeV/#it{c})", "#beta", 1500, 0, 1.5, 1100, 0, 1.1], 
+                        2: ["#it{p} (GeV/#it{c})", "<Cl. size> <cos#lambda>", 150, 0, 1.5, 120, 0, 12], 
+                        3: ["#beta", "<Cl. size> <cos#lambda>", 100, 0, 1, 120, 0, 12]
+                        }
+        plotAxisBetaP:  {1: ["p", "particle"], 2: ["beta_pweight", "particle"]}
+        plotSpecBetaP:  {1: ["#it{p} (GeV/#it{c})", "Particle species", 30, 0, 1.5, 4, 0.5, 4.5], 
+                        2: ["Weights", "Particle species", 100, 0, 1, 4, 0.5, 4.5]
+                        }
+        scoreDeltaSpec: {"p": ["#it{p} (GeV/#it{c})", 150, 0., 1.5],
+                        "beta_pred": ["#beta (ML)", 105, 0., 1.05]
+                        }
+        finalAxis2D:    {1: ["p", "beta"], 2: ["p", "beta_pred"], 3: ["p", "dedx"]
+                        }
+        finalSpec2D:    {1: ["#it{p} (GeV/#it{c})", "#beta_{true}", 1500, 0, 1.5, 1100, 0, 1.1], 
+                        2: ["#it{p} (GeV/#it{c})", "#beta (ML)", 1500, 0, 1.5, 1100, 0, 1.1], 
+                        3: ["p (GeV/c)", "#frac{dE}{dx} (keV/#mum)", 150, 0, 1.5, 600, 0, 600]
+                        }
+
+
+

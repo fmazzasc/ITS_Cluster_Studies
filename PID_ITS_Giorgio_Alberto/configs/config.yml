@@ -4,12 +4,17 @@
 # NOTA: /data/shared/ITS/ML/particles_pid_520143.parquet è il dataset ripulito
 
 input:
-    data:       /data/shared/ITS/ML/NEW/particles_pid_520143.parquet
+    data:       /data/shared/ITS/ML/particles_pid_520143_itstpc.parquet 
+                #/data/shared/ITS/ML/NEW/particles_pid_520143.parquet
+                #
+                
     appl_data:  /data/shared/ITS/ML/particles_pid_520147_itstpc.parquet
     ext_appl: True
 
-    isV0: True
-    hybrid: True   # hybrid true requires isV0 true
+    isV0: False
+    hybrid: False    # hybrid true requires isV0 true
+    isMC: False     # MC true requires isV0 true
+    MCtpc: False     # MCtpc true requires isV0 true and isMC true
 
 
 
@@ -19,10 +24,10 @@ output:
     final_dir:          ../../../final_plots
 
     save_data_dir:      ../../../data
-    model_out:          ../../../ML_output
+    model_out:          ../../../ML_output 
 
-    #particle:   { 0: "Deu", 1: "P", 2: "K", 3: "Pi"}
-    particle:   { 1: "P", 2: "K", 3: "Pi", 4: "E"}
+    particle:   { 0: "Deu", 1: "P", 2: "K", 3: "Pi"}
+    #particle:   { 1: "P", 2: "K", 3: "Pi", 4: "E"}
 
 
 data_prep:
@@ -49,11 +54,11 @@ data_prep:
 
     # Data Augmentation
     #____________________________________
-    do_augm: True
+    do_augm: False
     to_augm: ["K"]
-    mothers: ["Pi"]
+    mothers: ["P"]
     #p_ranges: [[0., 0.2]]
-    p_ranges: [[0.15, 0.4]]
+    p_ranges: [[0.2, 1.5]]
 
     # Beta Flat
     #____________________________________
@@ -72,9 +77,11 @@ training:
     random_state: 0
     
     RegressionColumns: ["p", 
-                        "tgL", 
-                        "meanSnPhi", "meanPattID", "clSizeCosLam",
+                        "tgL", "meanPattID", "clSizeCosLam",
                         "ClSizeL0", "ClSizeL1", "ClSizeL2", "ClSizeL3", "ClSizeL4", "ClSizeL5", "ClSizeL6"]
+    RegressionRanges:   [[200, 0, 2],
+                        [80, -4, 4], [10, 0, 100], [250, 0, 25],
+                        [25, 0, 25], [25, 0, 25], [25, 0, 25], [25, 0, 25], [25, 0, 25], [25, 0, 25], [25, 0, 25]]
     ModelParams:        {"n_jobs": 40,
                         #"time_budget": 100,
                         #"metric": "r2",
@@ -95,13 +102,13 @@ training:
                         "verbosity": 1,
                         } # dict of hyperparameters (XGB and AUTOML USE DIFFERENT HYPER-PARS!)
 
-    HyperParamsRange:   {"max_depth": [8, 18], 
+    HyperParamsRange:   {"max_depth": [3, 15], 
                         "learning_rate": [0.01, 0.1],
                         "n_estimators": [300, 1500], 
                         "min_child_weight":[1, 10],
                         "subsample": [0.8, 1.], 
                         "colsample_bytree": [0.8, 1],
-                        "n_jobs": [35, 40]}                      # dict of ranges for the hyperparameters evaluated by optuna
+                        }                      # dict of ranges for the hyperparameters evaluated by optuna
 
     model: "xgboost"        # accepted models: xgboost, automl
     do_opt: True
@@ -109,34 +116,46 @@ training:
     save_model: True
 
     beta_flat: False
-    beta_p_flat: True
+    beta_p_flat: False
+    MCweights: False
 
 application:
     skip_appl: False
-    model_loc: /home/galucia/PID_ITS/ML_output/RegressorModel_xgboost_beta_pflat_.pickle
+    model_loc: /home/galucia/PID_ITS/ML_output/hybrid/RegressorModel_xgboost_beta_pflat_.pickle
 
 plots:
     do_plots: True
     vars_to_plot:   ["ClSizeL0", "ClSizeL1", "ClSizeL2", "ClSizeL3", "ClSizeL4", "ClSizeL5", "ClSizeL6", "clSizeCosLam",
-                    "meanSnPhi", "tgL", "meanPattID", "p"]
+                    "meanSnPhi", "tgL", "meanPattID", "p", "pITS", 
+                    "pTPC", "tpcITSchi2", "nClusTPC"
+                    ]
     #vars_to_plot:   ["ClSizeL0", "ClSizeL1", "ClSizeL2", "ClSizeL3", "ClSizeL4", "ClSizeL5", "ClSizeL6", "meanClsize",
     #                "meanSnPhi", "tgL", "meanPattID", "p", "clSizeCosLam"]
 
-    plot_spec_hist: {"ClSizeL0": [10, 0, 10], "ClSizeL1": [10, 0, 10], "ClSizeL2": [10, 0, 10], "ClSizeL3": [10, 0, 10], 
-                    "ClSizeL4": [10, 0, 10], "ClSizeL5": [10, 0, 10], "ClSizeL6": [10, 0, 10], "clSizeCosLam": [100, 0, 10],
+    plot_spec_hist: {"ClSizeL0": [25, 0, 25], "ClSizeL1": [25, 0, 25], "ClSizeL2": [25, 0, 25], "ClSizeL3": [25, 0, 25], 
+                    "ClSizeL4": [25, 0, 25], "ClSizeL5": [25, 0, 25], "ClSizeL6": [25, 0, 25], "clSizeCosLam": [250, 0, 25],
                     "SnPhiL0": [100, -1, 1], "SnPhiL1": [100, -1, 1], "SnPhiL2": [100, -1, 1], "SnPhiL3": [100, -1, 1], 
                     "SnPhiL4": [100, -1, 1], "SnPhiL5": [100, -1, 1], "SnPhiL6": [100, -1, 1], "meanSnPhi": [100, -1, 1], 
-                    "TanLamL0": [100, -10, 10], "TanLamL1": [100, -10, 10], "TanLamL2": [100, -10, 10], "TanLamL3": [100, -10, 10], 
-                    "TanLamL4": [100, -10, 10], "TanLamL5": [100, -10, 10], "TanLamL6": [100, -10, 10], "tgL": [100, -10, 10],
+                    "TanLamL0": [80, -4, 4], "TanLamL1": [80, -4, 4], "TanLamL2": [80, -4, 4], "TanLamL3": [80, -4, 4], 
+                    "TanLamL4": [80, -4, 4], "TanLamL5": [80, -4, 4], "TanLamL6": [80, -4, 4], "tgL": [80, -4, 4],
                     "PattIDL0": [10, 0, 100], "PattIDL1": [10, 0, 100], "PattIDL2": [10, 0, 100], "PattIDL3": [10, 0, 100], 
-                    "PattIDL4": [10, 0, 100], "PattIDL5": [10, 0, 100], "PattIDL6": [10, 0, 100], "meanPattID": [10, 0, 100],
-                    "L6_L0": [100, 0, 10], "p": [200, 0, 2]}     # dict (variable_to_plot, hist_settings) 
+                    "PattIDL4": [10, 0, 100], "PattIDL5": [10, 0, 100], "PattIDL6": [10, 0, 100], "meanPattID": [100, 0, 100],
+                    "L6_L0": [100, 0, 10], "p": [200, 0, 2], "pITS": [150, 0, 1.5], 
+                    "pTPC": [150, 0, 1.5], "tpcITSchi2": [100, 0, 10], "nClusTPC": [130, 50, 180]
+                    }     # dict (variable_to_plot, hist_settings) 
     
-    plot_x_scat:    ["p", "p", "p", "beta"]
-    plot_y_scat:    ["dedx", "beta", "clSizeCosLam", "clSizeCosLam"]
-    plot_spec_scat: [["p", "#frac{dE}{dx}", 1500, 0, 1.5, 600, 0, 600], ["p", "#beta", 1500, 0, 1.5, 1000, 0, 1.1], ["p", "clSizeCosLam", 150, 0, 1.5, 120, 0, 12], ["#beta", "clSizeCosLam", 100, 0, 1, 120, 0, 12]] 
+    plot_x_scat:    [
+                    "p", 
+                    "p", "p", "beta"]
+    plot_y_scat:    [
+                    "dedx", 
+                    "beta", "clSizeCosLam", "clSizeCosLam"]
+    plot_spec_scat: [
+                    ["p [GeV/c]", "#frac{dE}{dx} [keV/300#mum]", 700, 0, .7, 600, 0, 600], 
+                    ["p [GeV/c]", "#beta", 1500, 0, 1.5, 1100, 0, 1.1], ["p [GeV/c]", "<Cl. size> <cos#lambda>", 150, 0, 1.5, 120, 0, 12], ["#beta", "<Cl. size> <cos#lambda>", 100, 0, 1, 120, 0, 12]] 
     bp_flat_scat:   {"p": ["p", "Particle species", 30, 0, 1.5, 4, 0., 4.5], "weights": ["weights", "Particle species", 100, 0, 1, 4, 0., 4.5]}
 
-    model_train:    {"p": [1500, 0, 1.5, 3000, -1.5, 1.5], "beta": [1000, 0, 1, 3000, -1.5, 1.5]}
-    appl_plot_spec: {"b_vs_p_final": ["p", "#beta", 1500, 0, 1.5, 1050, 0, 1.05], "b_vs_p_true": ["p", "#beta", 1500, 0, 1.5, 1050, 0, 1.05], 
-                    "dedx_vs_p": ["p", "#frac{dE}{dx}", 1500, 0, 1.5, 600, 0, 600], "beta": [1000, 0, 1, 3000, -1.5, 1.5], "p": [1500, 0, 1.5, 3000, -1.5, 1.5]} 
+    model_train:    {"p": [150, 0, 1.5, 300, -1.5, 1.5], "beta": [100, 0, 1, 300, -1.5, 1.5]}
+    appl_plot_spec: {"b_vs_p_final": ["p [GeV/c]", "#beta (ML)", 1500, 0, 1.5, 1050, 0, 1.05], "b_vs_p_true": ["p [GeV/c]", "#beta (ML)", 1500, 0, 1.5, 1050, 0, 1.05], 
+                    "dedx_vs_p": ["p [GeV/c]", "#frac{dE}{dx} [keV/300#mum]", 150, 0, 1.5, 600, 0, 600], 
+                    "beta": [100, 0, 1, 300, -1.5, 1.5], "p": [150, 0, 1.5, 300, -1.5, 1.5]} 
