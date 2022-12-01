@@ -70,7 +70,7 @@ void mcOrigin(std::string inPath = "", std::string outLabel = "", bool isOldData
      -  debug: stop after 10 events
     */
     // "------------------ GLOBAL info ------------------"
-    o2::base::GeometryManager::loadGeometry("../utils/o2_geometry.root");
+    o2::base::GeometryManager::loadGeometry("./utils/o2", false, false);
     auto gman = o2::its::GeometryTGeo::Instance();
     gman->fillMatrixCache(o2::math_utils::bit2Mask(o2::math_utils::TransformType::T2L, o2::math_utils::TransformType::L2G));
     std::vector<int> nStaves{12, 16, 20, 24, 30, 42, 48};
@@ -122,12 +122,12 @@ void mcOrigin(std::string inPath = "", std::string outLabel = "", bool isOldData
     if (isOldData)
     {
         LOG(info) << "Loading OLD dictionary: if you are analysing data older than JUNE should be fine";
-        mdict.readFromFile(o2::base::DetectorNameConf::getAlpideClusterDictionaryFileName(o2::detectors::DetID::ITS, "../utils/ITS"));
+        mdict.readFromFile(o2::base::DetectorNameConf::getAlpideClusterDictionaryFileName(o2::detectors::DetID::ITS, "./utils/ITS"));
     }
     else
     {
         LOG(info) << "Loading LATEST dictionary: if you are analysing data older than JUNE check out the dictionary";
-        auto f = TFile("../utils/o2_itsmft_TopologyDictionary_1653153873993.root");
+        auto f = TFile("./utils/o2_itsmft_TopologyDictionary_1653153873993.root");
         mdict = *(reinterpret_cast<o2::itsmft::TopologyDictionary *>(f.Get("ccdb_object")));
     }
 
@@ -179,7 +179,7 @@ void mcOrigin(std::string inPath = "", std::string outLabel = "", bool isOldData
     {
         if (debug)
         {
-            if (counter > 10)
+            if (counter > 1000)
             {
                 continue;
             }
@@ -269,6 +269,9 @@ void mcOrigin(std::string inPath = "", std::string outLabel = "", bool isOldData
                     }
                 }
             }
+            delete clusLabArr;
+            delete ITSpatt;
+            delete ITSclus;
         }
         /*
         o2::its::TrackITS ITStrack;
@@ -318,7 +321,7 @@ void mcOrigin(std::string inPath = "", std::string outLabel = "", bool isOldData
         std::vector<std::vector<o2::MCTrack>> mcTracksMatrix;
         auto nev = treeMCTracks->GetEntriesFast();
         mcTracksMatrix.resize(nev);
-        for (int n = 0; n < nev; n++)
+        for (unsigned int n = 0; n < nev; n++)
         { // loop over MC events
             treeMCTracks->GetEvent(n);
             mcTracksMatrix[n].resize(MCtracks->size());
@@ -331,9 +334,11 @@ void mcOrigin(std::string inPath = "", std::string outLabel = "", bool isOldData
                 mcTracksMatrix[n][mcI] = MCtracks->at(mcI);
             }
         }
+        fMCTracks->Close();
+        delete fMCTracks;
 
         LOG(info) << "---- GETTING MC tracks info ----";
-        for (int i = 0; i < LargeCLEvID.size(); i++)
+        for (unsigned int i = 0; i < LargeCLEvID.size(); i++)
         {
             auto evID = LargeCLEvID.at(i);
             auto trID = LargeCLTrackID.at(i);
@@ -376,10 +381,14 @@ void mcOrigin(std::string inPath = "", std::string outLabel = "", bool isOldData
             hPDGp->Fill(p);
             hPDGcode->Fill(trPDG);
         }
+        LOG(info) << "---- END GETTING MC tracks info ----";
+        CLsiezes.clear();
+        Layers.clear();
+        mcTracksMatrix.clear();
     }
 
     LOG(info) << "------------------ SAVING OUTFILE ------------------";
-    outFile.cd();
+    outFile.cd();   
     hCLid->Write();
     hTrackCLid->Write();
     hPDGcode->Write();

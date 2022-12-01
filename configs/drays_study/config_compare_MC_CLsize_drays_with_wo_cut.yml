@@ -1,10 +1,10 @@
 inputs:
     dirname: null # leave null if not common for all input files
-    filenames: [/home/spolitan/Analyses/ITS_Cluster_Studies/py/MCOriginStudy181122_EkinFix_rerun.root,
-                /home/spolitan/Analyses/ITS_Cluster_Studies/py/MCOriginStudyOldMC_check.root
+    filenames: [/home/spolitan/Analyses/ITS_Cluster_Studies/py/MCOriginStudyFracDraysNewCut_globalMC_281122.root,
+                /home/spolitan/Analyses/ITS_Cluster_Studies/py/MCOriginStudyglobalMC_wcut_1207.root,
                 ]
-    objectnames: [hCLsizeSel_procd-rays,
-                  hCLsizeSel_procd-rays,
+    objectnames: [CLsize/hCLsize,
+                  CLsize/hCLsize,
                   #hESel_procPrimary,
                   #hESel_procHInhelastic
                   ] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
@@ -17,7 +17,7 @@ options:
     ROOTobject: [TH1, TH1, TH1, TH1, TH1, TH1, TH1, TH1, TH1] # TH1 or TGraph: no need to specify TH1F, TH1D or TGraphErrors, TGraphAsymmErrors
     scale: [1., 1, 1., 1, 1., 1., 1., 1., 1.]
     rebin: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-    normalize: [false, false, false, false, false, true, true, true, true, true, false, false, false, false] # divide histogram by its area
+    normalize: [true, true, false, false, false, true, true, true, true, true, false, false, false, false] # divide histogram by its area
     normrange: [1, 99]
     colors: [kRed+1, kAzure+4, kOrange+1]
     markers: [kOpenSquare, kOpenCircle, kFullTriangleUp, kFullTriangleUp]
@@ -26,12 +26,12 @@ options:
     linestyles: [1,1,1,1]
     fillstyle: [1,1,1,1,0,0,0,0,0,0]
     fillalpha: [0.2,0.2,0.2,0.2,1,1,1,1,1,1]
-    drawopt: [hist, hist, hist, hist, e, e, e, e, e]
+    drawopt: [histe, histe, hist, hist, e, e, e, e, e]
     
     ratio: 
-        enable: false
+        enable: true
         uncertainties:
-            enable: false
+            enable: true
             corr: false
         displayRMS: false
 
@@ -46,7 +46,7 @@ options:
         avoid: false #set true to avoid the legend in the final plot
         xlimits: [0.7, 0.8]
         ylimits: [0.7, 0.9]
-        header: 'd-rays'
+        header: 'All'
         titles: ['w/o cut',
                  'with cut',
                 ]
@@ -55,14 +55,14 @@ options:
         ncolumns: 1
 
     canvas:
-        width: 800
+        width: 1600
         heigth: 800
         xaxistitle: 'Cluster size'
-        yaxistitle: 'Counts'
+        yaxistitle: 'Norm. counts'
         yaxistitleratio: ''
         xlimits: [0., 100.]
-        ylimits: [1., 1.e+9]
-        ylimitsratio: [0, 1.1]
+        ylimits: [1.e-8, 1.e+2]
+        ylimitsratio: [0, 2.5]
         ylimitserr: [0., 0.35]
         logy: true
         logx: false
