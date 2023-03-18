@@ -4,6 +4,9 @@
 !o2_geometry.root
 .vscode
 *.pdf
+PID_ITS2/output
+PID_ITS2/data
+PID_ITS2/MLmodels
 
 !LHCCplots/*
 !utils/*
