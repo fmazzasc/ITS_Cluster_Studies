@@ -427,7 +427,7 @@ def data_prep(config):
                 #    for pmin, pmax in zip(pmins, pmaxs):
                 #        df_list.append(pd.DataFrame(TrainSet.query(f'particle == {num} and {pmin} <= p < {pmax}', inplace=False)))
                 #        df_list2.append(pd.DataFrame(df.query(f'particle == {num} and {pmin} <= p < {pmax}', inplace=False)))
-#
+
                 #for name, df_list in zip(particle_dict.values(), dfs):  multiple_hist(df_list, 'clSizeCosLam', [250, 0, 25], f'{output_dir}/3d_{name}_', weights='3d_weight')
                 #for name, df_list in zip(particle_dict.values(), dfs2):  multiple_hist(df_list, 'clSizeCosLam', [250, 0, 25], f'{output_dir}/TOCOMPARE_{name}_', weights='beta_pweight')
 
@@ -435,7 +435,6 @@ def data_prep(config):
                 #density_scatter(TrainSet['p'], TrainSet['particle'], f'{output_dir}/3d_weighted_momentum', plot_specifics=plot_spec_flat['p'], weights=TrainSet['3d_weight'])
                     
             ################## GIORGIO
-
             if True:
 
                 df = pd.read_parquet('/data/shared/ITS/ML/particles_pid_520143_itstpc.parquet')
@@ -634,13 +633,13 @@ def regression(TrainTestData, config):
 
         #fig = optuna.visualization.plot_optimization_history(study)
         #fig.write_image(f'{output_dir}/plot_optimization_history{options}.png')
-#
+
         #fig = optuna.visualization.plot_param_importances(study)
         #fig.write_image(f'{output_dir}/plot_param_importances{options}.png')
-#
+
         #fig = optuna.visualization.plot_parallel_coordinate(study)
         #fig.write_image(f'{output_dir}/plot_parallel_coordinate{options}.png')
-#
+
         #fig = optuna.visualization.plot_contour(study)
         #fig.write_image(f'{output_dir}/plot_contour{options}.png')
 

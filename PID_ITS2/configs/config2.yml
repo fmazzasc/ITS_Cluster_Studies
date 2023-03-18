@@ -2,26 +2,26 @@
 
 
 # modes are: "TPC", "hybrid", "MC", "MCtpc" 
-mode: "hybrid"
+mode: "TPC"
 
 ### TPC
 TPC:
     input:
-        data:       /data/shared/ITS/ML/particles_pid_520143_itstpc.parquet 
+        data:       ../data/input/ITSTPCClusterTree505582_apass5_140323.root
         appl_data:  /data/shared/ITS/ML/particles_pid_520147_itstpc.parquet
-        ext_appl: True
+        ext_appl: False
 
 
     output:
-        data_visual_dir:    ../../../data_visual_root/TPC
-        ml_dir:             ../../../ML_output/TPC
-        final_dir:          ../../../final_plots/TPC
-        delta_dir:          ../../../ML_output/TPC
+        data_visual_dir:    ../output/TPC/data_visual
+        ml_dir:             ../output/TPC/ml_output
+        final_dir:          ../output/TPC/application
+        delta_dir:          ../output/TPC/application
 
-        save_data_dir:      ../../../data/TPC
-        model_out:          ../../../ML_output/TPC/mlModels 
+        save_data_dir:      ../data/preprocessed/TPC
+        model_out:          ../MLmodels/RegressorModel
 
-        particle:   { 0: "Deu", 1: "P", 2: "K", 3: "Pi"}
+        particle:   { 0: "Deu", 1: "P", 2: "K", 3: "Pi", 4: "E"}
 
 
     data_prep:
@@ -34,6 +34,9 @@ TPC:
         appl_data:  /Users/giogi/Desktop/Stage INFN/PID ITS/data/ApplicationDf_augm.parquet.gzip
         save_data: True
 
+        selection_tag: 'p <= 50 and 1500 < rofBC < 2000 and tpcITSchi2 < 5 and nClusTPC > 100 and -0.2 < delta_p < 0.2'
+        #selection_tag: '0.1 < p <= 0.7 and tpcITSchi2 < 5 and nClusTPC > 100 and -0.2 < delta_p < 0.2'
+        selection_tag_appl: None
         test_size: 0.2
         random_state: 0   # random_state for train_test_split
 
@@ -95,7 +98,7 @@ TPC:
 
         model: "xgboost"        # accepted models: xgboost, automl
         do_opt: True
-        early_stop: False
+        early_stop: True
         save_model: True
 
         beta_flat: False
@@ -107,7 +110,7 @@ TPC:
         model_loc: /home/galucia/PID_ITS/ML_output/hybrid/RegressorModel_xgboost_beta_pflat_.pickle
 
     plots:
-        do_plots: True
+        do_plots: False
         plotSpec1D:     {"ClSizeL0": ["Cl. Size L0", 25, 0, 25], "ClSizeL1": ["Cl. Size L1", 25, 0, 25], "ClSizeL2": ["Cl. Size L2", 25, 0, 25], "ClSizeL3": ["Cl. Size L3", 25, 0, 25], 
                         "ClSizeL4": ["Cl. Size L4", 25, 0, 25], "ClSizeL5": ["Cl. Size L5", 25, 0, 25], "ClSizeL6": ["Cl. Size L6", 25, 0, 25], "clSizeCosLam": ["<Cl. Size> <cos#lambda>", 250, 0, 25],
                         "SnPhiL0": ["sin#phi L0", 100, -1, 1], "SnPhiL1": ["sin#phi L1", 100, -1, 1], "SnPhiL2": ["sin#phi L2", 100, -1, 1], "SnPhiL3": ["sin#phi L3", 100, -1, 1], 
@@ -144,18 +147,18 @@ TPC:
 ### hybrid
 hybrid:
     input:
-        data:       /data/shared/ITS/ML/NEW/particles_pid_520143.parquet
+        data:       ../data/input/ITSTPCClusterTree505582_apass5_140323.root
         appl_data:  /data/shared/ITS/ML/particles_pid_520147_itstpc.parquet
-        ext_appl: True
+        ext_appl: False
 
 
     output:
-        data_visual_dir:    ../../../data_visual_root/hybrid
-        ml_dir:             ../../../ML_output/hybrid
-        final_dir:          ../../../final_plots/hybrid
-        delta_dir:          ../../../ML_output/hybrid
+        data_visual_dir:    ../output/hybrid/data_visual
+        ml_dir:             ../output/hybrid/ml_output
+        final_dir:          ../output/hybrid/application
+        delta_dir:          ../output/hybrid/application
 
-        save_data_dir:      ../../../data/hybrid
+        save_data_dir:      ../../../data/preprocessed/hybrid
         model_out:          ../../../ML_output/hybrid/mlModels 
 
         particle:   { 1: "P", 2: "K", 3: "Pi", 4: "E"}
@@ -171,6 +174,8 @@ hybrid:
         appl_data:  /Users/giogi/Desktop/Stage INFN/PID ITS/data/ApplicationDf_augm.parquet.gzip
         save_data: True
 
+        selection_tag: 'p <= 50 and tpcITSchi2 < 5 and nClusTPC > 100 and -0.2 < delta_p < 0.2'
+        selection_tag_appl: None
         test_size: 0.2
         random_state: 0   # random_state for train_test_split
 
@@ -289,10 +294,10 @@ MC:
     output:
         data_visual_dir:    ../../../data_visual_root/MC2
         ml_dir:             ../../../ML_output/MC2
-        final_dir:          ../../../final_plots/MC2
-        delta_dir:          ../../../ML_output/MC2
+        final_dir:          ../../../final_plots/MC2_APPLICATION
+        delta_dir:          ../../../ML_output/MC2_APPLICATION
 
-        save_data_dir:      ../../../data/MC2
+        save_data_dir:      ../../../data/preprocessed/MC2
         model_out:          ../../../ML_output/MC2/mlModels 
 
         particle:   { 1: "P", 2: "K", 3: "Pi", 4: "E"}
@@ -308,6 +313,8 @@ MC:
         appl_data:  /Users/giogi/Desktop/Stage INFN/PID ITS/data/ApplicationDf_augm.parquet.gzip
         save_data: True
 
+        selection_tag: 'p <= 50'
+        selection_tag_appl: None
         test_size: 0.2
         random_state: 0   # random_state for train_test_split
 
@@ -424,10 +431,10 @@ MCtpc:
     output:
         data_visual_dir:    ../../../data_visual_root/MCtpc
         ml_dir:             ../../../ML_output/MCtpc
-        final_dir:          ../../../final_plots/MCtpc
-        delta_dir:          ../../../ML_output/MCtpc
+        final_dir:          ../../../final_plots/MCtpc_APPLICATION
+        delta_dir:          ../../../ML_output/MCtpc_APPLICATION
 
-        save_data_dir:      ../../../data/MCtpc
+        save_data_dir:      ../../../data/preprocessed/MCtpc
         model_out:          ../../../ML_output/MCtpc/mlModels 
 
         particle:   { 1: "P", 2: "K", 3: "Pi", 4: "E"}
@@ -443,6 +450,8 @@ MCtpc:
         appl_data:  /Users/giogi/Desktop/Stage INFN/PID ITS/data/ApplicationDf_augm.parquet.gzip
         save_data: True
 
+        selection_tag: 'p <= 50'
+        selection_tag_appl: 'p <= 50 and tpcITSchi2 < 5 and nClusTPC > 100 and -0.2 < delta_p < 0.2'
         test_size: 0.2
         random_state: 0   # random_state for train_test_split
 
