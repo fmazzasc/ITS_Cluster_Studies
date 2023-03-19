@@ -311,6 +311,7 @@ def perform_beta_p_flat(config, opt, data):
 
     betaPSpec = config[opt.mode]['data_prep']['betaPSpec']
 
+    #weight_handler = DoubleVariable_Flattener(data, 'beta_pweight', 'p', 'particle')
     weight_handler = DoubleVariable_Flattener(data, 'beta_pweight', 'p', 'particle')
     weight_handler.eval_weights(betaPSpec[0], betaPSpec[1], betaPSpec[2], betaPSpec[3], betaPSpec[4], betaPSpec[5])
     data = weight_handler.assign_weights()
@@ -554,9 +555,9 @@ def perform_xgboost_regression(config, opt, TrainSet, TestSet, HyperParams):
         outFile.Close()
     
     # Feature importance plot
-    FeatureImportance = xgb.plot_importance(model)
-    plt.savefig(f'{opt.ML_output_dir}_FeatureImportance.png')
-    plt.close('all')
+    #FeatureImportance = xgb.plot_importance(model)
+    #plt.savefig(f'{opt.ML_output_dir}_FeatureImportance.png')
+    #plt.close('all')
     
     return model
 
@@ -668,8 +669,9 @@ def data_prep(config, opt):
     if opt.do_augm: perform_data_augmentation(config, opt, TrainSet, yTrain)
 
     # Apply weights
-    weights_application(config, opt, TrainSet)
+    TrainSet = weights_application(config, opt, TrainSet)
     yTrain = TrainSet['beta']
+    print(TrainSet['particle'].unique())
 
     # Save data 
     if opt.save_data:

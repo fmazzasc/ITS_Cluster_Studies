@@ -94,6 +94,8 @@ class PrepTool(ABC):
             self.data = pd.concat([filtering(self.data, name, mass=mass_dict[name], label=True) for name in particle_dict.values()])
             self.application = pd.concat([filtering(self.application, name, mass=mass_dict[name], label=True) for name in particle_dict.values()])
 
+        inv_particle_dict = {v: k for k, v in particle_dict.items()}
+        if not 'particle' in self.data.columns: self.data['particle'] = self.data['label'].map(inv_particle_dict)
         y = self.data['beta']
         self.trainSet, self.testSet, self.yTrain, self.yTest = train_test_split(self.data, y, test_size=test_size, random_state=random_state)
 

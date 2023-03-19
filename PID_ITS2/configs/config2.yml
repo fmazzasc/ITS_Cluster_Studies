@@ -51,9 +51,9 @@ TPC:
 
         # Data Augmentation
         #____________________________________
-        do_augm: False
+        do_augm: True
         to_augm: ["K"]
-        mothers: ["P"]
+        mothers: ["Pi"]
         p_ranges: [[0.2, 1.5]]
 
         # Beta Flat
@@ -97,12 +97,12 @@ TPC:
                             }                      # dict of ranges for the hyperparameters evaluated by optuna
 
         model: "xgboost"        # accepted models: xgboost, automl
-        do_opt: True
+        do_opt: False
         early_stop: True
         save_model: True
 
         beta_flat: False
-        beta_p_flat: False
+        beta_p_flat: True
         MCweights: False
 
     application:
@@ -110,7 +110,7 @@ TPC:
         model_loc: /home/galucia/PID_ITS/ML_output/hybrid/RegressorModel_xgboost_beta_pflat_.pickle
 
     plots:
-        do_plots: False
+        do_plots: True
         plotSpec1D:     {"ClSizeL0": ["Cl. Size L0", 25, 0, 25], "ClSizeL1": ["Cl. Size L1", 25, 0, 25], "ClSizeL2": ["Cl. Size L2", 25, 0, 25], "ClSizeL3": ["Cl. Size L3", 25, 0, 25], 
                         "ClSizeL4": ["Cl. Size L4", 25, 0, 25], "ClSizeL5": ["Cl. Size L5", 25, 0, 25], "ClSizeL6": ["Cl. Size L6", 25, 0, 25], "clSizeCosLam": ["<Cl. Size> <cos#lambda>", 250, 0, 25],
                         "SnPhiL0": ["sin#phi L0", 100, -1, 1], "SnPhiL1": ["sin#phi L1", 100, -1, 1], "SnPhiL2": ["sin#phi L2", 100, -1, 1], "SnPhiL3": ["sin#phi L3", 100, -1, 1], 

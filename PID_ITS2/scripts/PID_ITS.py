@@ -1,3 +1,7 @@
+#
+#   First implementation. OUTDATED. Left for reference
+#
+
 import pickle
 import yaml
 import pandas as pd

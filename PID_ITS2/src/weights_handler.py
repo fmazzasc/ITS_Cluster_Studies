@@ -8,6 +8,8 @@ import pandas as pd
 
 from math import sqrt
 
+from ROOT import TH2D
+
 ########################################
 #
 #   Weight classes
