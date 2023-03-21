@@ -103,7 +103,7 @@ def _deltaScore(y_true, y_pred, **kwargs):
 
 delta_scorer = make_scorer(_deltaScore, greater_is_better=False)
 
-def plot_score(X, y, RegressionColumns, model, x_label, plot_specifics, x=pd.Series(), filename='', absolute=False):
+def plot_score(X, y, RegressionColumns, model, x_label, plot_specifics, x=None, filename='', absolute=False):
     """
     Plot a prediction scoring variable (defined as (true-predicted)/true) vs a chosen variable from X columns.
 
@@ -111,10 +111,9 @@ def plot_score(X, y, RegressionColumns, model, x_label, plot_specifics, x=pd.Ser
     - model: model (or pipeline) used for the predictions
     - plot_specifics: list with the following entries [nbinsx, xlow, xup, nbinsy, ylow, yup]
     """
-
+    if x is None:                   x = pd.Series()
     if 'preds' not in X.columns:    X['preds'] = model.predict(X[RegressionColumns])
-    if 'Delta' not in X.columns:
-        print('ayaayyay')    
+    if 'Delta' not in X.columns:    
         if absolute:    X.eval('Delta = abs(beta - preds)/beta', inplace=True)
         else:           X.eval('Delta = (beta - preds)/beta', inplace=True)
 
@@ -125,7 +124,7 @@ def plot_score(X, y, RegressionColumns, model, x_label, plot_specifics, x=pd.Ser
     plot_spec_hist = [f'#Delta'] + plot_specifics[3:]
     hist(X['Delta'], f'{filename}_score_hist', plot_spec_hist)
 
-def plot_score_train(TrainTestData, RegressionColumns, model, x_label, plot_specifics, x_train=pd.Series(), x_test=pd.Series(), filename='', absolute=False):
+def plot_score_train(TrainTestData, RegressionColumns, model, x_label, plot_specifics, x_train=None, x_test=None, filename='', absolute=False):
     """
     Plot a prediction scoring variable (defined as (true-predicted)/true) vs a chosen variable from X columns.
 
@@ -135,7 +134,8 @@ def plot_score_train(TrainTestData, RegressionColumns, model, x_label, plot_spec
     - plot_specifics: list with the following entries [nbinsx, xlow, xup, nbinsy, ylow, yup]
     - abs: choose if the delta parameter is defined as the absolute value or not
     """
-
+    if x_train is None: x_train = pd.Series()
+    if x_test is None:  x_test = pd.Series()
     X_train, y_train, X_test, y_test = TrainTestData
 
     if 'preds' not in X_train.columns:    X_train['preds'] = model.predict(X_train[RegressionColumns])

@@ -16,7 +16,7 @@ TPC:
         data_visual_dir:    ../output/TPC/data_visual
         ml_dir:             ../output/TPC/ml_output
         final_dir:          ../output/TPC/application
-        delta_dir:          ../output/TPC/application
+        delta_dir:          ../output/TPC/delta
 
         save_data_dir:      ../data/preprocessed/TPC
         model_out:          ../MLmodels/RegressorModel
@@ -51,7 +51,7 @@ TPC:
 
         # Data Augmentation
         #____________________________________
-        do_augm: True
+        do_augm: False
         to_augm: ["K"]
         mothers: ["Pi"]
         p_ranges: [[0.2, 1.5]]
@@ -119,29 +119,29 @@ TPC:
                         "TanLamL4": ["tan#lambda L4", 80, -4, 4], "TanLamL5": ["tan#lambda L5", 80, -4, 4], "TanLamL6": ["tan#lambda L6", 80, -4, 4], "tgL": ["<tan#lambda>", 80, -4, 4],
                         "PattIDL0": ["Pattern ID L0", 10, 0, 100], "PattIDL1": ["Pattern ID L1", 10, 0, 100], "PattIDL2": ["Pattern ID L2", 10, 0, 100], "PattIDL3": ["Pattern ID L3", 10, 0, 100], 
                         "PattIDL4": ["Pattern ID L4", 10, 0, 100], "PattIDL5": ["Pattern ID L5", 10, 0, 100], "PattIDL6": ["Pattern ID L6", 10, 0, 100], "meanPattID": ["<Pattern ID>", 100, 0, 100],
-                        "L6_L0": ["#frac{Cl. Size L0}{Cl. Size L0}", 100, 0, 10], "p": ["#it{p} (GeV/#it{c})", 70, 0, 0.7], "pITS": ["#it{p}_{ITS} (GeV/#it{c})", 70, 0, 0.7],
-                        "pTPC": ["#it{p}_{TPC} (GeV/#{c})", 70, 0, 10.7], "tpcITSchi2": ["#chi_{ITS-TPC}^2", 100, 0, 10], "nClusTPC": ["n Cluster TPC",130, 50, 180]
+                        "L6_L0": ["#frac{Cl. Size L0}{Cl. Size L0}", 100, 0, 10], "p": ["#it{p} (GeV/#it{c})", 150, 0, 1.5], "pITS": ["#it{p}_{ITS} (GeV/#it{c})", 150, 0, 1.5],
+                        "pTPC": ["#it{p}_{TPC} (GeV/#{c})", 150, 0, 1.5], "tpcITSchi2": ["#chi_{ITS-TPC}^2", 100, 0, 10], "nClusTPC": ["n Cluster TPC",130, 50, 180]
                         }
         plotAxis2D:     {1: ["p", "beta"], 2: ["p", "clSizeCosLam"], 3: ["beta", "clSizeCosLam"], 4: ["p", "dedx"]
                         }
-        plotSpec2D:     {1: ["#it{p} (GeV/#it{c})", "#beta", 700, 0, 0.7, 1100, 0, 1.1], 
-                        2: ["#it{p} (GeV/#it{c})", "<Cl. size> <cos#lambda>", 70, 0, 0.7, 120, 0, 12], 
+        plotSpec2D:     {1: ["#it{p} (GeV/#it{c})", "#beta", 1500, 0, 1.5, 1100, 0, 1.1], 
+                        2: ["#it{p} (GeV/#it{c})", "<Cl. size> <cos#lambda>", 150, 0, 1.5, 120, 0, 12], 
                         3: ["#beta", "<Cl. size> <cos#lambda>", 100, 0, 1, 120, 0, 12],
-                        4: ["#it{p} (GeV/#it{c})", "#frac{dE}{dx} (keV/#mum)", 700, 0, .7, 600, 0, 600], 
+                        4: ["#it{p} (GeV/#it{c})", "#frac{dE}{dx} (keV/#mum)", 1500, 0, 1.5, 600, 0, 600], 
                         }
         plotAxisBetaP:  {1: ["p", "particle"], 2: ["beta_pweight", "particle"]
                         }
         plotSpecBetaP:  {1: ["#it{p} (GeV/#it{c})", "Particle species", 30, 0, 1.5, 4, 0.5, 4.5], 
                         2: ["Weights", "Particle species", 100, 0, 1, 4, 0.5, 4.5]
                         }
-        scoreDeltaSpec: {"p": ["#it{p} (GeV/#it{c})", 70, 0., 0.7],
+        scoreDeltaSpec: {"p": ["#it{p} (GeV/#it{c})", 150, 0., 1.5],
                         "beta_pred": ["#beta (ML)", 105, 0., 1.05]
                         }
         finalAxis2D:    {1: ["p", "beta"], 2: ["p", "beta_pred"], 3: ["p", "dedx"]
                         }
-        finalSpec2D:    {1: ["#it{p} (GeV/#it{c})", "#beta_{true}", 700, 0, 0.7, 1100, 0, 1.1], 
-                        2: ["#it{p} (GeV/#it{c})", "#beta (ML)", 700, 0, 0.7, 1100, 0, 1.1], 
-                        3: ["p (GeV/c)", "#frac{dE}{dx} (keV/#mum)", 70, 0, 0.7, 600, 0, 600]
+        finalSpec2D:    {1: ["#it{p} (GeV/#it{c})", "#beta_{true}", 1500, 0, 1.5, 1100, 0, 1.1], 
+                        2: ["#it{p} (GeV/#it{c})", "#beta (ML)", 1500, 0, 1.5, 1100, 0, 1.1], 
+                        3: ["p (GeV/c)", "#frac{dE}{dx} (keV/#mum)", 150, 0, 1.5, 600, 0, 600]
                         }
 
 ### hybrid

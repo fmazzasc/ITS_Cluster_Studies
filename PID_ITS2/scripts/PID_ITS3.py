@@ -30,10 +30,10 @@ from utils.plotter import Plotter, TH2Handler
 # Tags
 #_____________________________________
 tag_Deu = 'nSigmaDeuAbs < 1 and p <= 1.2'
-tag_P = 'nSigmaPAbs < 1 and p <= 0.7'
-tag_K = 'nSigmaKAbs < 1 and p <= 0.7'
-tag_Pi = 'nSigmaPiAbs < 1 and p <= 0.7'
-tag_E = 'nSigmaPi > 5'
+tag_P = 'nSigmaPAbs < 1 and nSigmaKAbs > 3 and p <= 1.5'
+tag_K = 'nSigmaKAbs < 1 and nSigmaPiAbs > 3 and nSigmaPAbs > 3 and p <= 1.5'
+tag_Pi = 'nSigmaPiAbs < 1 and nSigmaEAbs > 3 and nSigmaKAbs > 3 and p <= 1.5'
+tag_E = 'nSigmaEAbs < 1 and nSigmaPiAbs > 3 and p <= 1.5'
 
 # Masses
 #_____________________________________
@@ -136,14 +136,14 @@ class PID_config:
         self.delta_output_dir = config[self.mode]['output']['delta_dir']
 
         for output_dir in [self.Prep_output_dir, self.ML_output_dir, self.Application_output_dir, self.delta_output_dir]:
-            if self.do_augm and self.beta_p_flat:   output_dir += f'/{self.mode}_augm'
-            elif self.do_augm and self.beta_flat:   output_dir += f'/{self.mode}_augm_betaflat'
-            elif self.do_augm:                      output_dir += f'/{self.mode}_augm'
-            elif self.MCweights:                    output_dir += f'/{self.mode}_MCweights'
-            elif self.beta_flat:                    output_dir += f'/{self.mode}_betaflat'
-            elif self.beta_p_flat:                  output_dir += f'/{self.mode}_beta_pflat'
-            elif self.do_equal:                     output_dir += f'/{self.mode}_equal'
-            else:                                   output_dir += f'/{self.mode}_no_options'
+            if self.do_augm and self.beta_p_flat:   output_dir += f'_augm'
+            elif self.do_augm and self.beta_flat:   output_dir += f'_augm_betaflat'
+            elif self.do_augm:                      output_dir += f'_augm'
+            elif self.MCweights:                    output_dir += f'_MCweights'
+            elif self.beta_flat:                    output_dir += f'_betaflat'
+            elif self.beta_p_flat:                  output_dir += f'_beta_pflat'
+            elif self.do_equal:                     output_dir += f'_equal'
+            else:                                   output_dir += f'_no_options'
             
         # ML config
         self.RegressionColumns = config[self.mode]['training']['RegressionColumns']
@@ -528,7 +528,7 @@ def perform_xgboost_regression(config, opt, TrainSet, TestSet, HyperParams):
         if opt.beta_flat:       model.fit(TrainSet[opt.RegressionColumns], TrainSet['beta'], sample_weight=TrainSet['beta_weight'])
         elif opt.beta_p_flat:   model.fit(TrainSet[opt.RegressionColumns], TrainSet['beta'], sample_weight=TrainSet['beta_pweight'])
         elif opt.MCweights:     model.fit(TrainSet[opt.RegressionColumns], TrainSet['beta'], sample_weight=TrainSet['3d_weight'])
-        else:               model.fit(TrainSet[opt.RegressionColumns], TrainSet['beta'])
+        else:                   model.fit(TrainSet[opt.RegressionColumns], TrainSet['beta'])
      
     # Results visualization
     dfs = {'train': TrainSet, 'test': TestSet}
@@ -813,6 +813,7 @@ def application(config, opt, ApplicationDf, model):
 #   Main functions
 #________________________________________________________________________________________________________________
 
+@timing_decorator
 def PID(inputCfgFile):
     """
     Execute full PID process

@@ -17,11 +17,12 @@ def readFile(filePath, treeName=None):
     """
 
     file_ext = os.path.splitext(filePath)[1]
+    if file_ext == '.gzip':     file_ext = os.path.splitext(os.path.splitext(filePath)[0])[1]
 
     if file_ext == '.parquet':  data = pd.read_parquet(filePath)
     elif file_ext == '.csv':    data = pd.read_csv(filePath)
     elif file_ext == '.root':   data = uproot.open(filePath)[treeName].arrays(library='pd')
-    else:                       raise ValueError('Invalid file extension.')
+    else:                       raise ValueError(f'Invalid file extension: {file_ext}')
 
     return data
 
