@@ -2,7 +2,7 @@
 
 
 # modes are: "TPC", "hybrid", "MC", "MCtpc" 
-mode: "TPC"
+mode: "hybrid"
 
 ### TPC
 TPC:
@@ -19,7 +19,7 @@ TPC:
         delta_dir:          ../output/TPC/delta
 
         save_data_dir:      ../data/preprocessed/TPC
-        model_out:          ../MLmodels/RegressorModel
+        model_out:          ../MLmodels/RegressorModel_TPC
 
         particle:   { 0: "Deu", 1: "P", 2: "K", 3: "Pi", 4: "E"}
 
@@ -54,7 +54,7 @@ TPC:
         do_augm: False
         to_augm: ["K"]
         mothers: ["Pi"]
-        p_ranges: [[0.2, 1.5]]
+        p_ranges: [[0.1, 0.7]]
 
         # Beta Flat
         #____________________________________
@@ -102,7 +102,7 @@ TPC:
         save_model: True
 
         beta_flat: False
-        beta_p_flat: True
+        beta_p_flat: False
         MCweights: False
 
     application:
@@ -147,19 +147,19 @@ TPC:
 ### hybrid
 hybrid:
     input:
-        data:       ../data/input/ITSTPCClusterTree505582_apass5_140323.root
-        appl_data:  /data/shared/ITS/ML/particles_pid_520147_itstpc.parquet
-        ext_appl: False
+        data:       ../data/input/particles_pid_520147.parquet
+        appl_data:  ../data/input/particles_pid_520143.parquet
+        ext_appl: True
 
 
     output:
         data_visual_dir:    ../output/hybrid/data_visual
         ml_dir:             ../output/hybrid/ml_output
         final_dir:          ../output/hybrid/application
-        delta_dir:          ../output/hybrid/application
+        delta_dir:          ../output/hybrid/delta
 
-        save_data_dir:      ../../../data/preprocessed/hybrid
-        model_out:          ../../../ML_output/hybrid/mlModels 
+        save_data_dir:      ../data/preprocessed/TPC
+        model_out:          ../MLmodels/RegressorModel_hybrid
 
         particle:   { 1: "P", 2: "K", 3: "Pi", 4: "E"}
 
@@ -174,7 +174,7 @@ hybrid:
         appl_data:  /Users/giogi/Desktop/Stage INFN/PID ITS/data/ApplicationDf_augm.parquet.gzip
         save_data: True
 
-        selection_tag: 'p <= 50 and tpcITSchi2 < 5 and nClusTPC > 100 and -0.2 < delta_p < 0.2'
+        selection_tag: 'p <= 50 and 1000 < rofBC < 1300 and tpcITSchi2 < 5 and nClusTPC > 100 and -0.2 < delta_p < 0.2'
         selection_tag_appl: None
         test_size: 0.2
         random_state: 0   # random_state for train_test_split
@@ -190,7 +190,7 @@ hybrid:
 
         # Data Augmentation
         #____________________________________
-        do_augm: True
+        do_augm: False
         to_augm: ["K"]
         mothers: ["P"]
         p_ranges: [[1, 1.5]]
@@ -236,7 +236,7 @@ hybrid:
                             }                      # dict of ranges for the hyperparameters evaluated by optuna
 
         model: "xgboost"        # accepted models: xgboost, automl
-        do_opt: True
+        do_opt: False
         early_stop: False
         save_model: True
 

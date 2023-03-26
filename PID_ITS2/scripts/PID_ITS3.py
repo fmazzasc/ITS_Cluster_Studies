@@ -625,6 +625,7 @@ def data_prep(config, opt):
     prep = prep_con.createPrepTool(opt.mode, opt.fimpPath, opt.applPath)
     prep.preprocess(opt.particle_dict, opt.selection_tag, opt.selection_tag_appl)
 
+    if opt.mode != 'TPC':   tag_dict = None
     TrainSet, TestSet, yTrain, yTest, ApplicationDf = prep.filter_and_split(opt.particle_dict, mass_dict, tag_dict, opt.test_size, opt.random_state)
     TotalSet = pd.concat([TrainSet, TestSet])
 
@@ -792,7 +793,7 @@ def application(config, opt, ApplicationDf, model):
     
     # Final plots
     outFile = TFile(f'{opt.Application_output_dir}.root', 'recreate')
-    print(f'ROOT file created in {opt.Application_output_dir}_LINE.root')
+    print(f'ROOT file created in {opt.Application_output_dir}.root')
     plot = Plotter(ApplicationDf, outFile)
 
     plotAxis2Ddict = config[opt.mode]['plots']['finalAxis2D']

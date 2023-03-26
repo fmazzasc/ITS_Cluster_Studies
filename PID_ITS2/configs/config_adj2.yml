@@ -1,88 +1,36 @@
 ### INPUT INFO
-finPaths:     [/home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/output.root,
-               /home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/output.root,
-               /home/galucia/PID_ITS/data_visual_root/TPC/TPC_no_options.root,
-               /home/galucia/PID_ITS/data_visual_root/MC2/MC_beta_pflat_BETAPFLAT.root,
-               /home/galucia/PID_ITS/data_visual_root/MC2/MC_beta_pflat_BETAPFLAT.root,
-               /home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/dedxPlots_output.root,
-               /home/galucia/PID_ITS/ITS_Cluster_Studies/PID ITS - Giorgio Alberto/code/dedxPlotsFilt_output.root,
+finPaths:     [/Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/output/hybrid/application.root,
 
 
               ]
-objNames:     ['clsize',
-               'clsize_K',
-               'dedx_vs_p',
-               'particle_vs_p_weights',
-               'particle_vs_p',
-               'dedx_vs_p',
-               'dedx_vs_p',
+objNames:     ['beta_pred_vs_p',
 
               ]
 
 
 ### OUTPUT INFO
-foutPaths:    ['../../../Tesi/TPC_CLSIZE',
-               '../../../Tesi/hybrid_CLSIZE_K_OVER_P',
-               '../../../Tesi/TPC_dedx',
-               '../../../Tesi/PESI',
-               '../../../Tesi/NO_PESI',
-               '../../../Tesi/TPC_dedx_ok',
-               '../../../Tesi/TPC_dedx_filt',
+foutPaths:    [/Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/report/img/beta_vs_pHybrid_betaflat,
 
               ]
 outFormats:   [[png],
-               [png],
-               [png],
-               [png],
-               [png],
-               [png],
-               [png],
 
               ]
 
 
 ### CONFIG  
-axisTitles:   [';#it{p} (GeV/#it{c}); <Cl. size> <cos#lambda>',
-               ';#it{p} (GeV/#it{c}); <Cl. size> <cos#lambda>',
-               ';#it{p} (GeV/#it{c}); #frac{dE}{dx} (keV/#mum)',
-               ';#it{p} (GeV/#it{c}); Particle species',
-               ';#it{p} (GeV/#it{c}); Particle species',
-               ';#it{p} (GeV/#it{c}); #frac{dE}{dx} (arb. units)',
-               ';#it{p} (GeV/#it{c}); #frac{dE}{dx} (arb. units)',
+axisTitles:   [';#it{p} (GeV/#it{c}); #beta',
 
               ]
-axisLimits:   [[0, 0, 1.5, 12],
-               [0, 0, 1.5, 12],
-               [0, 0, 0.7, 600],
-               [0, 0.5, 1.5, 4.5],
-               [0, 0.5, 1.5, 4.5],
-               [0.1, 0, 0.7, 600],
-               [0.1, 0, 0.7, 600],
+axisLimits:   [[0, 0, 1.5, 1],
 
-              ] # [xlow, ylow, xup, yup]
-latexLabels:  [[0.63, 0.88, 0.84, 0.8],
-               [0.63, 0.88, 0.84, 0.8],
-               [0.23, 0.78, 0.74, 0.7],
-               [0.23, 0.78, 0.74, 0.7],
-               [0.35, 0.78, 0.74, 0.7],
-               [0.23, 0.78, 0.74, 0.7],
-               [0.23, 0.78, 0.74, 0.7],
+              ] # [x, ylabel1, ylabel2, ylabel3]
+latexLabels:  [[0.6, 0.43, 0.35, 0.27],
+
               ]
-sampleLabels: ['ITS data',
-               'hybrid data',
-               'ITS-TPC data',
-               '#splitline{#splitline{MC sample}{#it{p} bin width: 0.05 GeV/#it{c}}}{}',
-               '#splitline{#splitline{MC sample}{#it{p} bin width: 0.05 GeV/#it{c}}}{}',
-               'ITS-TPC data',
-               '',
+sampleLabels: ['ITS & V0 data - weight in #it{p} and #beta',
+
               ]
 runLabels:    [false,
-               false,
-               false,
-               true,
-               true,
-               false,
-               false,
 
               ] # true if MC
 
@@ -90,20 +38,8 @@ runLabels:    [false,
 ### CANVAS DIM
 canvas:
     width:    [1800,
-               1800,
-               1800,
-               1200,
-               1200,
-               1800,
-               1800,
 
               ]
     height:   [1000,
-               1000,
-               1000,
-               1000,
-               1000,
-               1000,
-               1000,
 
               ]

@@ -204,7 +204,7 @@ class Hybrid_prep(PrepTool):
         super().__init__(data, application)
         self.columns = ['meanPattID', 'meanSnPhi', 'L6_L0', 'delta_p', 'label']
 
-    def preprocess(self, particle_dict, selection_tag):
+    def preprocess(self, particle_dict, selection_tag, selection_tag_appl=None):
         """
         Preprocess the input data
 
@@ -212,6 +212,7 @@ class Hybrid_prep(PrepTool):
         ----------
             particle_dict (dict): dictionary (index, particle) 
             selection_tag (str): String used to filter the dataset
+            selection_tag_appl (str, not used): String to filter the application dataset
         """
 
         self.add_columns(self.columns)

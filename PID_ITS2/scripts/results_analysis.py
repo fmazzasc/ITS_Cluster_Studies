@@ -64,8 +64,9 @@ def define_discrepancy(data, particle, outFile):
     data.eval(f"discrepancy_{particle} = beta_pred - beta_{particle}", inplace=True)
 
     # Plot into a histogram
-    hist = TH1D(f'discrepancy_{particle}', f'discrepancy_{particle}', 100, data[f'discrepancy_{particle}'].min()-0.1, data[f'discrepancy_{particle}'].max()+0.1)        
-    for x in data[f'discrepancy_{particle}']:   hist.Fill(x)
+    data_filt = data.query(f"label == '{particle}'", inplace=False)
+    hist = TH1D(f'discrepancy_{particle}', f'discrepancy_{particle}', 100, data_filt[f'discrepancy_{particle}'].min()-0.1, data_filt[f'discrepancy_{particle}'].max()+0.1)        
+    for x in data_filt[f'discrepancy_{particle}']:   hist.Fill(x)
 
     hist.GetXaxis().SetTitle(f'discrepancy_{particle}')
     hist.GetYaxis().SetTitle('Counts')
@@ -74,7 +75,9 @@ def define_discrepancy(data, particle, outFile):
     hist.SetDrawOption('hist')
     hist.Write()
 
-def get_efficiency(data, particle):
+    return hist.GetStdDev()
+
+def get_efficiency(data, particle, sigma):
     """
     Returns the efficiency of a given sample. Accepted particles have predicted beta in a window of 1 sigma from 
     the measured value. The sigma is the dispersion of the distribution for discrepancy=beta_pred-beta_true.
@@ -84,8 +87,9 @@ def get_efficiency(data, particle):
         data (pd.DataFrame): Reference dataset
         particle (str): particle species to consider (accepted values are 'Deu', 'P', 'K', 'Pi', 'E')
     """
-    sigma = data[f'discrepancy_{particle}'].std()
-    mean = data[f'discrepancy_{particle}'].mean()
+    #sigma = data[f'discrepancy_{particle}'].std()
+    #mean = data[f'discrepancy_{particle}'].mean()
+    mean = 0.
 
     n_accepted = len(data.query(f"label == '{particle}' and {mean-sigma} < (discrepancy_{particle}) < {mean+sigma}", inplace=False))
     n_total = len(data.query(f"label == '{particle}'", inplace=False))
@@ -93,7 +97,7 @@ def get_efficiency(data, particle):
     sample_efficiency = n_accepted / n_total
     return sample_efficiency
 
-def get_purity(data, particle):
+def get_purity(data, particle, sigma):
     """
     Returns the purity of a given sample. Accepted particles have predicted beta in a window of 1 sigma from 
     the measured value. The sigma is the dispersion of the distribution for discrepancy=beta_pred-beta_true.
@@ -104,8 +108,9 @@ def get_purity(data, particle):
         particle (str): particle species to consider (accepted values are 'Deu', 'P', 'K', 'Pi', 'E')
     """
 
-    sigma = data[f'discrepancy_{particle}'].std()
-    mean = data[f'discrepancy_{particle}'].mean()
+    #sigma = data[f'discrepancy_{particle}'].std()
+    #mean = data[f'discrepancy_{particle}'].mean()
+    mean = 0.
 
     n_accepted = len(data.query(f"label == '{particle}' and {mean-sigma} < (discrepancy_{particle}) < {mean+sigma}", inplace=False))
     all_accepted = len(data.query(f"{mean-sigma} < (discrepancy_{particle}) < {mean+sigma}", inplace=False))
@@ -127,9 +132,9 @@ def analysis(inputData, outFilePath):
 
     for name in names:
         print(f'\nParticle: {name}')
-        define_discrepancy(inputData, name, outFile)
-        print(f'Purity: ', get_purity(inputData, name))
-        print(f'Efficiency: ', get_efficiency(inputData, name))
+        sigma = define_discrepancy(inputData, name, outFile)
+        print(f'Purity: ', get_purity(inputData, name, sigma))
+        print(f'Efficiency: ', get_efficiency(inputData, name, sigma))
 
     outFile.Close()
 
@@ -137,7 +142,7 @@ def analysis(inputData, outFilePath):
 
 if __name__ == '__main__':
     
-    inputFile = '../data/preprocessed/TPC/ApplicationDf_beta_pflat .parquet.gzip'
+    inputFile = '../data/preprocessed/TPC/ApplicationDf_beta_pflat.parquet.gzip'
     outFilePath = '../output/analysis/discrepancy.root'
     inputData = readFile(inputFile)
     analysis(inputData, outFilePath)

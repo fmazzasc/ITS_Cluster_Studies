@@ -16,8 +16,8 @@ gStyle.SetPalette(53)   # -> Stefano
 #gStyle.SetPalette(1)   # -> ROOT 5
 #gStyle.SetPalette(kBird) 
 
-configPath = '../configs/config_adj.yml'
-#configPath = '../configs/config_adj2.yml'
+#configPath = '../configs/config_adj.yml'
+configPath = '../configs/config_adj2.yml'
 
 with open(configPath, 'r') as ymlCfgFile:
     inputCfg = yaml.load(ymlCfgFile, yaml.FullLoader)
@@ -63,7 +63,7 @@ for finPath, objName, foutPath, outFormat, axisTitle, axisLimit, latexLabel, sam
     canvas.Update()
 
     for outformat in outFormat:
-        canvas.SaveAs(f'{foutPath}_Tesi.{outformat}')
+        canvas.SaveAs(f'{foutPath}.{outformat}')
 
     input('Press enter to continue')
 
