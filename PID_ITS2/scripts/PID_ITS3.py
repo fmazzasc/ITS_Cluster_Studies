@@ -624,8 +624,9 @@ def data_prep(config, opt):
     prep_con = PrepConstructor()
     prep = prep_con.createPrepTool(opt.mode, opt.fimpPath, opt.applPath)
     prep.preprocess(opt.particle_dict, opt.selection_tag, opt.selection_tag_appl)
+    print(prep.data.describe())
 
-    if opt.mode != 'TPC':   tag_dict = None
+    #if opt.mode != 'TPC':   tag_dict = None
     TrainSet, TestSet, yTrain, yTest, ApplicationDf = prep.filter_and_split(opt.particle_dict, mass_dict, tag_dict, opt.test_size, opt.random_state)
     TotalSet = pd.concat([TrainSet, TestSet])
 
@@ -840,7 +841,7 @@ def PID(inputCfgFile):
 
 if __name__ == '__main__':
 
-    inputCfgFile = '../configs/config2.yml'
+    inputCfgFile = '../configs/config.yml'
 
     PID(inputCfgFile)
     

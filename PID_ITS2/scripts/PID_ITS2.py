@@ -845,7 +845,7 @@ def main():
 
     # Configuration File
     #_________________________________
-    with open('../configs/config2.yml') as f:
+    with open('../configs/config.yml') as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
     
     mode = config['mode']

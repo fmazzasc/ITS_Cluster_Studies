@@ -85,7 +85,7 @@ class PrepTool(ABC):
         """
 
         # if no application data is provided, create an application set from train set
-        if self.application.empty:  self.data, self.application = train_test_split(self.data, test_size=0.5, random_state=random_state)
+        if self.application.empty:  self.data, self.application = train_test_split(self.data, test_size=0.5, train_size=0.5, random_state=random_state)
 
         if tag_dict is not None:
             self.data = pd.concat([filtering(self.data, name, mass=mass_dict[name], tag=tag_dict[name], label=True) for name in particle_dict.values()])
