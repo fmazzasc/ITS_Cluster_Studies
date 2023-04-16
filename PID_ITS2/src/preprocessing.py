@@ -87,12 +87,32 @@ class PrepTool(ABC):
         # if no application data is provided, create an application set from train set
         if self.application.empty:  self.data, self.application = train_test_split(self.data, test_size=0.5, train_size=0.5, random_state=random_state)
 
-        if tag_dict is not None:
-            self.data = pd.concat([filtering(self.data, name, mass=mass_dict[name], tag=tag_dict[name], label=True) for name in particle_dict.values()])
-            self.application = pd.concat([filtering(self.application, name, mass=mass_dict[name], tag=tag_dict[name], label=True) for name in particle_dict.values()])
-        else:
-            self.data = pd.concat([filtering(self.data, name, mass=mass_dict[name], label=True) for name in particle_dict.values()])
-            self.application = pd.concat([filtering(self.application, name, mass=mass_dict[name], label=True) for name in particle_dict.values()])
+        # filter data and application
+        dataList = applList = []
+        for name in particle_dict.values():
+            dataFilt = applFilt = pd.DataFrame()
+
+            if tag_dict is not None:
+                dataFilt = filtering(self.data, name, mass=mass_dict[name], tag=tag_dict[name], label=True)
+                applFilt = filtering(self.application, name, mass=mass_dict[name], tag=tag_dict[name], label=True)
+            else:
+                dataFilt = filtering(self.data, name, mass=mass_dict[name], label=True)
+                applFilt = filtering(self.application, name, mass=mass_dict[name], label=True)
+
+            dataList.append(dataFilt)
+            applList.append(applFilt)
+
+            dataFiltToDrop = dataFilt.drop(columns=['label', 'beta'])
+            applFiltToDrop = applFilt.drop(columns=['label', 'beta'])
+
+            self.data = pd.concat([self.data, dataFiltToDrop, dataFiltToDrop]).drop_duplicates(keep=False)
+            self.application = pd.concat([self.application, applFiltToDrop, applFiltToDrop]).drop_duplicates(keep=False)
+
+            print(f'selected {name}, dataset size: {len(self.data.index)}')
+
+        self.data = pd.concat(dataList)
+        self.application = pd.concat(applList)
+
 
         inv_particle_dict = {v: k for k, v in particle_dict.items()}
         if not 'particle' in self.data.columns: self.data['particle'] = self.data['label'].map(inv_particle_dict)

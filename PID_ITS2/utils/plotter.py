@@ -63,7 +63,6 @@ class Plotter:
             hist.SetDrawOption('hist')
             hist.Write()
 
-
     def ScatterPlot(self, x, y, plot_specifics, weights=None):
         """
     

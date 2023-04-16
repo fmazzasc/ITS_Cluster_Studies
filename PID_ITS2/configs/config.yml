@@ -21,8 +21,11 @@ TPC:
         save_data_dir:      ../data/preprocessed/TPC
         model_out:          ../MLmodels/RegressorModel_TPC
 
-        particle:   { 0: "Deu", 1: "P", 2: "K", 3: "Pi", 4: "E"}
-
+        #particle:   { 0: "Deu", 1: "P", 2: "K", 3: "Pi", 4: "E"}
+        particle:   { 0: "E", 1: "Pi", 2: "K", 3: "P", 4: "Deu"}    # (key, value) pairs are wrong. To be only used 
+                                                                    # if particles are selected through tags and you
+                                                                    # prefer the selection to be applied in a different 
+                                                                    # order 
 
     data_prep:
 
@@ -34,7 +37,7 @@ TPC:
         appl_data:  /Users/giogi/Desktop/Stage INFN/PID ITS/data/ApplicationDf_augm.parquet.gzip
         save_data: True
 
-        selection_tag: 'p <= 50 and tpcITSchi2 < 5 and nClusTPC > 100 and -0.2 < delta_p < 0.2'
+        selection_tag: 'p <= 1.5 and rofBC != 2178 and tpcITSchi2 < 5 and nClusTPC > 100 and -0.2 < delta_p < 0.2'
         #selection_tag: '0.1 < p <= 0.7 and tpcITSchi2 < 5 and nClusTPC > 100 and -0.2 < delta_p < 0.2'
         selection_tag_appl: None
         test_size: 0.2

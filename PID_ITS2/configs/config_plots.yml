@@ -1,13 +1,13 @@
 inputs:
     dirname: null # leave null if not common for all input files
-    filenames: [/Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/output/hybrid/data_visual.root,
-                /Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/output/hybrid/data_visual.root,
-                /Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/output/hybrid/data_visual.root
+    filenames: [/Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/output/TPC/delta_no_options.root,
+                /Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/output/TPC/delta_no_options.root,
+                /Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/output/TPC/delta_no_options.root
                 ]
-    objectnames: ['p_P', 'p_K', 'p_Pi', '0'] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
+    objectnames: ['Delta_P', 'Delta_K', 'Delta_Pi', '0'] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
 
 output: 
-    filename: /Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/report/img/pHybrid # with path and w/o extension
+    filename: /Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/report/img3/deltaTPC # with path and w/o extension
     objectnames: ['p', 'K', 'pi', 'e'] # new names for the created objects. Will be AUTOMATICALLY applied if the lenght of the list equals the lenght of the one in the input section
     extensions: [png] # possibilities: pdf, eps, png, root
 
@@ -15,7 +15,7 @@ options:
     ROOTobject: [TH1, TH1, TH1] # TH1, TH2 or TGraph: no need to specify TH1F, TH1D or TGraphErrors, TGraphAsymmErrors
     scale: [1, 1, 1, 1]
     rebin: [1, 1, 1, 1]
-    normalize: [false, false, false, true] # divide histogram by its area
+    normalize: [true, true, true, true] # divide histogram by its area
     colors: [kRed+1, kAzure+4, kGreen+3, kOrange+2]
     markers: [kFullCircle, kFullCircle, kFullCircle, kFullCircle]
     markersize: 1.5
@@ -48,9 +48,9 @@ options:
 
     legend:
         avoid: false #set true to avoid the legend in the final plot
-        xlimits: [0.67, 0.9]
-        ylimits: [0.58, 0.83]
-        header: '#splitline{#it{p} (GeV/#it{c})}{}'
+        xlimits: [0.27, 0.5]
+        ylimits: [0.48, 0.83]
+        header: '#splitline{#Delta = #frac{#beta_{true} - #beta_{pred}}{#beta_{true}}}{}'
         titles: ['p', 'K', '#pi']
         options: [l, l, l, l]
         textsize: 0.042
@@ -66,15 +66,15 @@ options:
     canvas:
         width: 1200
         heigth: 1000
-        xaxistitle: 'p'
+        xaxistitle: '#Delta'
         yaxistitle: 'Counts'
         yaxistitleratio: ''
-        xlimits: [0., 1.5]
-        ylimits: [1, 3000.]
+        xlimits: [-1.5, 0.5]
+        ylimits: [0.001, 1.]
         ylimitsratio: [0.00001, 1]
         ylimitserr: [0., 0.35]
         logx: false
-        logy: false
+        logy: true
         logz: true
         ratio:
             logy: true

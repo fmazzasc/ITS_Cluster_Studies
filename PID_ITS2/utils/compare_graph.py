@@ -209,6 +209,7 @@ class MultiHistCanvas_config:
         self.fillstyle = config['options']['fillstyle']
         self.fillalpha = config['options']['fillalpha']
         self.drawOpt = config['options']['drawopt']
+        self.KS = config['options']['KS']
 
     def color_(self, index):
         """
@@ -263,8 +264,13 @@ def multiHistCanvas(inputCfgFile, outFile, canvasName='outCanvas', update=False,
         
         hist.SetDirectory(0)
         if opt.normalize:       hist.Scale(1. / hist.Integral())
+
+        if opt.KS:
+            KS_val = hist.KolmogorovTest(args[0])
+            print(f'\033[92mKS test for {hist.GetName()} is {np.around(KS_val, decimals=3)}\033[0m')
           
         leg.AddEntry(hist, hist.GetTitle(), 'l')
+        leg.AddEntry(hist, f'KS: {np.around(KS_val, decimals=3)}', '')
 
     # create and customize canvas
     outCanvas = TCanvas(canvasName, '', opt.wCanv, opt.hCanv)
@@ -278,7 +284,6 @@ def multiHistCanvas(inputCfgFile, outFile, canvasName='outCanvas', update=False,
     for hist in args:       hist.Draw(opt.drawOpt)
     if  not opt.avoidLeg:   leg.Draw()
     outCanvas.Write()
-    #outCanvas.SaveAs('../output/rofComparison/check.png')
     
     
 

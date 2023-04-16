@@ -43,10 +43,15 @@ mass_K = 0.4937
 mass_Pi = 0.13957000
 mass_E = 0.000511
 
-names = ['Deu', 'P', 'K', 'Pi', 'E']
+#names = ['Deu', 'P', 'K', 'Pi', 'E']
+#
+#tag_dict = dict(zip(names, [tag_Deu, tag_P, tag_K, tag_Pi, tag_E]))
+#mass_dict = dict(zip(names, [mass_Deu, mass_P, mass_K, mass_Pi, mass_E]))
 
-tag_dict = dict(zip(names, [tag_Deu, tag_P, tag_K, tag_Pi, tag_E]))
-mass_dict = dict(zip(names, [mass_Deu, mass_P, mass_K, mass_Pi, mass_E]))
+names = ['E', 'Pi', 'K', 'P', 'Deu']
+
+tag_dict = dict(zip(names, [tag_E, tag_Pi, tag_K, tag_P, tag_Deu]))
+mass_dict = dict(zip(names, [mass_E, mass_Pi, mass_K, mass_P, mass_Deu]))
 
 MC_dict = {2212: 1, 321: 2, 211: 3, 11: 4}
 
@@ -135,15 +140,19 @@ class PID_config:
         self.Application_output_dir = config[self.mode]['output']['final_dir']
         self.delta_output_dir = config[self.mode]['output']['delta_dir']
 
-        for output_dir in [self.Prep_output_dir, self.ML_output_dir, self.Application_output_dir, self.delta_output_dir]:
-            if self.do_augm and self.beta_p_flat:   output_dir += f'_augm'
-            elif self.do_augm and self.beta_flat:   output_dir += f'_augm_betaflat'
-            elif self.do_augm:                      output_dir += f'_augm'
-            elif self.MCweights:                    output_dir += f'_MCweights'
-            elif self.beta_flat:                    output_dir += f'_betaflat'
-            elif self.beta_p_flat:                  output_dir += f'_beta_pflat'
-            elif self.do_equal:                     output_dir += f'_equal'
-            else:                                   output_dir += f'_no_options'
+        output_specific = ''
+        if self.do_augm and self.beta_p_flat:   output_specific = '_augm'
+        elif self.do_augm and self.beta_flat:   output_specific = '_augm_betaflat'
+        elif self.do_augm:                      output_specific = '_augm'
+        elif self.MCweights:                    output_specific = '_MCweights'
+        elif self.beta_flat:                    output_specific = '_betaflat'
+        elif self.beta_p_flat:                  output_specific = '_beta_pflat'
+        elif self.do_equal:                     output_specific = '_equal'
+        else:                                   output_specific = '_no_options'
+            
+        self.ML_output_dir += output_specific
+        self.Application_output_dir += output_specific
+        self.delta_output_dir += output_specific
             
         # ML config
         self.RegressionColumns = config[self.mode]['training']['RegressionColumns']
@@ -624,7 +633,6 @@ def data_prep(config, opt):
     prep_con = PrepConstructor()
     prep = prep_con.createPrepTool(opt.mode, opt.fimpPath, opt.applPath)
     prep.preprocess(opt.particle_dict, opt.selection_tag, opt.selection_tag_appl)
-    print(prep.data.describe())
 
     #if opt.mode != 'TPC':   tag_dict = None
     TrainSet, TestSet, yTrain, yTest, ApplicationDf = prep.filter_and_split(opt.particle_dict, mass_dict, tag_dict, opt.test_size, opt.random_state)
@@ -673,7 +681,6 @@ def data_prep(config, opt):
     # Apply weights
     TrainSet = weights_application(config, opt, TrainSet)
     yTrain = TrainSet['beta']
-    print(TrainSet['particle'].unique())
 
     # Save data 
     if opt.save_data:
