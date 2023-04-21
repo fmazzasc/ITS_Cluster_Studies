@@ -322,6 +322,42 @@ double calcMass(const V0 &v0, PID v0PID)
     return moth.M();
 }
 
+void GetTopologyDictionary(o2::itsmft::TopologyDictionary mdict, o2::parameters::GRPObject *grp,
+                           std::string runPeriod, std::string pathDir) {
+    // Topology dictionary
+    if (runPeriod == "OCT")
+    {
+        mdict.readFromFile(o2::base::DetectorNameConf::getAlpideClusterDictionaryFileName(o2::detectors::DetID::ITS, "../utils/ITSdictionary.bin"));
+        TFile *fGRP = TFile::Open("../utils/ccdb_grp_low_field_pos");
+        grp = reinterpret_cast<o2::parameters::GRPObject *>(fGRP->Get("ccdb_object"));
+        fGRP->Close();
+        pathDir = "/data/shared/ITS/OCT/CTFS";
+    }
+
+    else if (runPeriod == "MAY" || runPeriod == "JUN" || runPeriod == "JUL" || runPeriod == "LHC22m")
+    {
+        auto fdic = TFile("../utils/o2_itsmft_TopologyDictionary_1653153873993.root");
+        mdict = *(reinterpret_cast<o2::itsmft::TopologyDictionary *>(fdic.Get("ccdb_object")));
+        fdic.Close();
+        TFile *fGRP = TFile::Open("../utils/o2sim_grp_bneg05.root");
+        grp = reinterpret_cast<o2::parameters::GRPObject *>(fGRP->Get("ccdb_object"));
+        fGRP->Close();
+        if (runPeriod == "MAY")
+            pathDir = "/data/shared/ITS/MAY/CTFS";
+        else if (runPeriod == "JUN")
+            pathDir = "/data/shared/ITS/JUN/CTFS";
+        else if (runPeriod == "JUL")
+            pathDir = "/data/shared/ITS/JUL/CTFS";
+        else if (runPeriod == "LHC22m")
+            pathDir = "/data/shared/ITS/LHC22m/";
+    }
+
+    else
+    {
+        LOG(fatal) << "Run period not recognized. Please choose among: OCT, MAY, JUN, JUL, LHC22m";
+        exit(1);
+    }
+}
 
 // std::array<int, 2> matchITStracktoMC(const std::vector<std::vector<MCTrack>> &mcTracksMatrix, o2::MCCompLabel ITSlabel)
 // {
