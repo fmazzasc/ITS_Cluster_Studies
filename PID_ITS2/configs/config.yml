@@ -22,7 +22,7 @@ TPC:
         model_out:          ../MLmodels/RegressorModel_TPC
 
         #particle:   { 0: "Deu", 1: "P", 2: "K", 3: "Pi", 4: "E"}
-        particle:   { 0: "E", 1: "Pi", 2: "K", 3: "P", 4: "Deu"}    # (key, value) pairs are wrong. To be only used 
+        particle:   {1: "Pi", 2: "K", 3: "P", 4: "Deu"}    # (key, value) pairs are wrong. To be only used 
                                                                     # if particles are selected through tags and you
                                                                     # prefer the selection to be applied in a different 
                                                                     # order 
@@ -89,6 +89,9 @@ TPC:
                             "reg_alpha": 0.349923237394973, # not available in FLAML
                             "reg_lambda": 0.5031161568154017, # not available in FLAML
                             "verbosity": 1,
+                            #"process_type": "update", # to use 'prune': prune trees according to gamma and max_depth
+                            #"updater": "prune", #
+                            "max_bin": 512 # sets histogram binning (default=256)
                             } # dict of hyperparameters (XGB and AUTOML USE DIFFERENT HYPER-PARS!)
 
         HyperParamsRange:   {"max_depth": [3, 15], 
@@ -105,7 +108,7 @@ TPC:
         save_model: True
 
         beta_flat: False
-        beta_p_flat: False
+        beta_p_flat: True
         MCweights: False
 
     application:
@@ -113,7 +116,7 @@ TPC:
         model_loc: /home/galucia/PID_ITS/ML_output/hybrid/RegressorModel_xgboost_beta_pflat_.pickle
 
     plots:
-        do_plots: True
+        do_plots: False
         plotSpec1D:     {"ClSizeL0": ["Cl. Size L0", 25, 0, 25], "ClSizeL1": ["Cl. Size L1", 25, 0, 25], "ClSizeL2": ["Cl. Size L2", 25, 0, 25], "ClSizeL3": ["Cl. Size L3", 25, 0, 25], 
                         "ClSizeL4": ["Cl. Size L4", 25, 0, 25], "ClSizeL5": ["Cl. Size L5", 25, 0, 25], "ClSizeL6": ["Cl. Size L6", 25, 0, 25], "clSizeCosLam": ["<Cl. Size> <cos#lambda>", 250, 0, 25],
                         "SnPhiL0": ["sin#phi L0", 100, -1, 1], "SnPhiL1": ["sin#phi L1", 100, -1, 1], "SnPhiL2": ["sin#phi L2", 100, -1, 1], "SnPhiL3": ["sin#phi L3", 100, -1, 1], 
@@ -122,8 +125,10 @@ TPC:
                         "TanLamL4": ["tan#lambda L4", 80, -4, 4], "TanLamL5": ["tan#lambda L5", 80, -4, 4], "TanLamL6": ["tan#lambda L6", 80, -4, 4], "tgL": ["<tan#lambda>", 80, -4, 4],
                         "PattIDL0": ["Pattern ID L0", 10, 0, 100], "PattIDL1": ["Pattern ID L1", 10, 0, 100], "PattIDL2": ["Pattern ID L2", 10, 0, 100], "PattIDL3": ["Pattern ID L3", 10, 0, 100], 
                         "PattIDL4": ["Pattern ID L4", 10, 0, 100], "PattIDL5": ["Pattern ID L5", 10, 0, 100], "PattIDL6": ["Pattern ID L6", 10, 0, 100], "meanPattID": ["<Pattern ID>", 100, 0, 100],
+                        "nSigmaP": ["n #sigma_{p}", 200, -100, 100], "nSigmaK": ["n #sigma_{K}", 200, -100, 100], "nSigmaPi": ["n #sigma_{#pi}", 200, -100, 100], #"nSigmaE": ["n #sigma_{e}", 200, -100, 100],
+                        "nSigmaPAbs": ["|n #sigma_{p}|", 100, 0, 100], "nSigmaKAbs": ["|n #sigma_{K}|", 100, 0, 100], "nSigmaPiAbs": ["|n #sigma_{#pi}|", 100, 0, 100], #"nSigmaEAbs": ["|n #sigma_{e}|", 100, 0, 100],
                         "L6_L0": ["#frac{Cl. Size L0}{Cl. Size L0}", 100, 0, 10], "p": ["#it{p} (GeV/#it{c})", 150, 0, 1.5], "pITS": ["#it{p}_{ITS} (GeV/#it{c})", 150, 0, 1.5],
-                        "pTPC": ["#it{p}_{TPC} (GeV/#{c})", 150, 0, 1.5], "tpcITSchi2": ["#chi_{ITS-TPC}^2", 100, 0, 10], "nClusTPC": ["n Cluster TPC",130, 50, 180]
+                        "pTPC": ["#it{p}_{TPC} (GeV/#it{c})", 150, 0, 1.5], "tpcITSchi2": ["#chi_{ITS-TPC}^2", 100, 0, 10], "nClusTPC": ["n Cluster TPC",130, 50, 180]
                         }
         plotAxis2D:     {1: ["p", "beta"], 2: ["p", "clSizeCosLam"], 3: ["beta", "clSizeCosLam"], 4: ["p", "dedx"]
                         }
@@ -140,11 +145,12 @@ TPC:
         scoreDeltaSpec: {"p": ["#it{p} (GeV/#it{c})", 150, 0., 1.5],
                         "beta_pred": ["#beta (ML)", 105, 0., 1.05]
                         }
-        finalAxis2D:    {1: ["p", "beta"], 2: ["p", "beta_pred"], 3: ["p", "dedx"]
+        finalSpec1D:    {"mass_pred": ["m (ML) (GeV/{#it{c}}^2)", 200, 0., 2.]}
+        finalAxis2D:    {1: ["p", "beta_pred"], 2: ["p", "dedx"], 3: ["p", "mass_pred"]
                         }
-        finalSpec2D:    {1: ["#it{p} (GeV/#it{c})", "#beta_{true}", 1500, 0, 1.5, 1100, 0, 1.1], 
-                        2: ["#it{p} (GeV/#it{c})", "#beta (ML)", 1500, 0, 1.5, 1100, 0, 1.1], 
-                        3: ["p (GeV/c)", "#frac{dE}{dx} (keV/#mum)", 150, 0, 1.5, 600, 0, 600]
+        finalSpec2D:    {1: ["#it{p} (GeV/#it{c})", "#beta (ML)", 1500, 0, 1.5, 1100, 0, 1.1], 
+                        2:  ["#it{p} (GeV/#it{c})", "#frac{dE}{dx} (keV/#mum)", 150, 0, 1.5, 600, 0, 600],
+                        3:  ["#it{p} (GeV/#it{c})", "m (ML) (GeV/{#it{c}}^2)", 150, 0, 1.5, 200, 0., 2.]
                         }
 
 ### hybrid
@@ -279,6 +285,7 @@ hybrid:
         scoreDeltaSpec: {"p": ["#it{p} (GeV/#it{c})", 150, 0., 1.5],
                         "beta_pred": ["#beta (BDT)", 105, 0., 1.05]
                         }
+        finalSpec1D:    {"mass_pred": ["m (ML) (GeV/{#it{c}}^2)", 200, 0., 2.]}
         finalAxis2D:    {1: ["p", "beta"], 2: ["p", "beta_pred"], 3: ["p", "dedx"]
                         }
         finalSpec2D:    {1: ["#it{p} (GeV/#it{c})", "#beta_{true}", 1500, 0, 1.5, 1100, 0, 1.1], 
@@ -417,6 +424,7 @@ MC:
         scoreDeltaSpec: {"p": ["#it{p} (GeV/#it{c})", 150, 0., 1.5],
                         "beta_pred": ["#beta (ML)", 105, 0., 1.05]
                         }
+        finalSpec1D:    {"mass_pred": ["m (ML) (GeV/{#it{c}}^2)", 200, 0., 2.]}
         finalAxis2D:    {1: ["p", "beta"], 2: ["p", "beta_pred"]
                         }
         finalSpec2D:    {1: ["#it{p} (GeV/#it{c})", "#beta_{true}", 1500, 0, 1.5, 1100, 0, 1.1], 
@@ -520,7 +528,7 @@ MCtpc:
         save_model: True
 
         beta_flat: False
-        beta_p_flat: False
+        beta_p_flat: True
         MCweights: False
 
     application:
@@ -528,7 +536,7 @@ MCtpc:
         model_loc: /home/galucia/PID_ITS/ML_output/hybrid/RegressorModel_xgboost_beta_pflat_.pickle
 
     plots:
-        do_plots: True
+        do_plots: False
         plotSpec1D:     {"ClSizeL0": ["Cl. Size L0", 25, 0, 25], "ClSizeL1": ["Cl. Size L1", 25, 0, 25], "ClSizeL2": ["Cl. Size L2", 25, 0, 25], "ClSizeL3": ["Cl. Size L3", 25, 0, 25], 
                         "ClSizeL4": ["Cl. Size L4", 25, 0, 25], "ClSizeL5": ["Cl. Size L5", 25, 0, 25], "ClSizeL6": ["Cl. Size L6", 25, 0, 25], "clSizeCosLam": ["<Cl. Size> <cos#lambda>", 250, 0, 25],
                         "SnPhiL0": ["sin#phi L0", 100, -1, 1], "SnPhiL1": ["sin#phi L1", 100, -1, 1], "SnPhiL2": ["sin#phi L2", 100, -1, 1], "SnPhiL3": ["sin#phi L3", 100, -1, 1], 
@@ -552,6 +560,7 @@ MCtpc:
         scoreDeltaSpec: {"p": ["#it{p} (GeV/#it{c})", 150, 0., 1.5],
                         "beta_pred": ["#beta (ML)", 105, 0., 1.05]
                         }
+        finalSpec1D:    {"mass_pred": ["m (ML) (GeV/{#it{c}}^2)", 200, 0., 2.]}
         finalAxis2D:    {1: ["p", "beta"], 2: ["p", "beta_pred"], 3: ["p", "dedx"]
                         }
         finalSpec2D:    {1: ["#it{p} (GeV/#it{c})", "#beta_{true}", 1500, 0, 1.5, 1100, 0, 1.1], 

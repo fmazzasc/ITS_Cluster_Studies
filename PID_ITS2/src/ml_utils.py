@@ -26,12 +26,18 @@ class Scorer:
         nameYcol (str): Name of the target column
     """
     def __init__(self, model, df, RegressionColumns, nameYcol, tfile) -> None:
+        """
+        Scorer constructor. Performs model application on the dataset.
+        """
         self.model = model
         self.df = df
         self.RegressionColumns = RegressionColumns
         self.nameYcol = nameYcol
         self.predcol = f'{self.nameYcol}_pred'
         self.plot = Plotter(self.df, tfile)
+
+        # apply model to data
+        self.df[self.predcol] = self.model.predict(self.df[self.RegressionColumns])
 
     def Delta(self, absolute=False):
         """
@@ -45,9 +51,10 @@ class Scorer:
         -------
             Dataset with appended Delta column.
         """
-        self.df[self.predcol] = self.model.predict(self.df[self.RegressionColumns])
+
         if absolute:    self.df.eval(f'Delta = abs({self.nameYcol} - {self.predcol}) / {self.nameYcol}', inplace=True)
         else:           self.df.eval(f'Delta = ({self.nameYcol} - {self.predcol}) / {self.nameYcol}', inplace=True)
+        self.plot.df = self.df
         return self.df
 
     def histScore(self, nbinsx=300, xlow=-1.5, xup=1.5):
@@ -55,6 +62,12 @@ class Scorer:
 
     def scatterPlotScore(self, xVariable, xLabel, nbinsx, xlow, xup, nbinsy=300, ylow=-1.5, yup=1.5):
         self.plot.plot2D([xVariable], ['Delta'], [[xLabel, '#Delta', nbinsx, xlow, xup, nbinsy, ylow, yup]])
+
+    def evalMass(self):
+        """
+        Add the mass column to the dataset.
+        """
+        self.df.eval(f'mass_pred = p / beta_pred * sqrt(1 - beta_pred**2)', inplace=True)
 
 #################################################################################################################
 #

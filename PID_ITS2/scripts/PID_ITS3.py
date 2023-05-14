@@ -30,9 +30,9 @@ from utils.plotter import Plotter, TH2Handler
 # Tags
 #_____________________________________
 tag_Deu = 'nSigmaDeuAbs < 1 and p <= 1.2'
-tag_P = 'nSigmaPAbs < 1 and nSigmaKAbs > 3 and p <= 1.5'
+tag_P = 'nSigmaPAbs < 1 and nSigmaKAbs != 0 and nSigmaKAbs > 3 and p <= 1.5'
 tag_K = 'nSigmaKAbs < 1 and nSigmaPiAbs > 3 and nSigmaPAbs > 3 and p <= 1.5'
-tag_Pi = 'nSigmaPiAbs < 1 and nSigmaEAbs > 3 and nSigmaKAbs > 3 and p <= 1.5'
+tag_Pi = 'nSigmaPiAbs < 1  and p <= 1.5'
 tag_E = 'nSigmaEAbs < 1 and nSigmaPiAbs > 3 and p <= 1.5'
 
 # Masses
@@ -42,11 +42,6 @@ mass_P =  0.93827200
 mass_K = 0.4937
 mass_Pi = 0.13957000
 mass_E = 0.000511
-
-#names = ['Deu', 'P', 'K', 'Pi', 'E']
-#
-#tag_dict = dict(zip(names, [tag_Deu, tag_P, tag_K, tag_Pi, tag_E]))
-#mass_dict = dict(zip(names, [mass_Deu, mass_P, mass_K, mass_Pi, mass_E]))
 
 names = ['E', 'Pi', 'K', 'P', 'Deu']
 
@@ -118,7 +113,6 @@ class PID_config:
         
         # preprocessing config
         self.selection_tag = config[self.mode]['data_prep']['selection_tag']
-        self.selection_tag_appl = config[self.mode]['data_prep']['selection_tag_appl']
         self.seven_hits = config[self.mode]['data_prep']['seven_hits']  # only consider candidates with hits on all the layers
         self.test_size = config[self.mode]['data_prep']['test_size']
         self.random_state = config[self.mode]['data_prep']['random_state']
@@ -171,12 +165,21 @@ def timing_decorator(func):
     """
 
     def wrapper(*args, **kwargs):
+
         start_time = time.time()
         result = func(*args, **kwargs)
         end_time = time.time()
+
+        exec_time = end_time - start_time
+        if exec_time > 60:  
+            exec_time_min = int(exec_time / 60.)
+            exec_time_s = exec_time % 60
+
         print(f'\n{func.__name__} process ended.')
-        print(f'Execution time: {end_time - start_time:.2f} s')
+        if exec_time > 60:  print(f'Execution time: {exec_time_min}:{exec_time_s:.2f} min')
+        else:               print(f'Execution time: {end_time - start_time:.2f} s')
         print(f'Memory usage: {resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024 / 1024:.2f} MB')
+        
         return result 
 
     return wrapper
@@ -530,7 +533,6 @@ def perform_xgboost_regression(config, opt, TrainSet, TestSet, HyperParams):
     if opt.MCweights:   print('3D weights selected...')
 
     # Create and train the model
-    #model = xgb.XGBRegressor(**HyperParams, tree_method="gpu_hist", random_state=opt.random_state)
     model = xgb.XGBRegressor(**HyperParams, random_state=opt.random_state)
     
     with alive_bar(title='Training...') as bar:     
@@ -538,7 +540,19 @@ def perform_xgboost_regression(config, opt, TrainSet, TestSet, HyperParams):
         elif opt.beta_p_flat:   model.fit(TrainSet[opt.RegressionColumns], TrainSet['beta'], sample_weight=TrainSet['beta_pweight'])
         elif opt.MCweights:     model.fit(TrainSet[opt.RegressionColumns], TrainSet['beta'], sample_weight=TrainSet['3d_weight'])
         else:                   model.fit(TrainSet[opt.RegressionColumns], TrainSet['beta'])
-     
+
+    # Hyperparameter importance 
+    FeatureImportanceScores = model.get_booster().get_score(importance_type='weight')
+
+    HyperparametersImportanceDict = {}
+    for feature, importance in FeatureImportanceScores.items(): HyperparametersImportanceDict[feature] = importance
+    HyperparametersImportanceDict = dict(sorted(HyperparametersImportanceDict.items(), key=lambda x: x[1], reverse=True))
+
+    plt.bar(range(len(HyperparametersImportanceDict)), list(HyperparametersImportanceDict.values()), align='center')
+    plt.xticks(range(len(HyperparametersImportanceDict)), list(HyperparametersImportanceDict.keys()), rotation='vertical')
+    plt.title('Hyperparameter Importance')
+    plt.savefig(f'{opt.ML_output_dir}_HyperparamImportances.png')
+    
     # Results visualization
     dfs = {'train': TrainSet, 'test': TestSet}
     for name, df in dfs.items():
@@ -564,9 +578,10 @@ def perform_xgboost_regression(config, opt, TrainSet, TestSet, HyperParams):
         outFile.Close()
     
     # Feature importance plot
-    #FeatureImportance = xgb.plot_importance(model)
-    #plt.savefig(f'{opt.ML_output_dir}_FeatureImportance.png')
-    #plt.close('all')
+    fig, ax = plt.subplots(figsize=(10, 20))
+    xgb.plot_importance(model, ax= ax)
+    plt.savefig(f'{opt.ML_output_dir}_FeatureImportance.png')
+    plt.close('all')
     
     return model
 
@@ -632,7 +647,7 @@ def data_prep(config, opt):
     # Data preprocessing
     prep_con = PrepConstructor()
     prep = prep_con.createPrepTool(opt.mode, opt.fimpPath, opt.applPath)
-    prep.preprocess(opt.particle_dict, opt.selection_tag, opt.selection_tag_appl)
+    prep.preprocess(opt.particle_dict, opt.selection_tag)
 
     #if opt.mode != 'TPC':   tag_dict = None
     TrainSet, TestSet, yTrain, yTest, ApplicationDf = prep.filter_and_split(opt.particle_dict, mass_dict, tag_dict, opt.test_size, opt.random_state)
@@ -752,28 +767,56 @@ def application(config, opt, ApplicationDf, model):
         ApplicationDf (pd.DatFrame): Dataset which the model will be applied on
         model (): ML model to apply
     """
-    
+
     # Prediction and true beta vs p
+    outDeltaFile = TFile(f'{opt.delta_output_dir}.root', 'recreate')
+    print(f'ROOT file created in {opt.delta_output_dir}.root')
     with alive_bar(title='Application...') as bar:
-        outFile = TFile(f'{opt.delta_output_dir}.root', 'recreate')
-        print(f'ROOT file created in {opt.delta_output_dir}.root')
-        scorer = Scorer(model, ApplicationDf, opt.RegressionColumns, 'beta', outFile)
-        ApplicationDf = scorer.Delta()                                      # pred and Delta column are added
+        scorer = Scorer(model, ApplicationDf, opt.RegressionColumns, 'beta', outDeltaFile)   # pred column added
+        scorer.evalMass()
 
-        # Delta plots
-        pPltSpec = config[opt.mode]['plots']['scoreDeltaSpec']['p']
-        betaPltSpec = config[opt.mode]['plots']['scoreDeltaSpec']['beta_pred']
+    # Application plots
+    outFile = TFile(f'{opt.Application_output_dir}.root', 'recreate')
+    print(f'ROOT file created in {opt.Application_output_dir}.root')
+    plot = Plotter(scorer.df, outFile)
 
-        scorer.histScore()
-        scorer.scatterPlotScore('p', pPltSpec[0], pPltSpec[1], pPltSpec[2], pPltSpec[3])
-        scorer.scatterPlotScore('beta', betaPltSpec[0], betaPltSpec[1], betaPltSpec[2], betaPltSpec[3])
+    
+    plotSpec1Ddict = config[opt.mode]['plots']['finalSpec1D']
+    varsToPlot1D = [var for var in plotSpec1Ddict.keys()]
+    plotSpec1D = [spec for spec in plotSpec1Ddict.values()]
+    plot.plot1D(varsToPlot1D, plotSpec1D)
 
-        scorer.plot.multi_df('label', opt.particle_dict.values())
-        scorer.histScore()
-        scorer.scatterPlotScore('p', pPltSpec[0], pPltSpec[1], pPltSpec[2], pPltSpec[3])
-        scorer.scatterPlotScore('beta', betaPltSpec[0], betaPltSpec[1], betaPltSpec[2], betaPltSpec[3]) 
+    plotAxis2Ddict = config[opt.mode]['plots']['finalAxis2D']
+    plotSpec2Ddict = config[opt.mode]['plots']['finalSpec2D']
+    varsToPlot2D = [var for var in plotAxis2Ddict.values()]
+    xsToPlot2D = [item[0] for item in varsToPlot2D]
+    ysToPlot2D = [item[1] for item in varsToPlot2D]
+    plotSpec2D = [spec for spec in plotSpec2Ddict.values()]
+    plot.plot2D(xsToPlot2D, ysToPlot2D, plotSpec2D)
 
-        outFile.Close()
+    scorer.df = process_application(scorer.df, opt.selection_tag, opt.particle_dict, mass_dict, tag_dict)
+    plot.df = scorer.df
+    plot.multi_df('label', opt.particle_dict.values())
+    plot.plot1D(varsToPlot1D, plotSpec1D)
+    plot.plot2D(xsToPlot2D, ysToPlot2D, plotSpec2D)
+    outFile.Close()
+
+    # Delta plots
+    ApplicationDf = scorer.Delta()                                                  # Delta column added
+
+    pPltSpec = config[opt.mode]['plots']['scoreDeltaSpec']['p']
+    betaPltSpec = config[opt.mode]['plots']['scoreDeltaSpec']['beta_pred']
+
+    scorer.histScore()
+    scorer.scatterPlotScore('p', pPltSpec[0], pPltSpec[1], pPltSpec[2], pPltSpec[3])
+    scorer.scatterPlotScore('beta', betaPltSpec[0], betaPltSpec[1], betaPltSpec[2], betaPltSpec[3])
+
+    scorer.plot.multi_df('label', opt.particle_dict.values())
+    scorer.histScore()
+    scorer.scatterPlotScore('p', pPltSpec[0], pPltSpec[1], pPltSpec[2], pPltSpec[3])
+    scorer.scatterPlotScore('beta', betaPltSpec[0], betaPltSpec[1], betaPltSpec[2], betaPltSpec[3]) 
+
+    outDeltaFile.Close()
     
     # Save data 
     if opt.save_data:
@@ -786,7 +829,7 @@ def application(config, opt, ApplicationDf, model):
 
             ApplicationDf.to_parquet(f'{opt.save_data_dir}/ApplicationDf{data_conf}.parquet.gzip')
 
-    # Risolution curves
+    # Resolution curves
     outFile = TFile(f'{opt.delta_output_dir}_LINE.root', 'recreate')
     print(f'ROOT file created in {opt.delta_output_dir}_LINE.root')
     th2_handler = TH2Handler(ApplicationDf, outFile, 'p', 'Delta')
@@ -798,25 +841,7 @@ def application(config, opt, ApplicationDf, model):
         th2_handler.build_th2(150, 0., 1.5, 300, -1.5, 1.5)
         th2_handler.TH2toLine(f'Delta_line_{name}', 'y', 1)
     outFile.Close()
-    
-    # Final plots
-    outFile = TFile(f'{opt.Application_output_dir}.root', 'recreate')
-    print(f'ROOT file created in {opt.Application_output_dir}.root')
-    plot = Plotter(ApplicationDf, outFile)
-
-    plotAxis2Ddict = config[opt.mode]['plots']['finalAxis2D']
-    plotSpec2Ddict = config[opt.mode]['plots']['finalSpec2D']
-    varsToPlot2D = [var for var in plotAxis2Ddict.values()]
-    xsToPlot2D = [item[0] for item in varsToPlot2D]
-    ysToPlot2D = [item[1] for item in varsToPlot2D]
-    plotSpec2D = [spec for spec in plotSpec2Ddict.values()]
-    plot.plot2D(xsToPlot2D, ysToPlot2D, plotSpec2D)
-
-    plot.multi_df('label', opt.particle_dict.values())
-    plot.plot2D(xsToPlot2D, ysToPlot2D, plotSpec2D)
-    outFile.Close()
-
-        
+     
 #################################################################################################################
 #
 #   Main functions
@@ -840,11 +865,6 @@ def PID(inputCfgFile):
     TrainSet, TestSet, ApplicationDf = data_prep(config, opt)
     model = regression(config, opt, TrainSet, TestSet)
     application(config, opt, ApplicationDf, model)
-
-
-
-
-
 
 if __name__ == '__main__':
 

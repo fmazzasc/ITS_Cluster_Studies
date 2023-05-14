@@ -41,7 +41,47 @@ MC_dict = {2212: 1, 321: 2, 211: 3, 11: 4}
 #
 #################################################################################################################
 
+def get_range_around_value(histo, value, portion):
+    """
+    Find upper and lower limits of an interval containing a certain portion of the distribution. The interval
+    should be centered around a given value
 
+    Parameters
+    ----------
+        histo (TH1): histogram of the distribution
+        value (float): value around which the interval should be centered
+        portion (float): value between 0 and 1. Portion of the distribution that should be included in the interval
+
+    Returns
+    ----------
+        lower_limit (float): lower limit of the interval
+        upper_limit (float): upper limit of the interval
+    """
+    nbins = histo.GetNbinsX()
+    cdf = [histo.Integral(0, i)/histo.Integral() for i in range(nbins+1)]
+
+    # Find bin corresponding to input value
+    bin_value = histo.FindBin(value)
+
+    # Find bin corresponding to desired portion of the distribution
+    bin_portion = 0
+    for i in range(nbins+1):
+        if cdf[i] > portion:
+            bin_portion = i
+            break
+
+    # Calculate bin range that contains desired portion of distribution
+    portion_content = histo.Integral(bin_value, bin_portion)/histo.Integral()
+    bin_range = int((bin_portion - bin_value)/2.0)
+    while portion_content < portion:
+        bin_range += 1
+        portion_content = histo.Integral(bin_value-bin_range, bin_portion+bin_range)/histo.Integral()
+    
+    # Calculate lower and upper limits of bin range
+    lower_limit = histo.GetBinLowEdge(bin_value-bin_range)
+    upper_limit = histo.GetBinLowEdge(bin_portion+bin_range+1)
+
+    return lower_limit, upper_limit
 
 #################################################################################################################
 #   Specific functions

@@ -32,7 +32,7 @@ class PrepTool(ABC):
 
         self.data = data.copy()
         if application is not None: self.application = application.copy()
-        else:                       self.application = pd.DataFrame()
+        else:                       self.data, self.application = train_test_split(self.data, test_size=0.5, train_size=0.5, random_state=0)
         
         self.columns = []
 
@@ -84,36 +84,23 @@ class PrepTool(ABC):
             application (pd.DataFrame): application set
         """
 
-        # if no application data is provided, create an application set from train set
-        if self.application.empty:  self.data, self.application = train_test_split(self.data, test_size=0.5, train_size=0.5, random_state=random_state)
-
         # filter data and application
-        dataList = applList = []
-        for name in particle_dict.values():
-            dataFilt = applFilt = pd.DataFrame()
+        dataList = []
+        for name in particle_dict.values():     
+            
+            dataFilt = pd.DataFrame()
 
-            if tag_dict is not None:
-                dataFilt = filtering(self.data, name, mass=mass_dict[name], tag=tag_dict[name], label=True)
-                applFilt = filtering(self.application, name, mass=mass_dict[name], tag=tag_dict[name], label=True)
-            else:
-                dataFilt = filtering(self.data, name, mass=mass_dict[name], label=True)
-                applFilt = filtering(self.application, name, mass=mass_dict[name], label=True)
+            if tag_dict is not None:    dataFilt = filtering(self.data, name, mass=mass_dict[name], tag=tag_dict[name], label=True)
+            else:                       dataFilt = filtering(self.data, name, mass=mass_dict[name], label=True)
 
             dataList.append(dataFilt)
-            applList.append(applFilt)
-
             dataFiltToDrop = dataFilt.drop(columns=['label', 'beta'])
-            applFiltToDrop = applFilt.drop(columns=['label', 'beta'])
-
             self.data = pd.concat([self.data, dataFiltToDrop, dataFiltToDrop]).drop_duplicates(keep=False)
-            self.application = pd.concat([self.application, applFiltToDrop, applFiltToDrop]).drop_duplicates(keep=False)
-
             print(f'selected {name}, dataset size: {len(self.data.index)}')
 
         self.data = pd.concat(dataList)
-        self.application = pd.concat(applList)
 
-
+        # create the 'particle' column using a reversed dictionary
         inv_particle_dict = {v: k for k, v in particle_dict.items()}
         if not 'particle' in self.data.columns: self.data['particle'] = self.data['label'].map(inv_particle_dict)
         y = self.data['beta']
@@ -128,16 +115,14 @@ class PrepTool(ABC):
         
         for i in range(7):
             self.data[f'ClSizeL{i}'] = np.where(self.data[f'ClSizeL{i}'] < 0, np.nan, self.data[f'ClSizeL{i}']) 
-            if not self.application.empty:  self.application[f'ClSizeL{i}'] = np.where(self.application[f'ClSizeL{i}'] < 0, np.nan, self.application[f'ClSizeL{i}'])
+            self.application[f'ClSizeL{i}'] = np.where(self.application[f'ClSizeL{i}'] < 0, np.nan, self.application[f'ClSizeL{i}'])
 
     def require_seven_hits(self):
         """
         Drop all particles that were not detected by all seven layers
         """
 
-        for i in range(7):
-            self.data.drop(self.data[self.data[f'ClSizeL{i}'] < 0].index, inplace=True)
-            if not self.application.empty:  self.application.drop(self.application[self.application[f'ClSizeL{i}'] < 0].index, inplace=True)
+        for i in range(7):  self.data.drop(self.data[self.data[f'ClSizeL{i}'] < 0].index, inplace=True)
 
     def add_columns(self, columns):
         """
@@ -155,12 +140,11 @@ class PrepTool(ABC):
         if 'p' in columns:              self.data.eval('p = pMC', inplace=True)
         if 'label' in columns:          self.data.eval('label = particle', inplace=True)
 
-        if not self.application.empty:
-            if 'meanPattID' in columns: self.application.eval('meanPattID = (PattIDL0+PattIDL1+PattIDL2+PattIDL3+PattIDL4+PattIDL5+PattIDL6)/7', inplace=True)
-            if 'meanSnPhi' in columns:  self.application.eval('meanSnPhi = (SnPhiL0+SnPhiL1+SnPhiL2+SnPhiL3+SnPhiL4+SnPhiL5+SnPhiL6)/7', inplace=True)
-            if 'L6_L0' in columns:      self.application.eval('L6_L0 = ClSizeL6/ClSizeL0', inplace=True)
-            if 'delta_p' in columns:    self.application.eval('delta_p = (p - pTPC)/pTPC', inplace=True)
-            if 'label' in columns:      self.application.eval('label = particle', inplace=True)
+        if 'meanPattID' in columns:     self.application.eval('meanPattID = (PattIDL0+PattIDL1+PattIDL2+PattIDL3+PattIDL4+PattIDL5+PattIDL6)/7', inplace=True)
+        if 'meanSnPhi' in columns:      self.application.eval('meanSnPhi = (SnPhiL0+SnPhiL1+SnPhiL2+SnPhiL3+SnPhiL4+SnPhiL5+SnPhiL6)/7', inplace=True)
+        if 'L6_L0' in columns:          self.application.eval('L6_L0 = ClSizeL6/ClSizeL0', inplace=True)
+        if 'delta_p' in columns:        self.application.eval('delta_p = (p - pTPC)/pTPC', inplace=True)
+        if 'label' in columns:          self.application.eval('label = particle', inplace=True)
 
     def return_dfs(self):
         """
@@ -186,7 +170,7 @@ class TPC_prep(PrepTool):
         super().__init__(data, application)
         self.columns = ['meanPattID', 'meanSnPhi', 'L6_L0', 'delta_p']
 
-    def preprocess(self, particle_dict, selection_tag, selection_tag_appl=None):
+    def preprocess(self, particle_dict, selection_tag):
         """
         Preprocess the input data
 
@@ -194,7 +178,6 @@ class TPC_prep(PrepTool):
         ----------
             particle_dict (dict): dictionary (index, particle) 
             selection_tag (str): String used to filter the dataset
-            selection_tag_appl (str, not used): String to filter the application dataset
         """
 
         self.add_columns(self.columns)
@@ -202,10 +185,7 @@ class TPC_prep(PrepTool):
         self.data.query(selection_tag, inplace=True)  
         for part in particle_dict.values():  self.data[f'nSigma{part}Abs'] = abs(self.data[f'nSigma{part}'])    
 
-        if not self.application.empty:
-            self.application.query('p <= 50 and 20 < rofBC < 500 and tpcITSchi2 < 5 and nClusTPC > 100 and -0.2 < delta_p < 0.2', inplace=True)
-            self.application.query('0.1 < p <= 0.7', inplace=True)
-            for part in particle_dict.values():  self.application[f'nSigma{part}Abs'] = abs(self.application[f'nSigma{part}'])
+        for part in particle_dict.values():  self.application[f'nSigma{part}Abs'] = abs(self.application[f'nSigma{part}'])
 
     def add_columns(self, columns):
         super().add_columns(columns)
@@ -240,11 +220,9 @@ class Hybrid_prep(PrepTool):
         self.data.query(selection_tag, inplace=True)  
         for part in particle_dict.values():  self.data[f'nSigma{part}Abs'] = abs(self.data[f'nSigma{part}'])
         for number, name in particle_dict.items():  self.data['label'].mask(self.data['particle'] == number, name, inplace=True)
-        
-        if not self.application.empty:
-            self.application.query('p <= 50 and 20 < rofBC < 500 and tpcITSchi2 < 5 and nClusTPC > 100 and -0.2 < delta_p < 0.2', inplace=True)
-            for part in particle_dict.values():  self.application[f'nSigma{part}Abs'] = abs(self.application[f'nSigma{part}']) 
-            for number, name in particle_dict.items():  self.application['label'].mask(self.application['particle'] == number, name, inplace=True)
+            
+        for part in particle_dict.values():  self.application[f'nSigma{part}Abs'] = abs(self.application[f'nSigma{part}']) 
+        for number, name in particle_dict.items():  self.application['label'].mask(self.application['particle'] == number, name, inplace=True)
    
     def add_columns(self, columns):
         super().add_columns(columns)
@@ -291,8 +269,7 @@ class MC_prep(PrepTool):
         for part in particle_dict.values():  self.data[f'nSigma{part}Abs'] = abs(self.data[f'nSigma{part}'])
         for number, name in particle_dict.items():  self.data['label'].mask(self.data['particle'] == number, name, inplace=True)
         
-        if not self.application.empty:
-            for number, name in particle_dict.items():  self.application['label'].mask(self.application['particle'] == number, name, inplace=True)
+        for number, name in particle_dict.items():  self.application['label'].mask(self.application['particle'] == number, name, inplace=True)
    
     def add_columns(self, columns):
         super().add_columns(columns)
@@ -339,9 +316,7 @@ class MCtpc_prep(PrepTool):
         for part in particle_dict.values():  self.data[f'nSigma{part}Abs'] = abs(self.data[f'nSigma{part}'])
         for number, name in particle_dict.items():  self.data['label'].mask(self.data['particle'] == number, name, inplace=True)
         
-        if not self.application.empty:
-            if selection_tag_appl is not None:          self.application.query(selection_tag_appl, inplace=True)
-            for number, name in particle_dict.items():  self.application['label'].mask(self.application['particle'] == number, name, inplace=True)
+        for number, name in particle_dict.items():  self.application['label'].mask(self.application['particle'] == number, name, inplace=True)
    
     def add_columns(self, columns):
         super().add_columns(columns)
@@ -469,6 +444,44 @@ def filtering(full_df, particle, tag=None, mass=None, label=True):
     if mass is not None:    df.eval(f'beta = p / sqrt({mass}**2 + p**2)', inplace=True)
 
     return df
+
+def process_application(applData, selection_tag, particle_dict, mass_dict, tag_dict=None):
+    """
+    Process application data (particle tagging, filtering, ...)
+    Apply on this dataset all filters applied on the training dataset
+
+    Parameters
+    ----------
+        applData (pd.DataFrame): dataset which filters should be applied on
+        selection_tag (str): String used to filter the dataset
+        particle_dict (dict): dictionary (index, particle) 
+        mass_dict (dict): dictionary (particle_name, mass)
+        tag_dict (dict): dictionary (particle_name, selection_tag)
+
+    Returns
+    -------
+        applData (pd.DataFrame): filtered application dataset
+    """
+
+    applData.query(selection_tag, inplace=True)
+
+    # filter data and application
+    applList = []
+    for name in particle_dict.values():     
+        
+        applFilt = pd.DataFrame()
+        
+        if tag_dict is not None:    applFilt = filtering(applData, name, mass=mass_dict[name], tag=tag_dict[name], label=True)
+        else:                       applFilt = filtering(applData, name, mass=mass_dict[name], label=True)
+        
+        applList.append(applFilt)
+        applFiltToDrop = applFilt.drop(columns=['label', 'beta'])
+        applData = pd.concat([applData, applFiltToDrop, applFiltToDrop]).drop_duplicates(keep=False)
+    
+    applData = pd.concat(applList)
+    
+    return applData
+
 
 ########################################
 #

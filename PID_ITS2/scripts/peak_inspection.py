@@ -1,5 +1,5 @@
 #
-#   Script to investigate eventual anomalies in the cluster size distribution of protons
+#   Script to investigate eventual anomalies in the strange patterns observed
 #
 
 import sys
@@ -49,8 +49,12 @@ def peak_inspection(inputData, outputFilePath):
     outputFile = TFile(outputFilePath, 'recreate')
     peakPlotter = Plotter(inputData, outputFile)
     
-    xVarsToPlot = ['Delta', 'tpcITSchi2', 'delta_p', 'nClusTPC', 'nSigmaP', 'nSigmaK', 'nSigmaPi']
-    plot_specifics = [['#Delta', 300, -1.5, 1.5], ['tpcITSchi2', 100, 0, 10], ['delta_p', 100, -0.5, .5], ['nClusTPC', 100, 0, 200], ['nSigmaP', 100, -1.5, 1.5], ['nSigmaK', 100, 0, 100], ['nSigmaPi', 150, 0, 150]]
+    xVarsToPlot = [#'Delta', 
+                    'tpcITSchi2', 'delta_p', 'nClusTPC', 'nSigmaP', 'nSigmaK', 'nSigmaPi', 'ClSizeL0', 'ClSizeL1', 'ClSizeL2', 'ClSizeL3', 'ClSizeL4', 'ClSizeL5', 'ClSizeL6', 'tgL', 'meanPattID', 'clSizeCosLam']
+    plot_specifics = [#['#Delta', 300, -1.5, 1.5], 
+                     ['tpcITSchi2', 100, 0, 10], ['delta_p', 100, -0.5, .5], ['nClusTPC', 100, 0, 200], ['nSigmaP', 100, -5, 5], ['nSigmaK', 100, -5, 5], ['nSigmaPi', 150, -5, 5],
+                     ['Cl. Size L_{0}', 25, 0, 25], ['Cl. Size L_{1}', 25, 0, 25], ['Cl. Size L_{2}', 25, 0, 25], ['Cl. Size L_{3}', 25, 0, 25], ['Cl. Size L_{4}', 25, 0, 25], ['Cl. Size L_{5}', 25, 0, 25], ['Cl. Size L_{6}', 25, 0, 25],
+                     ["<tan#lambda>", 80, -4, 4], ["<Pattern ID>", 100, 0, 100], ['<Cl. size> <cos#lambda>', 250, 0, 25]]
     peakPlotter.plot1D(xVarsToPlot, plot_specifics)
 
     outputFile.Close()
@@ -66,9 +70,10 @@ def clSizeHist(inputData, histName, outputFile):
     outputFile.cd()
     hist.Write()
 
+"""
 if __name__ == '__main__':
 
-    inputDataPath = '../data/preprocessed/TPC/ApplicationDf_beta_pflat_INSPECTION.parquet.gzip'
+    inputDataPath = '../data/preprocessed/TPC/TrainSet.parquet.gzip'
     inputData = readFile(inputDataPath, 'ITStreeML')
     pData = inputData.query("label == 'P'", inplace=False)
 
@@ -94,7 +99,7 @@ if __name__ == '__main__':
     outputFileClSize.Close()
 
     # select specific peak
-    peakData = inputData.query('0.4 <= p < 0.5 and 0 <= clSizeCosLam < 3.1', inplace=False)
+    peakData = inputData.query('0.3 <= p < 0.4 and 0 <= clSizeCosLam < 3.3', inplace=False)
     outputFilePath = '../output/p_peak_inspection/inspection_0405.root'
     peak_inspection(peakData, outputFilePath)
 
@@ -105,7 +110,15 @@ if __name__ == '__main__':
     peakData = inputData.query('0.3 <= p < 0.4 and 0 <= clSizeCosLam < 3.3 and nSigmaPi <= 1', inplace=False)
     outputFilePath = '../output/p_peak_inspection/inspection_maybePions_0304.root'
     peak_inspection(peakData, outputFilePath)
+"""
 
+if __name__ == "__main__":
+    
+    inputDataPath = '../data/preprocessed/TPC/ApplicationDf_beta_pflat.parquet.gzip'
+    inputData = readFile(inputDataPath, 'ITStreeML')
+    
+    highBetaPi = inputData.query('label == "Pi" and beta_pred > beta', inplace=False)
+    peak_inspection(highBetaPi, '../output/peak_inspection/highBetaPi.root')
 
-
-
+    pi = inputData.query('label == "Pi"', inplace=False)
+    peak_inspection(pi, '../output/peak_inspection/pi.root')

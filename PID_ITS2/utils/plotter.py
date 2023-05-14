@@ -27,7 +27,14 @@ class Plotter:
         self.dfs = [self.df]
         self.tfile = tfile
         
+    @property
+    def df(self):   
+        return self._df
 
+    @df.setter
+    def df(self, newDf: pd.DataFrame):
+        self._df = newDf
+        self.dfs = [self.df]
 
     def HistPlots(self, var, plot_specifics, weights=None):
         """

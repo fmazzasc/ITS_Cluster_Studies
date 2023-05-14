@@ -1,11 +1,11 @@
 ### INPUT INFO
-finPaths:     [/Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/output/TPC/application_no_options.root,
+finPaths:     [ #/Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/output/TPC/application_no_options.root,
                /Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/output/TPC/application_beta_pflat.root,
                #/Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/output/TPC/delta.root,
 
 
               ]
-objNames:     ['beta_pred_vs_p',
+objNames:     [ #'beta_pred_vs_p',
                'beta_pred_vs_p',
                #'Delta_vs_p_P',
 
@@ -13,12 +13,12 @@ objNames:     ['beta_pred_vs_p',
 
 
 ### OUTPUT INFO
-foutPaths:    [/Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/report/img3/beta_vs_pTPC,  
-               /Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/report/img3/beta_vs_pTPC_betapflat,  
+foutPaths:    [ #/Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/report/img3/beta_vs_pTPC,  
+               /Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/report/img4/beta_vs_pTPC_maxbin512,  
                #/Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/report/img3/delta_vs_p_PTPC_betapflat,
 
               ]
-outFormats:   [[png],
+outFormats:   [ #[png],
                [png],
                #[png],
 
@@ -26,27 +26,27 @@ outFormats:   [[png],
 
 
 ### CONFIG  
-axisTitles:   [';#it{p} (GeV/#it{c}); #beta (ML)',
+axisTitles:   [ #';#it{p} (GeV/#it{c}); #beta (ML)',
                ';#it{p} (GeV/#it{c}); #beta (ML)',
                #';#it{p} (GeV/#it{c}); #Delta',
 
               ]
-axisLimits:   [[0, 0, 1.5, 1.1],
+axisLimits:   [ #[0, 0, 1.5, 1.1],
                [0, 0, 1.5, 1.1],
                #[0, -1.5, 1.5, .5],
 
               ] # [x, ylabel1, ylabel2, ylabel3]
-latexLabels:  [[0.6, 0.43, 0.35, 0.27],
+latexLabels:  [ #[0.6, 0.43, 0.35, 0.27],
                [0.45, 0.43, 0.35, 0.27],
                #[0.47, 0.37, 0.29, 0.21],
 
               ]
-sampleLabels: ['apass3 data',
-               'apass3 data - weights in #beta and #it{p}',
+sampleLabels: [ #'apass3 data',
+               'apass3 data - max_bin: 512',
                #'apass3 data - weights in #beta and #it{p}',
 
               ]
-runLabels:    [false,
+runLabels:    [ #false,
                false,
                #false,
 
@@ -55,12 +55,12 @@ runLabels:    [false,
 
 ### CANVAS DIM
 canvas:
-    width:    [1800,
+    width:    [ #1800,
                1800,
                #1800,
 
               ]
-    height:   [1000,
+    height:   [ #1000,
                1000,
                #1000,
 
