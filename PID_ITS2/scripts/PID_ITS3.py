@@ -30,7 +30,8 @@ from utils.plotter import Plotter, TH2Handler
 # Tags
 #_____________________________________
 tag_Deu = 'nSigmaDeuAbs < 1 and p <= 1.2'
-tag_P = 'nSigmaPAbs < 1 and nSigmaKAbs != 0 and nSigmaKAbs > 3 and p <= 1.5'
+#tag_P = 'nSigmaPAbs < 1 and nSigmaKAbs != 0 and nSigmaKAbs > 3 and p <= 1.5'
+tag_P = 'nSigmaPAbs < 1 and p <= 1.5'
 tag_K = 'nSigmaKAbs < 1 and nSigmaPiAbs > 3 and nSigmaPAbs > 3 and p <= 1.5'
 tag_Pi = 'nSigmaPiAbs < 1  and p <= 1.5'
 tag_E = 'nSigmaEAbs < 1 and nSigmaPiAbs > 3 and p <= 1.5'
@@ -578,7 +579,7 @@ def perform_xgboost_regression(config, opt, TrainSet, TestSet, HyperParams):
         outFile.Close()
     
     # Feature importance plot
-    fig, ax = plt.subplots(figsize=(10, 20))
+    fig, ax = plt.subplots(figsize=(20, 10))
     xgb.plot_importance(model, ax= ax)
     plt.savefig(f'{opt.ML_output_dir}_FeatureImportance.png')
     plt.close('all')

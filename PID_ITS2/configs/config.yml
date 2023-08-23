@@ -22,7 +22,7 @@ TPC:
         model_out:          ../MLmodels/RegressorModel_TPC
 
         #particle:   { 0: "Deu", 1: "P", 2: "K", 3: "Pi", 4: "E"}
-        particle:   {1: "Pi", 2: "K", 3: "P", 4: "Deu"}    # (key, value) pairs are wrong. To be only used 
+        particle:   {1: "P", 2: "K", 3: "Pi"}    # (key, value) pairs are wrong. To be only used 
                                                                     # if particles are selected through tags and you
                                                                     # prefer the selection to be applied in a different 
                                                                     # order 
@@ -150,7 +150,7 @@ TPC:
                         }
         finalSpec2D:    {1: ["#it{p} (GeV/#it{c})", "#beta (ML)", 1500, 0, 1.5, 1100, 0, 1.1], 
                         2:  ["#it{p} (GeV/#it{c})", "#frac{dE}{dx} (keV/#mum)", 150, 0, 1.5, 600, 0, 600],
-                        3:  ["#it{p} (GeV/#it{c})", "m (ML) (GeV/{#it{c}}^2)", 150, 0, 1.5, 200, 0., 2.]
+                        3:  ["#it{p} (GeV/#it{c})", "m (ML) (GeV/#it{c^2})", 150, 0, 1.5, 200, 0., 2.]
                         }
 
 ### hybrid

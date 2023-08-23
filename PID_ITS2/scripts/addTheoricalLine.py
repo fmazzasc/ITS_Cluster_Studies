@@ -60,8 +60,8 @@ if __name__ == '__main__':
     
     for func in functions:  func.Draw('same')
 
-    outPath = '../output/TPC/application_beta_pflat.root'
-    outFile = TFile(outPath, 'update')
+    outPath = '../output/TPC/theoretical_line_beta_pflat.root'
+    outFile = TFile(outPath, 'recreate')
 
     canvas.Write()
     canvas.SaveAs('betaML_vs_p_line.png')

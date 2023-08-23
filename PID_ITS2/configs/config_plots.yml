@@ -1,13 +1,12 @@
 inputs:
     dirname: null # leave null if not common for all input files
-    filenames: [/Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/output/TPC/delta_no_options.root,
-                /Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/output/TPC/delta_no_options.root,
-                /Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/output/TPC/delta_no_options.root
+    filenames: [/Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/output/peak_inspection/highBetaPi.root,
+                /Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/output/peak_inspection/pi.root,
                 ]
-    objectnames: ['Delta_P', 'Delta_K', 'Delta_Pi', '0'] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
+    objectnames: ['meanPattID', 'meanPattID', 'Delta_Pi', '0'] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
 
 output: 
-    filename: /Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/report/img3/deltaTPC # with path and w/o extension
+    filename: /Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/report/img4/meanPattID_highBPi # with path and w/o extension
     objectnames: ['p', 'K', 'pi', 'e'] # new names for the created objects. Will be AUTOMATICALLY applied if the lenght of the list equals the lenght of the one in the input section
     extensions: [png] # possibilities: pdf, eps, png, root
 
@@ -48,10 +47,10 @@ options:
 
     legend:
         avoid: false #set true to avoid the legend in the final plot
-        xlimits: [0.27, 0.5]
+        xlimits: [0.67, 0.9]
         ylimits: [0.48, 0.83]
-        header: '#splitline{#Delta = #frac{#beta_{true} - #beta_{pred}}{#beta_{true}}}{}'
-        titles: ['p', 'K', '#pi']
+        header: '#splitline{High #beta #pis: pions}{with #beta_{pred} > #beta_{true}}'
+        titles: ['high #beta #pi', '#pi']
         options: [l, l, l, l]
         textsize: 0.042
         ncolumns: 1
@@ -66,10 +65,10 @@ options:
     canvas:
         width: 1200
         heigth: 1000
-        xaxistitle: '#Delta'
+        xaxistitle: '<Patter ID>'
         yaxistitle: 'Counts'
         yaxistitleratio: ''
-        xlimits: [-1.5, 0.5]
+        xlimits: [0, 50]
         ylimits: [0.001, 1.]
         ylimitsratio: [0.00001, 1]
         ylimitserr: [0., 0.35]
