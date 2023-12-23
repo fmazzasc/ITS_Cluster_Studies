@@ -2,6 +2,125 @@
 #   Data preparation classes and functions
 #
 
+import numpy as np
+import polars as pl
+import yaml
+
+from abc import ABC, abstractmethod
+import polars as pl
+
+from utils.particles import particleMasses, particlePDG
+from src.weightsDefinition import weightsPandSpecies
+
+class DataPreprocessor(ABC):
+
+    def __init__(self, inData, cfg):
+        self.data = inData
+        self.cfg = cfg
+
+    @abstractmethod
+    def Preprocess(self):                               pass
+
+    @abstractmethod
+    def ParticleID(self):                               pass
+
+    @abstractmethod
+    def DefineWeights(self):                            pass
+
+    @abstractmethod
+    def ApplyCuts(self):                                pass
+
+    @abstractmethod
+    def CleanData(self):                                pass
+
+    @classmethod
+    def CreatePreprocessor(cls, inData, cfg, opt):
+        
+        if opt == 'ITS-TPC':    return ItsTpcDataPreprocessor(inData, cfg)
+        #elif opt == 'MC':       return MCDataPreprocessor(inData, cfgFile)
+        else:                   raise ValueError('Unsupported option')
+
+
+
+class ItsTpcDataPreprocessor(DataPreprocessor):
+
+    def __init__(self, inData, cfgFile):
+        super().__init__(inData, cfgFile)
+
+    def Preprocess(self):
+        
+        # create new columns
+        self.data = self.data.with_columns(cosL=(1 / (pl.col('tgL')**2 + 1)))
+        self.data = self.data.with_columns(meanClSize=((pl.col('clSizeL0') + pl.col('clSizeL1') + pl.col('clSizeL2') + pl.col('clSizeL3') + pl.col('clSizeL4') + pl.col('clSizeL5') + pl.col('clSizeL6')) / 7))
+        self.data = self.data.with_columns(clSizeCosL=(pl.col('meanClSize') * pl.col('cosL')))
+        self.data = self.data.with_columns(
+            nSigmaAbsDeu=abs(pl.col('nSigmaDeu')),
+            nSigmaAbsP=abs(pl.col('nSigmaP')),
+            nSigmaAbsK=abs(pl.col('nSigmaK')),
+            nSigmaAbsPi=abs(pl.col('nSigmaPi')),
+            nSigmaAbsE=abs(pl.col('nSigmaE'))
+            )
+
+        # select with cuts in the dataset
+
+    def ParticleID(self):
+        
+        self.data = self.data.with_columns(
+            partID=np.nan,
+            mass=np.nan,
+            beta=np.nan
+            )
+        
+        for part in self.cfg['species']:    
+            
+            cfgTags = self.cfg['selTags'][part]
+            self.data = self.data.with_columns(
+                partID=pl.when((pl.col(f'nSigmaAbs{part}') < 1),
+                                (pl.col(f'nSigmaAbs{cfgTags[0]}') > 3),
+                                (pl.col(f'nSigmaAbs{cfgTags[1]}') > 3),
+                                (pl.col('p') < cfgTags[2])).then(particlePDG[part]).otherwise(pl.col('partID')),
+                mass=pl.when((pl.col(f'nSigmaAbs{part}') < 1),
+                                (pl.col(f'nSigmaAbs{cfgTags[0]}') > 3),
+                                (pl.col(f'nSigmaAbs{cfgTags[1]}') > 3),
+                                (pl.col('p') < cfgTags[2])).then(particleMasses[part]).otherwise(pl.col('mass')),
+                beta=pl.when((pl.col(f'nSigmaAbs{part}') < 1),
+                                (pl.col(f'nSigmaAbs{cfgTags[0]}') > 3),
+                                (pl.col(f'nSigmaAbs{cfgTags[1]}') > 3),
+                                (pl.col('p') < cfgTags[2])).then(pl.col('p') / np.sqrt(pl.col('p')**2 + particleMasses[part]**2)).otherwise(pl.col('beta'))
+                )
+
+    def DefineWeights(self):
+
+        if self.cfg['weights']['type'] == 'PandSpecies':    self.data = weightsPandSpecies(self.data, self.cfg)
+
+    def ApplyCuts(self):
+
+        self.data = self.data.filter((pl.col('nClusTPC') > self.cfg['cuts']['nClusTPCmin']) & 
+                                     (pl.col('chi2ITSTPC') < self.cfg['cuts']['chi2ITSTPCmax']))
+
+    def CleanData(self):
+        '''
+        Convert all negative values to NaNs
+        '''
+
+        self.data = self.data.with_columns([
+            pl.when(pl.col(f'clSizeL{layer}') < 0).then(np.nan).otherwise(pl.col(f'clSizeL{layer}')).alias(f'clSizeL{layer}')
+            for layer in range(7)
+            ])
+
+    def DropUnidentified(self):
+        '''
+        Drop all particles that were not identified
+        '''
+
+        self.data = self.data.filter(pl.col('partID') != np.nan)
+
+
+
+
+
+'''
+
 import pandas as pd
 import numpy as np
 import sys
@@ -546,3 +665,5 @@ def augmentation_fine(df, mother, daughter, mass_mother, mass_daughter, pmin, pm
 
     
     return augm_daughter
+
+    '''

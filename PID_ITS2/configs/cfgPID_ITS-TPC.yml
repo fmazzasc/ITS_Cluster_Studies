@@ -1,0 +1,68 @@
+#
+#
+
+# Particle species
+species: [ #'E',
+          'Pi', 'K', 'P', 'Deu']
+
+# Selections tags: [part name: [part1, part2, pmax]
+# It will be reqruired: 'nSigma{part name}Abs < 1 and nSigma{part1}Abs > 3  and nSigma{part2}Abs > 3 and p <= pmax',
+selTags:  { E: ['Pi', 'Pi', 1500],
+            Pi: ['E', 'K', 1500],
+            K: ['Pi', 'P', 1500],
+            P: ['K', 'Deu', 1500],
+            Deu: ['P', 'P', 1500]
+          }
+
+cuts:     {nClusTPCmin: 80,
+          chi2ITSTPCmax: 6}
+          
+
+# 
+
+applicationSize: 0.5
+testSize:  0.2
+randomState:  42
+
+# Data
+inFiles:  ['/data/shared/pp23_relval_debug/0720/its_PIDStudy.root']
+applicationFiles: []
+
+outFilePreprocess: '/home/galucia/ITS_Cluster_Studies/PID_ITS2/data/ITS-TPC/preprocess.root'
+outFileRegression: '/home/galucia/ITS_Cluster_Studies/PID_ITS2/data/ITS-TPC/regression.root'
+outFileApplication: '/home/galucia/ITS_Cluster_Studies/PID_ITS2/data/ITS-TPC/application.root'
+
+# Preprocessing
+preprocess:  True
+
+# Training
+train:  True
+modelFile: '/home/galucia/ITS_Cluster_Studies/PID_ITS2/models/modelITS-TPC.h5'
+regressionColumns: ['p', 'phi', 'eta', 'tgL', 'dEdx', 
+                    'clSizeL0', 'clSizeL1', 'clSizeL2', 'clSizeL3', 'clSizeL4', 'clSizeL5', 'clSizeL6', 'clSizeCosL']
+
+defaultHyperparameters: { 'n_jobs': 40,
+                          'tree_method': "hist", # not available in FLAML
+                          'colsample_bylevel': 0.6337942873486531, # not available in FLAML 
+                          'colsample_bytree': 0.7, # not available in FLAML
+                          'subsample': 0.710841077866278, # not available in FLAML
+                          'learning_rate': 0.04952863262192068, # not available in FLAML
+                          'n_estimators': 400, # not available in FLAML
+                          'max_depth': 13, # not available in FLAML
+                          'min_child_weight': 10, # not available in FLAML
+                          'eval_metric': "rmse", # not available in FLAML
+                          'reg_alpha': 0.349923237394973, # not available in FLAML
+                          'reg_lambda': 0.5031161568154017, # not available in FLAML
+                          'verbosity': 1,
+                          #"process_type": "update", # to use 'prune': prune trees according to gamma and max_depth
+                          #"updater": "prune", #
+                          'max_bin': 512 # sets histogram binning (default=256)
+                          }
+
+weights: 
+  type: 'PandSpecies'     # possible tyoes: 'PandSpecies', 'None'
+
+  weightsPandSpecies:
+    pmin: 0.
+    pmax: 0.85
+    nbins: 17

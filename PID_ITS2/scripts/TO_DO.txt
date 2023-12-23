@@ -1,6 +1,0 @@
-1. check metodo: tree_hist: "hist" -> altro
-2. applicazione su set senza tagli - dividere tagli e applicazione (farlo a parte)
-3. check nSigmaKAbs > 3 (vedere che funzioni correttamente)
-
-Spacchettare file V0
-1. TreeBuilder in macros
