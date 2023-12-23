@@ -4,10 +4,10 @@
 !o2_geometry.root
 .vscode
 *.pdf
-PID_ITS2/output
-PID_ITS2/data
-PID_ITS2/MLmodels
-PID_ITS2/report
-
-!LHCCplots/*
-!utils/*
+*.png
+*.tf
+*.log
+*.pkl
+core*
+.model
+*__pycache__

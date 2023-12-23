@@ -45,10 +45,13 @@
 
 #include <TSystemDirectory.h>
 #include <TSystemFile.h>
+#include <DataFormatsTPC/BetheBlochAleph.h>
 #include <TDatabasePDG.h>
 
 using GIndex = o2::dataformats::VtxTrackIndex;
 using V0 = o2::dataformats::V0;
+using PID = o2::track::PID;
+
 using Cascade = o2::dataformats::Cascade;
 using RRef = o2::dataformats::RangeReference<int, int>;
 using VBracket = o2::math_utils::Bracket<int>;
@@ -60,25 +63,42 @@ using ITSCluster = o2::BaseCluster<float>;
 using Vec3 = ROOT::Math::SVector<double, 3>;
 
 
-bool propagateToClusITS(const ITSCluster &clus, o2::track::TrackParCov &track, o2::its::GeometryTGeo *gman)
+
+float BetheBlochParam(const float &momentum, const float &mass)
 {
+    std::vector<float> parameters{0.0320980996, 19.9768009, 2.52666011e-16, 2.72123003, 6.08092022};
+
+    // LOG(info) << momentum/mass;
+    return 53 * o2::tpc::BetheBlochAleph(momentum / mass, parameters[0], parameters[1], parameters[2], parameters[3], parameters[4]) * std::pow(1, 2.3);
+}
+
+float nSigmaDeu(const float &momentum, const float &TPCSignal)
+{
+    float dedx = BetheBlochParam(momentum, 1.87561);
+    return (TPCSignal - dedx) / (0.07 * dedx);
+}
+
+float nSigma(const float &momentum, const float &TPCSignal, int pdgCode)
+{
+    float dedx = BetheBlochParam(momentum, TDatabasePDG::Instance()->GetParticle(pdgCode)->Mass());
+    return (TPCSignal - dedx) / (0.08 * dedx);
+}
+
+bool propagateToClus(const ITSCluster &clus, o2::track::TrackParCov &track, o2::its::GeometryTGeo *gman)
+{
+
+    auto corrType = o2::base::PropagatorImpl<float>::MatCorrType::USEMatCorrLUT;
+    auto propInstance = o2::base::Propagator::Instance();
     float alpha = gman->getSensorRefAlpha(clus.getSensorID()), x = clus.getX();
-    if (track.rotate(alpha))
-    {
-        auto corrType = o2::base::PropagatorImpl<float>::MatCorrType::USEMatCorrLUT;
+    int layer{gman->getLayer(clus.getSensorID())};
 
-        auto propInstance = o2::base::Propagator::Instance();
-        float alpha = gman->getSensorRefAlpha(clus.getSensorID()), x = clus.getX();
-        int layer{gman->getLayer(clus.getSensorID())};
+    if (!track.rotate(alpha))
+        return false;
 
-        if (!track.rotate(alpha))
-            return false;
+    if (!propInstance->propagateToX(track, x, propInstance->getNominalBz(), o2::base::PropagatorImpl<float>::MAX_SIN_PHI, o2::base::PropagatorImpl<float>::MAX_STEP, corrType))
+        return false;
 
-        if (propInstance->propagateToX(track, x, propInstance->getNominalBz(), o2::base::PropagatorImpl<float>::MAX_SIN_PHI, o2::base::PropagatorImpl<float>::MAX_STEP, corrType))
-            return true;
-    }
-
-    return false;
+    return true;
 }
 
 void getClusterPatterns(std::vector<o2::itsmft::ClusterPattern> &pattVec, std::vector<CompClusterExt> *ITSclus, std::vector<unsigned char> *ITSpatt, o2::itsmft::TopologyDictionary &mdict, o2::its::GeometryTGeo *gman)
@@ -87,7 +107,7 @@ void getClusterPatterns(std::vector<o2::itsmft::ClusterPattern> &pattVec, std::v
     auto pattIt = ITSpatt->cbegin();
     for (unsigned int iClus{0}; iClus < ITSclus->size(); ++iClus)
     {
-        auto &clus = (*ITSclus)[iClus];
+        auto &clus = ITSclus->at(iClus);
         auto layer = gman->getLayer(clus.getSensorID());
 
         auto pattID = clus.getPatternID();
@@ -96,6 +116,7 @@ void getClusterPatterns(std::vector<o2::itsmft::ClusterPattern> &pattVec, std::v
 
         if (pattID == o2::itsmft::CompCluster::InvalidPatternID || mdict.isGroup(pattID))
         {
+
             patt.acquirePattern(pattIt);
             npix = patt.getNPixels();
         }
@@ -105,11 +126,10 @@ void getClusterPatterns(std::vector<o2::itsmft::ClusterPattern> &pattVec, std::v
             npix = mdict.getNpixels(pattID);
             patt = mdict.getPattern(pattID);
         }
-        // LOG(info) << "npix: " << npix << " Patt Npixel: " << patt.getNPixels();
         pattVec.push_back(patt);
     }
-        // LOG(info) << " Patt Npixel: " << pattVec[0].getNPixels();
 }
+
 
 
 void printClusTrackInfo(const std::array<CompClusterExt, 7> &TrackClus, const std::array<o2::itsmft::ClusterPattern, 7> &TrackPatt, o2::its::TrackITS &ITStrack)
@@ -247,3 +267,100 @@ void TrackLayerCorr(o2::its::TrackITS &ITStrack, const std::array<CompClusterExt
         }
     }
 }
+
+double calcV0alpha(const V0 &v0)
+{
+    std::array<float, 3> fV0mom, fPmom, fNmom = {0, 0, 0};
+    v0.getProng(0).getPxPyPzGlo(fPmom);
+    v0.getProng(1).getPxPyPzGlo(fNmom);
+    v0.getPxPyPzGlo(fV0mom);
+
+    TVector3 momNeg(fNmom[0], fNmom[1], fNmom[2]);
+    TVector3 momPos(fPmom[0], fPmom[1], fPmom[2]);
+    TVector3 momTot(fV0mom[0], fV0mom[1], fV0mom[2]);
+
+    Double_t lQlNeg = momNeg.Dot(momTot) / momTot.Mag();
+    Double_t lQlPos = momPos.Dot(momTot) / momTot.Mag();
+
+    return (lQlPos - lQlNeg) / (lQlPos + lQlNeg);
+}
+
+double calcV0qt(const V0 &v0)
+{
+    std::array<float, 3> fV0mom, fPmom, fNmom = {0, 0, 0};
+    v0.getProng(0).getPxPyPzGlo(fPmom);
+    v0.getProng(1).getPxPyPzGlo(fNmom);
+    v0.getPxPyPzGlo(fV0mom);
+
+    TVector3 momNeg(fNmom[0], fNmom[1], fNmom[2]);
+    TVector3 momTot(fV0mom[0], fV0mom[1], fV0mom[2]);
+    Double_t dp = momNeg.Dot(momTot);
+
+    return std::sqrt(momNeg.Mag2() - dp * dp / momTot.Mag2());
+}
+
+double calcMass(const V0 &v0, PID v0PID)
+{
+    std::array<double, 2> dauMass{TDatabasePDG::Instance()->GetParticle(211)->Mass(), TDatabasePDG::Instance()->GetParticle(211)->Mass()};
+    if (v0PID == PID::Lambda)
+        dauMass = {TDatabasePDG::Instance()->GetParticle(2212)->Mass(), TDatabasePDG::Instance()->GetParticle(211)->Mass()};
+
+    if (calcV0alpha(v0) < 0)
+        std::swap(dauMass[0], dauMass[1]);
+
+    std::vector<o2::dataformats::V0::Track> dauTracks = {v0.getProng(0), v0.getProng(1)};
+    TLorentzVector moth, prong;
+    std::array<float, 3> p;
+    for (int i = 0; i < 2; i++)
+    {
+        auto &track = dauTracks[i];
+        auto &mass = dauMass[i];
+        track.getPxPyPzGlo(p);
+        prong.SetVectM({p[0], p[1], p[2]}, mass);
+        moth += prong;
+    }
+    return moth.M();
+}
+
+void GetTopologyDictionary(o2::itsmft::TopologyDictionary mdict, o2::parameters::GRPObject *grp,
+                           std::string runPeriod, std::string pathDir) {
+    // Topology dictionary
+    if (runPeriod == "OCT")
+    {
+        mdict.readFromFile(o2::base::DetectorNameConf::getAlpideClusterDictionaryFileName(o2::detectors::DetID::ITS, "../utils/ITSdictionary.bin"));
+        TFile *fGRP = TFile::Open("../utils/ccdb_grp_low_field_pos");
+        grp = reinterpret_cast<o2::parameters::GRPObject *>(fGRP->Get("ccdb_object"));
+        fGRP->Close();
+        pathDir = "/data/shared/ITS/OCT/CTFS";
+    }
+
+    else if (runPeriod == "MAY" || runPeriod == "JUN" || runPeriod == "JUL" || runPeriod == "LHC22m")
+    {
+        auto fdic = TFile("../utils/o2_itsmft_TopologyDictionary_1653153873993.root");
+        mdict = *(reinterpret_cast<o2::itsmft::TopologyDictionary *>(fdic.Get("ccdb_object")));
+        fdic.Close();
+        TFile *fGRP = TFile::Open("../utils/o2sim_grp_bneg05.root");
+        grp = reinterpret_cast<o2::parameters::GRPObject *>(fGRP->Get("ccdb_object"));
+        fGRP->Close();
+        if (runPeriod == "MAY")
+            pathDir = "/data/shared/ITS/MAY/CTFS";
+        else if (runPeriod == "JUN")
+            pathDir = "/data/shared/ITS/JUN/CTFS";
+        else if (runPeriod == "JUL")
+            pathDir = "/data/shared/ITS/JUL/CTFS";
+        else if (runPeriod == "LHC22m")
+            pathDir = "/data/shared/ITS/LHC22m/";
+    }
+
+    else
+    {
+        LOG(fatal) << "Run period not recognized. Please choose among: OCT, MAY, JUN, JUL, LHC22m";
+        exit(1);
+    }
+}
+
+// std::array<int, 2> matchITStracktoMC(const std::vector<std::vector<MCTrack>> &mcTracksMatrix, o2::MCCompLabel ITSlabel)
+// {
+//     std::armatchITStracktoMC
+//     return outArray;
+// }

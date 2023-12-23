@@ -1,0 +1,85 @@
+inputs:
+    dirname: null # leave null if not common for all input files
+    filenames: [ #/home/spolitan/Analyses/ITS_Cluster_Studies/py/MCOriginStudy031022_deltaray_newcut.root,
+                /home/spolitan/Analyses/ITS_Cluster_Studies/py/MCOriginStudyFracDraysNewCut_globalMC_281122_energy.root,
+                #/home/spolitan/Analyses/ITS_Cluster_Studies/py/MCOriginStudy181122_EkinFix_onlydrays_rerun.root,
+                #/home/spolitan/Analyses/ITS_Cluster_Studies/py/MCOriginStudy031022_deltaray_newcut.root, 
+                /home/spolitan/Analyses/ITS_Cluster_Studies/py/MCOriginStudy0208_EkinFix.root, 
+                #/home/spolitan/Analyses/ITS_Cluster_Studies/py/MCOriginStudy0208_EkinFix.root,
+                
+                ]
+    objectnames: [ #hEtotal,
+                  hEkin,
+                  hEkin,
+                  hEkin,
+                  #hEtotal,
+                  hEkin,
+                  ] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
+
+output: 
+    filename: MCoriginEtotVsEkin_drays_newcut_globalMC_281122 # with path and w/o extension
+    extensions: [png] # possibilities: pdf, eps, png, root
+
+options:
+    ROOTobject: [TH1, TH1, TH1, TH1, TH1, TH1, TH1, TH1, TH1] # TH1 or TGraph: no need to specify TH1F, TH1D or TGraphErrors, TGraphAsymmErrors
+    scale: [1., 1, 1., 1, 1., 1., 1., 1., 1.]
+    rebin: [2, 2, 4, 4, 1, 1, 1, 1, 1, 1]
+    normalize: [false, false, true, true, true, true, true, true, true, true, false, false, false, false] # divide histogram by its area
+    normrange: [0, 99]
+    colors: [ kRed, kAzure+4, kSpring+2, kOrange+1, kAzure+4]
+    markers: [kOpenSquare, kOpenCircle, kFullTriangleUp, kFullTriangleUp]
+    markersize: 1.
+    linewidth: 2
+    linestyles: [1,1,8,8]
+    fillstyle: [1,1,1,1,0,0,0,0,0]
+    fillalpha: [0.2,0.2,0.2,0.2,1,1,1,1,1,1]
+    drawopt: [histe, histe, histe, hist, e, e, e, e, e]
+    
+    ratio: 
+        enable: false
+        uncertainties:
+            enable: false
+            corr: false
+        displayRMS: false
+
+    errcomp: # comparison of uncertainties
+        enable: false
+        relative: true
+    
+    KS: false
+    dottedLine: ''
+
+    legend:
+        avoid: false #set true to avoid the legend in the final plot
+        xlimits: [0.4, 0.75]
+        ylimits: [0.65, 0.9]
+        header: 'E_{kin} d-rays'
+        titles: [ #'E_{tot} w cut',
+                 'Global MC - after fix',
+                 #'Local MC - after fix',
+                 'Global MC - before fix',
+                 #'E_{tot}',
+                 #'Global MC',
+                ]
+        options: [lf, lf, lf, lf, lp, lp, lp, lp, lp]
+        textsize: 0.045
+        ncolumns: 1
+
+    canvas:
+        width: 800
+        heigth: 800
+        xaxistitle: 'MeV'
+        yaxistitle: 'Norm. counts'
+        yaxistitleratio: ''
+        xlimits: [0., 0.3]
+        ylimits: [1.e+2, 1.e+8]
+        ylimitsratio: [0, 0.3]
+        ylimitserr: [0., 0.35]
+        logy: true
+        logx: false
+        ratio:
+            logy: false
+            logx: false
+        errcomp:
+            logy: false
+            logx: false  

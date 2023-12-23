@@ -1,29 +1,31 @@
 inputs:
     dirname: null # leave null if not common for all input files
-    filenames: [../macros/hClSizeVsChipIDL0EtaScaled.root,
-                ../macros/hClSizeVsChipIDOctL0EtaScaled.root
+    filenames: [/home/spolitan/Analyses/ITS_Cluster_Studies/macros/outFileMCid_thr20final.root,
                 ]
-    objectnames: [hClSizeVsChipIDJuneL0EtaScaled, hClSizeVsChipIDOctL0EtaScaled] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
+    objectnames: [hPDGcode] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
 
 output: 
-    filename: CompClSizeVsChipID # with path and w/o extension
-    extensions: [png, root] # possibilities: pdf, eps, png, root
+    filename: hPDGcode_MCOct # with path and w/o extension
+    extensions: [pdf, root] # possibilities: pdf, eps, png, root
 
 options:
     ROOTobject: [TH1, TH1, TH1, TH1, TH1, TH1, TH1, TH1, TH1] # TH1 or TGraph: no need to specify TH1F, TH1D or TGraphErrors, TGraphAsymmErrors
     scale: [1., 1, 1., 1, 1., 1., 1., 1., 1.]
     rebin: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     normalize: [true, true, true, true, true, true, true, true, true, true, false, false, false, false] # divide histogram by its area
-    colors: [kRed+1, kAzure+4]
-    markers: [None, None, None, None]
-    markersize: 1.5
+    normRange: [3, 99]
+    colors: [kRed+1, #kOrange+1, 
+    kBlack]
+    markers: [kOpenSquare, kOpenCircle, kFullSquare, kFullTriangleUp]
+    markersize: 1.
     linewidth: 2
+    linestyles: [1,8,3,4,5,6,7,1,1,1]
     fillstyle: [0,0,0,0,0,0,0,0,0,0]
     fillalpha: [1,1,1,1,1,1,1,1,1,1]
-    drawopt: [e, e, hist, hist, hist, e, e, e, e, e]
+    drawopt: [hist, e, hist, hist, e, e, e, e, e]
     
     ratio: 
-        enable: true
+        enable: false
         uncertainties:
             enable: false
             corr: false
@@ -37,26 +39,26 @@ options:
     dottedLine: ''
 
     legend:
-        avoid: false #set true to avoid the legend in the final plot
-        xlimits: [0.6, 0.8]
-        ylimits: [0.7, 0.95]
-        header: 'PB data'
-        titles: [June 2022, October 2021]
+        avoid: true #set true to avoid the legend in the final plot
+        xlimits: [0.4, 0.7]
+        ylimits: [0.7, 0.9]
+        header: ''
+        titles: ['a']
         options: [l, l, l, l, lp, lp, lp, lp, lp]
         textsize: 0.045
         ncolumns: 1
 
     canvas:
-        width: 1800
-        heigth: 1000
-        xaxistitle: 'Chip on stave'
-        yaxistitle: 'Norm. counts/ d#eta'
-        yaxistitleratio: 'June/Oct'
-        xlimits: [0., 9]
-        ylimits: [0., 0.5]
-        ylimitsratio: [-0.1, 1.5]
+        width: 800
+        heigth: 800
+        xaxistitle: 'PDG code'
+        yaxistitle: 'Counts'
+        yaxistitleratio: ''
+        xlimits: [0.00000000001, 100000]
+        ylimits: [1.e-8, 1.e+4]
+        ylimitsratio: [0, 3]
         ylimitserr: [0., 0.35]
-        logy: false
+        logy: true
         logx: false
         ratio:
             logy: false
