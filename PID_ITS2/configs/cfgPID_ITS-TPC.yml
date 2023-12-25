@@ -30,6 +30,7 @@ applicationFiles: []
 
 outFilePreprocess: '/home/galucia/ITS_Cluster_Studies/PID_ITS2/data/ITS-TPC/preprocess.root'
 outFileRegression: '/home/galucia/ITS_Cluster_Studies/PID_ITS2/data/ITS-TPC/regression.root'
+outFileOptuna: '/home/galucia/ITS_Cluster_Studies/PID_ITS2/MLmodels/optunaBestResults.txt'
 outFileApplication: '/home/galucia/ITS_Cluster_Studies/PID_ITS2/data/ITS-TPC/application.root'
 
 # Preprocessing
@@ -37,27 +38,37 @@ preprocess:  True
 
 # Training
 train:  True
+MLtype: 'XGBoptuna' # possible types: 'XGB', 'XGBoptuna'
 modelFile: '/home/galucia/ITS_Cluster_Studies/PID_ITS2/models/modelITS-TPC.h5'
 regressionColumns: ['p', 'phi', 'eta', 'tgL', 'dEdx', 
                     'clSizeL0', 'clSizeL1', 'clSizeL2', 'clSizeL3', 'clSizeL4', 'clSizeL5', 'clSizeL6', 'clSizeCosL']
 
-defaultHyperparameters: { 'n_jobs': 40,
-                          'tree_method': "hist", # not available in FLAML
-                          'colsample_bylevel': 0.6337942873486531, # not available in FLAML 
-                          'colsample_bytree': 0.7, # not available in FLAML
-                          'subsample': 0.710841077866278, # not available in FLAML
-                          'learning_rate': 0.04952863262192068, # not available in FLAML
-                          'n_estimators': 400, # not available in FLAML
-                          'max_depth': 13, # not available in FLAML
-                          'min_child_weight': 10, # not available in FLAML
-                          'eval_metric': "rmse", # not available in FLAML
-                          'reg_alpha': 0.349923237394973, # not available in FLAML
-                          'reg_lambda': 0.5031161568154017, # not available in FLAML
-                          'verbosity': 1,
-                          #"process_type": "update", # to use 'prune': prune trees according to gamma and max_depth
-                          #"updater": "prune", #
-                          'max_bin': 512 # sets histogram binning (default=256)
+njobs: 40
+defaultHyperparameters: { 'n_jobs':             40,
+                          'tree_method':        "gpu_hist", # not available in FLAML
+                          'colsample_bylevel':  0.6337942873486531, # not available in FLAML 
+                          'colsample_bytree':   0.7, # not available in FLAML
+                          'subsample':          0.710841077866278, # not available in FLAML
+                          'learning_rate':      0.04952863262192068, # not available in FLAML
+                          'n_estimators':       400, # not available in FLAML
+                          'max_depth':          13, # not available in FLAML
+                          'min_child_weight':   10, # not available in FLAML
+                          'eval_metric':        "rmse", # not available in FLAML
+                          'reg_alpha':          0.349923237394973, # not available in FLAML
+                          'reg_lambda':         0.5031161568154017, # not available in FLAML
+                          'verbosity':          1, 
+                          #"process_type":      "update", # to use 'prune': prune trees according to gamma and max_depth
+                          #"updater":           "prune", #
+                          'max_bin':            512 # sets histogram binning (default=256)
                           }
+
+hyperparametersRange:   { 'max_depth':          [3, 15], 
+                          'learning_rate':      [0.01, 0.1],
+                          'n_estimators':       [300, 1500], 
+                          'min_child_weight':   [1, 10],
+                          'subsample':          [0.8, 1.], 
+                          'colsample_bytree':   [0.8, 1],
+                          }                      # dict of ranges for the hyperparameters evaluated by optuna                          
 
 weights: 
   type: 'PandSpecies'     # possible tyoes: 'PandSpecies', 'None'
