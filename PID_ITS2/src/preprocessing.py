@@ -48,6 +48,9 @@ class ItsTpcDataPreprocessor(DataPreprocessor):
         super().__init__(inData, cfgFile)
 
     def Preprocess(self):
+
+        # require cl size > 0 for all layers
+        for layer in range(7):  self.data = self.data.filter(pl.col(f'clSizeL{layer}') > 0) 
         
         # create new columns
         self.data = self.data.with_columns(cosL=(1 / (pl.col('tgL')**2 + 1)))
@@ -60,8 +63,8 @@ class ItsTpcDataPreprocessor(DataPreprocessor):
             nSigmaAbsPi=abs(pl.col('nSigmaPi')),
             nSigmaAbsE=abs(pl.col('nSigmaE'))
             )
+        self.data = self.data.with_columns(deltaP = (pl.col('pTPC') - pl.col('pITS')) / pl.col('pTPC'))
 
-        # select with cuts in the dataset
 
     def ParticleID(self):
         
@@ -75,18 +78,18 @@ class ItsTpcDataPreprocessor(DataPreprocessor):
             
             cfgTags = self.cfg['selTags'][part]
             self.data = self.data.with_columns(
-                partID=pl.when((pl.col(f'nSigmaAbs{part}') < 1),
-                                (pl.col(f'nSigmaAbs{cfgTags[0]}') > 3),
-                                (pl.col(f'nSigmaAbs{cfgTags[1]}') > 3),
-                                (pl.col('p') < cfgTags[2])).then(particlePDG[part]).otherwise(pl.col('partID')),
-                mass=pl.when((pl.col(f'nSigmaAbs{part}') < 1),
-                                (pl.col(f'nSigmaAbs{cfgTags[0]}') > 3),
-                                (pl.col(f'nSigmaAbs{cfgTags[1]}') > 3),
-                                (pl.col('p') < cfgTags[2])).then(particleMasses[part]).otherwise(pl.col('mass')),
-                beta=pl.when((pl.col(f'nSigmaAbs{part}') < 1),
-                                (pl.col(f'nSigmaAbs{cfgTags[0]}') > 3),
-                                (pl.col(f'nSigmaAbs{cfgTags[1]}') > 3),
-                                (pl.col('p') < cfgTags[2])).then(pl.col('p') / np.sqrt(pl.col('p')**2 + particleMasses[part]**2)).otherwise(pl.col('beta'))
+                partID=pl.when((pl.col(f'nSigmaAbs{part}') < cfgTags['selfSel']),
+                                (pl.col(f'nSigmaAbs{cfgTags["part1"]}') > cfgTags['part1Sel']),
+                                (pl.col(f'nSigmaAbs{cfgTags["part2"]}') > cfgTags['part2Sel']),
+                                (pl.col('p') < cfgTags['pmax'])).then(particlePDG[part]).otherwise(pl.col('partID')),
+                mass=pl.when((pl.col(f'nSigmaAbs{part}') < cfgTags['selfSel']),
+                                (pl.col(f'nSigmaAbs{cfgTags["part1"]}') > cfgTags['part1Sel']),
+                                (pl.col(f'nSigmaAbs{cfgTags["part2"]}') > cfgTags['part2Sel']),
+                                (pl.col('p') < cfgTags['pmax'])).then(particleMasses[part]).otherwise(pl.col('mass')),
+                beta=pl.when((pl.col(f'nSigmaAbs{part}') < cfgTags['selfSel']),
+                                (pl.col(f'nSigmaAbs{cfgTags["part1"]}') > cfgTags['part1Sel']),
+                                (pl.col(f'nSigmaAbs{cfgTags["part2"]}') > cfgTags['part2Sel']),
+                                (pl.col('p') < cfgTags['pmax'])).then(pl.col('p') / np.sqrt(pl.col('p')**2 + particleMasses[part]**2)).otherwise(pl.col('beta'))
                 )
 
     def DefineWeights(self):
@@ -96,7 +99,9 @@ class ItsTpcDataPreprocessor(DataPreprocessor):
     def ApplyCuts(self):
 
         self.data = self.data.filter((pl.col('nClusTPC') > self.cfg['cuts']['nClusTPCmin']) & 
-                                     (pl.col('chi2ITSTPC') < self.cfg['cuts']['chi2ITSTPCmax']))
+                                     (pl.col('chi2ITSTPC') < self.cfg['cuts']['chi2ITSTPCmax']) &
+                                     (abs(pl.col('eta')) > self.cfg['cuts']['etamin'])
+                                     )
 
     def CleanData(self):
         '''

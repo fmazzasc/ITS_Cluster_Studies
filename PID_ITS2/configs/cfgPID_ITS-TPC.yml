@@ -3,64 +3,83 @@
 
 # Particle species
 species: [ #'E',
-          'Pi', 'K', 'P', 'Deu']
+          'Pi', 'K', 'P', 
+          #'Deu'
+          ]
 
-# Selections tags: [part name: [part1, part2, pmax]
-# It will be reqruired: 'nSigma{part name}Abs < 1 and nSigma{part1}Abs > 3  and nSigma{part2}Abs > 3 and p <= pmax',
-selTags:  { E: ['Pi', 'Pi', 1500],
-            Pi: ['E', 'K', 1500],
-            K: ['Pi', 'P', 1500],
-            P: ['K', 'Deu', 1500],
-            Deu: ['P', 'P', 1500]
+# Selections tags 
+# It will be reqruired: 'nSigma{part name}Abs < selfSel and nSigma{part1}Abs > part1Sel  and nSigma{part2}Abs > part2Sel and p <= pmax',
+selTags:  { E: {selfSel: 2, part1: 'Pi', part1Sel: -1, part2: 'Pi', part2Sel: -1, pmax: 1.},
+            Pi: {selfSel: 2, part1: 'E', part1Sel: -1, part2: 'K', part2Sel: -1, pmax: 1.},
+            K: {selfSel: 2, part1: 'Pi', part1Sel: 3, part2: 'P', part2Sel: 3, pmax: 1.},
+            P: {selfSel: 2, part1: 'K', part1Sel: -1, part2: 'Deu', part2Sel: -1, pmax: 1.},
+            Deu: {selfSel: 2, part1: 'P', part1Sel: -1, part2: 'P', part2Sel: -1, pmax: 1.}
           }
 
-cuts:     {nClusTPCmin: 80,
-          chi2ITSTPCmax: 6}
+cuts:     { nClusTPCmin: 80,
+            chi2ITSTPCmax: 6,
+            etamin: 0.5
+          }
           
 
 # 
 
-applicationSize: 0.5
-testSize:  0.2
-randomState:  42
+applicationSize:      0.5
+testSize:             0.2
+randomState:          42
 
 # Data
-inFiles:  ['/data/shared/pp23_relval_debug/0720/its_PIDStudy.root']
-applicationFiles: []
+inFiles:              ['/data/shared/pp23_relval_debug/0720/its_PIDStudy.root', '/data/shared/pp23_relval_debug/0730/its_PIDStudy.root']
+applicationFiles:     ['/data/shared/pp23_relval_debug/0740/its_PIDStudy.root', '/data/shared/pp23_relval_debug/0750/its_PIDStudy.root', '/data/shared/pp23_relval_debug/0800/its_PIDStudy.root']
 
-outFilePreprocess: '/home/galucia/ITS_Cluster_Studies/PID_ITS2/data/ITS-TPC/preprocess.root'
-outFileRegression: '/home/galucia/ITS_Cluster_Studies/PID_ITS2/data/ITS-TPC/regression.root'
-outFileOptuna: '/home/galucia/ITS_Cluster_Studies/PID_ITS2/MLmodels/optunaBestResults.txt'
-outFileApplication: '/home/galucia/ITS_Cluster_Studies/PID_ITS2/data/ITS-TPC/application.root'
+outFilePreprocess:    '/home/galucia/ITS_Cluster_Studies/PID_ITS2/data/ITS-TPC/preprocess.root'
+outFileRegression:    '/home/galucia/ITS_Cluster_Studies/PID_ITS2/data/ITS-TPC/regression.root'
+outFileOptuna:        '/home/galucia/ITS_Cluster_Studies/PID_ITS2/MLmodels/optunaBestResults.txt'
+outFileApplication:   '/home/galucia/ITS_Cluster_Studies/PID_ITS2/data/ITS-TPC/application.root'
+
+saveFileTrain:        '/home/galucia/ITS_Cluster_Studies/PID_ITS2/data/saved/training.parquet'
+saveFileTest:         '/home/galucia/ITS_Cluster_Studies/PID_ITS2/data/saved/testing.parquet'
+saveFileApplication:  '/home/galucia/ITS_Cluster_Studies/PID_ITS2/data/saved/application.parquet'
 
 # Preprocessing
 preprocess:  True
 
 # Training
-train:  True
-MLtype: 'XGBoptuna' # possible types: 'XGB', 'XGBoptuna'
-modelFile: '/home/galucia/ITS_Cluster_Studies/PID_ITS2/models/modelITS-TPC.h5'
-regressionColumns: ['p', 'phi', 'eta', 'tgL', 'dEdx', 
+train:                  True
+MLtype:                 'NN' # possible types: 'XGB', 'XGBoptuna', 'NN'
+modelFile:              '/home/galucia/ITS_Cluster_Studies/PID_ITS2/models/modelITS-TPC.h5'
+
+regressionColumns: [ #'pTPC', 
+                    'p', 
+                    'phi', 
+                    #'eta', 
+                    'tgL', 
                     'clSizeL0', 'clSizeL1', 'clSizeL2', 'clSizeL3', 'clSizeL4', 'clSizeL5', 'clSizeL6', 'clSizeCosL']
 
 njobs: 40
 defaultHyperparameters: { 'n_jobs':             40,
                           'tree_method':        "gpu_hist", # not available in FLAML
                           'colsample_bylevel':  0.6337942873486531, # not available in FLAML 
-                          'colsample_bytree':   0.7, # not available in FLAML
-                          'subsample':          0.710841077866278, # not available in FLAML
-                          'learning_rate':      0.04952863262192068, # not available in FLAML
-                          'n_estimators':       400, # not available in FLAML
-                          'max_depth':          13, # not available in FLAML
-                          'min_child_weight':   10, # not available in FLAML
+                          #'colsample_bytree':   0.7, # not available in FLAML
+                          #'subsample':          0.710841077866278, # not available in FLAML
+                          #'learning_rate':      0.04952863262192068, # not available in FLAML
+                          #'n_estimators':       400, # not available in FLAML
+                          #'max_depth':          13, # not available in FLAML
+                          #'min_child_weight':   10, # not available in FLAML
                           'eval_metric':        "rmse", # not available in FLAML
                           'reg_alpha':          0.349923237394973, # not available in FLAML
                           'reg_lambda':         0.5031161568154017, # not available in FLAML
                           'verbosity':          1, 
                           #"process_type":      "update", # to use 'prune': prune trees according to gamma and max_depth
                           #"updater":           "prune", #
-                          'max_bin':            512 # sets histogram binning (default=256)
-                          }
+                          'max_bin':            512, # sets histogram binning (default=256)
+                          # from optuna
+                          'max_depth': 12, 
+                          'learning_rate': 0.05479612803140652, 
+                          'n_estimators': 300, 
+                          'min_child_weight': 1, 
+                          'subsample': 0.8793212601701308, 
+                          'colsample_bytree': 0.9452264065889106}
 
 hyperparametersRange:   { 'max_depth':          [3, 15], 
                           'learning_rate':      [0.01, 0.1],
@@ -68,12 +87,39 @@ hyperparametersRange:   { 'max_depth':          [3, 15],
                           'min_child_weight':   [1, 10],
                           'subsample':          [0.8, 1.], 
                           'colsample_bytree':   [0.8, 1],
-                          }                      # dict of ranges for the hyperparameters evaluated by optuna                          
+                          }                      # dict of ranges for the hyperparameters evaluated by optuna  
+
+# Neural Network
+NN:
+  hiddenSize: 64
+  nEpochs: 1
+  batchSize: 128
+  nThreads: 40    # n cpus
+  learningRate: 0.003
+  optimizer: 'adam'
+  loss: 'mean_squared_error'
+  metrics: ['mean_squared_error']
+  modelFile: '/home/galucia/ITS_Cluster_Studies/PID_ITS2/models/modelITS-TPC.h5'
 
 weights: 
-  type: 'PandSpecies'     # possible tyoes: 'PandSpecies', 'None'
+  type: 'PandSpecies'     # possible types: 'PandSpecies', 'None'
 
   weightsPandSpecies:
     pmin: 0.
-    pmax: 0.85
-    nbins: 17
+    pmax: 1.
+    nbins: 20
+
+# Performance
+
+EffPur:
+  pmin: 0.4
+  pmax: 0.6
+
+  thresholds: { 'E': [0.02, 0.36, 0.02], # th_min, th_max, th_step
+                'Pi': [0.02, 0.36, 0.02], 
+                'K':  [0.02, 0.36, 0.02],
+                'P':  [0.02, 0.2, 0.01],
+                'Deu': [0.02, 0.2, 0.01]
+              }
+
+SHAP: False

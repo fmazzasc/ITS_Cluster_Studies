@@ -44,17 +44,18 @@ def preprocess(cfgGeneral):
     dpRegression.ApplyCuts()
     dpRegression.ParticleID()
     dpRegression.CleanData()
-    dpRegression.DropUnidentified()
+    #dpRegression.DropUnidentified()
 
     TrainSet, TestSet = train_test_split(dpRegression.data, test_size=cfg['testSize'], random_state=cfg['randomState'])
 
     # define weights for training
     dpTrainSet = DataPreprocessor.CreatePreprocessor(TrainSet, cfg, cfgGeneral['opt'])
+    dpTrainSet.DropUnidentified()
     dpTrainSet.DefineWeights()   
     TrainSet = dpTrainSet.data
 
     # visualize train and test data
-    outPath = addSuffix(cfg['outFilePreprocess'], f"_{cfg['weights']['type']}")
+    outPath = addSuffix(cfg['outFilePreprocess'], f"_{cfg['weights']['type']}_{cfg['MLtype']}")
     outFile = TFile(outPath, 'RECREATE')
     print('Creating output file:'+color.UNDERLINE+color.BLUE+f'{outPath}'+color.END)
 
@@ -91,27 +92,46 @@ def regression(cfgGeneral, TrainSet, TestSet):
 
     print(color.BOLD+color.YELLOW+'\nPerforming regression...'+color.END)
     with open(cfgGeneral['cfgFile'][cfgGeneral['opt']], 'r') as f:    cfg = yaml.safe_load(f)
-
-    TrainSet = TrainSet.with_columns(betaML=np.nan)
-    TestSet = TestSet.with_columns(betaML=np.nan)
     
-    outPath = addSuffix(cfg['outFileRegression'], f"_{cfg['weights']['type']}")
+    outPath = addSuffix(cfg['outFileRegression'], f"_{cfg['weights']['type']}_{cfg['MLtype']}")
     outFile = TFile(outPath, 'RECREATE')
     print('Creating output file:'+color.UNDERLINE+color.BLUE+f'{outPath}'+color.END)
 
-    regressor = Regressor.createRegressor(cfg, outFile, [TrainSet, TrainSet['beta'], TestSet, TestSet['beta']])
-    regressor.trainModel()
-    regressor.visualizeResults(cfgGeneral)
-    #regressor.saveModel()
+    
+    if 'XGB' in cfg['MLtype']:
+
+        TrainSet = TrainSet.with_columns(betaML=np.nan)
+        TestSet = TestSet.with_columns(betaML=np.nan)
+
+        regressor = Regressor.createRegressor(cfg, outFile, [TrainSet, TrainSet['beta'], TestSet, TestSet['beta']])
+        regressor.trainModel()
+        regressor.visualizeResults(cfgGeneral)
+        regressor.applyOnTrainSet(cfgGeneral)
+        #regressor.saveModel()
+
+        # save datasets
+        print('Saving training set to '+color.UNDERLINE+color.BLUE+f'{cfg["saveFileTrain"]}'+color.END)
+        regressor.TrainSet.write_parquet(cfg['saveFileTrain'])
+        print('Saving test set to '+color.UNDERLINE+color.BLUE+f'{cfg["saveFileTest"]}'+color.END)
+        regressor.TestSet.write_parquet(cfg['saveFileTest'])
+    
+        return regressor.model
+
+    elif 'NN' in cfg['MLtype']:
+        #NNmodel = NeuralNetworkClassifier(cfg, outFile, [TrainSet, TrainSet['partID'], TestSet, TestSet['partID']], 'partID')
+        NNmodel = NeuralNetworkRegressor(cfg, outFile, [TrainSet, TrainSet['beta'], TestSet, TestSet['beta']], 'beta')
+        NNmodel.trainModel()
+        NNmodel.testResults(cfgGeneral)
 
     outFile.Close()
-    return regressor.model
+
+    
 
 def application(cfgGeneral, ApplicationSet, model):
 
     print(color.BOLD+color.YELLOW+'\nApplying regression model...'+color.END)
     with open(cfgGeneral['cfgFile'][cfgGeneral['opt']], 'r') as f:    cfg = yaml.safe_load(f)
-    outPath = addSuffix(cfg['outFileApplication'], f"_{cfg['weights']['type']}")
+    outPath = addSuffix(cfg['outFileApplication'], f"_{cfg['weights']['type']}_{cfg['MLtype']}")
     outFile = TFile(outPath, 'RECREATE')
     print('Creating output file:'+color.UNDERLINE+color.BLUE+f'{outPath}'+color.END)
 
@@ -126,9 +146,10 @@ def application(cfgGeneral, ApplicationSet, model):
     dv.create2DHistos()
     dvs = DataVisualSlow(ApplicationSet, directory)
     dvs.createHisto('deltaBeta', '#Delta#beta; #Delta#beta; Counts', 1000, -0.5, 0.5)
-    dvs.create2DHisto('p', 'deltaBeta', '#Delta#beta vs #it{p}; #it{p} (GeV/#it{c}); #Delta#beta', 1500, 0, 1.5, 1000, -0.5, 0.5)
+    dvs.create2DHisto('p', 'deltaBeta', '#Delta#beta vs #it{p}; #it{p} (GeV/#it{c}); #Delta#beta', 1000, 0, 1.0, 1000, -0.5, 0.5)
     dvs.create2DHisto('beta', 'deltaBeta', '#Delta#beta vs #beta; #beta; #Delta#beta', 1000, 0, 1, 1000, -0.5, 0.5)
-    dvs.create2DHisto('p', 'betaML', '#beta_{ML} vs #it{p}; #it{p} (GeV/#it{c}); #beta_{ML}', 1500, 0, 1.5, 1200, 0, 1.2)
+    dvs.create2DHisto('p', 'betaML', '#beta_{ML} vs #it{p}; #it{p} (GeV/#it{c}); #beta_{ML}', 1000, 0, 1.0, 1200, 0, 1.2)
+    dvs.create2DHisto('pTPC', 'betaML', '#beta_{ML} vs #it{p}_{TPC}; #it{p}_{TPC} (GeV/#it{c}); #beta_{ML}', 1500, 0, 1.5, 1200, 0, 1.2)
 
     del directory, dv
 
@@ -136,13 +157,18 @@ def application(cfgGeneral, ApplicationSet, model):
         directory = outFile.mkdir(f'{particle}_application')
         dv = DataVisualSlow(ApplicationSet.filter(pl.col('partID') == particlePDG[particle]), directory)
         dv.createHisto('deltaBeta', '#Delta#beta; #Delta#beta; Counts', 1000, -0.5, 0.5)
-        dv.create2DHisto('p', 'deltaBeta', '#Delta#beta vs #it{p}; #it{p} (GeV/#it{c}); #Delta#beta', 1500, 0, 1.5, 1000, -0.5, 0.5)
+        dv.create2DHisto('p', 'deltaBeta', '#Delta#beta vs #it{p}; #it{p} (GeV/#it{c}); #Delta#beta', 1000, 0, 1.0, 1000, -0.5, 0.5)
         dv.create2DHisto('beta', 'deltaBeta', '#Delta#beta vs #beta; #beta; #Delta#beta', 1000, 0, 1, 1000, -0.5, 0.5)
-        dv.create2DHisto('p', 'betaML', '#beta_{ML} vs #it{p}; #it{p} (GeV/#it{c}); #beta_{ML}', 1500, 0, 1.5, 1200, 0, 1.2)
+        dv.create2DHisto('p', 'betaML', '#beta_{ML} vs #it{p}; #it{p} (GeV/#it{c}); #beta_{ML}', 1000, 0, 1.0, 1200, 0, 1.2)
+        dv.create2DHisto('pTPC', 'betaML', '#beta_{ML} vs #it{p}_{TPC}; #it{p}_{TPC} (GeV/#it{c}); #beta_{ML}', 1000, 0, 1.0, 1200, 0, 1.2)
 
         del directory, dv
 
     outFile.Close()
+
+    # save dataset
+    print('Saving application set to '+color.UNDERLINE+color.BLUE+f'{cfg["saveFileApplication"]}'+color.END)
+    ApplicationSet.write_parquet(cfg['saveFileApplication'])
 
 
 
@@ -154,12 +180,14 @@ def performPID(cfgPath):
     with open(cfgPath, 'r') as f:   cfgGeneral = yaml.safe_load(f)
     TrainSet, TestSet, ApplicationSet = preprocess(cfgGeneral)
     model = regression(cfgGeneral, TrainSet, TestSet)
-    application(cfgGeneral, ApplicationSet, model)
+    #application(cfgGeneral, ApplicationSet, model)
 
-    pass
+    print(color.BOLD+color.GREEN+'\nPID completed successfully!'+color.END)
 
 if __name__ == '__main__':
     
     cfgPath = '/home/galucia/ITS_Cluster_Studies/PID_ITS2/configs/cfgPID_general.yml'
     
     performPID(cfgPath)
+
+    print(color.BOLD+color.GREEN+'\nPID completed successfully!'+color.END)
