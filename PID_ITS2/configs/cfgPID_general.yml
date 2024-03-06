@@ -1,0 +1,7 @@
+#
+#
+
+opt:  'ITS-TPC'
+
+cfgFile:  {'ITS-TPC': '/home/galucia/ITS_Cluster_Studies/PID_ITS2/configs/cfgPID_ITS-TPC.yml'}
+cfgVisualFile: '/home/galucia/ITS_Cluster_Studies/PID_ITS2/configs/cfgPID_visual.yml'

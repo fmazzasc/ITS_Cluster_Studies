@@ -1,0 +1,83 @@
+inputs:
+    dirname: null # leave null if not common for all input files
+    filenames: [/Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/output/peak_inspection/highBetaPi.root,
+                /Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/output/peak_inspection/pi.root,
+                ]
+    objectnames: ['meanPattID', 'meanPattID', 'Delta_Pi', '0'] # can be either histograms of graphs or a mix of them; they will be drawn in the current order
+
+output: 
+    filename: /Users/giogi/Desktop/ALICE/ITS_Cluster_Studies/PID_ITS2/report/img4/meanPattID_highBPi # with path and w/o extension
+    objectnames: ['p', 'K', 'pi', 'e'] # new names for the created objects. Will be AUTOMATICALLY applied if the lenght of the list equals the lenght of the one in the input section
+    extensions: [png] # possibilities: pdf, eps, png, root
+
+options:
+    ROOTobject: [TH1, TH1, TH1] # TH1, TH2 or TGraph: no need to specify TH1F, TH1D or TGraphErrors, TGraphAsymmErrors
+    scale: [1, 1, 1, 1]
+    rebin: [1, 1, 1, 1]
+    normalize: [true, true, true, true] # divide histogram by its area
+    colors: [kRed+1, kAzure+4, kGreen+3, kOrange+2]
+    markers: [kFullCircle, kFullCircle, kFullCircle, kFullCircle]
+    markersize: 1.5
+    linewidth: 2
+    fillstyle: [3004,3004,3004,0]
+    fillalpha: [1,1,1,1]
+    drawopt: ['hist', 'hist', 'hist']
+    palette: ['kBlue', 'kBlue', 'kBlue', 'kBlue']
+    
+    ratio: 
+        enable: false
+        uncertainties:
+            enable: false
+            corr: false
+        displayRMS: false
+
+    errcomp: # comparison of uncertainties
+        enable: false
+        relative: true
+    
+    KS: true
+    dottedLine: ''
+
+    statbox:
+        avoid: true
+        xlimits: [6.4, 9.9]
+        ylimits: [0.1, 0.9]
+        header: ''
+        textsize: 0.045
+
+    legend:
+        avoid: false #set true to avoid the legend in the final plot
+        xlimits: [0.67, 0.9]
+        ylimits: [0.48, 0.83]
+        header: '#splitline{High #beta #pis: pions}{with #beta_{pred} > #beta_{true}}'
+        titles: ['high #beta #pi', '#pi']
+        options: [l, l, l, l]
+        textsize: 0.042
+        ncolumns: 1
+
+    statlegend:
+        avoid:  true
+        x:      [0.9, 0.55]
+        y:      [0.9, 0.55]
+        w:      [0.4, 0.4]
+        h:      [0.2, 0.2]
+
+    canvas:
+        width: 1200
+        heigth: 1000
+        xaxistitle: '<Patter ID>'
+        yaxistitle: 'Counts'
+        yaxistitleratio: ''
+        xlimits: [0, 50]
+        ylimits: [0.001, 1.]
+        ylimitsratio: [0.00001, 1]
+        ylimitserr: [0., 0.35]
+        logx: false
+        logy: true
+        logz: true
+        ratio:
+            logy: true
+            logx: false
+        errcomp:
+            logy: false
+            logx: false

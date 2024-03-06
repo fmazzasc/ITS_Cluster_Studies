@@ -1,0 +1,2 @@
+Best trial: 
+{'max_depth': 12, 'learning_rate': 0.01075612928440337, 'n_estimators': 983, 'min_child_weight': 9, 'subsample': 0.815240097447336, 'colsample_bytree': 0.9103783714981857}
