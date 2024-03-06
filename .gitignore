@@ -11,3 +11,5 @@
 core*
 .model
 *__pycache__
+
+data/*
